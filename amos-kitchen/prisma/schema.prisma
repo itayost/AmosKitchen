@@ -1,0 +1,150 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Customer {
+  id        Int      @id @default(autoincrement())
+  fullName  String   @map("full_name")
+  phone     String   @unique
+  address   String?
+  notes     String?  // For dietary restrictions, preferences, etc.
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  orders    Order[]
+
+  @@map("customers")
+}
+
+model Order {
+  id           Int         @id @default(autoincrement())
+  customerId   Int         @map("customer_id")
+  orderDate    DateTime    @default(now()) @map("order_date")
+  deliveryDate DateTime    @map("delivery_date")
+  status       OrderStatus @default(NEW)
+  totalAmount  Decimal     @default(0) @map("total_amount") @db.Decimal(10, 2)
+  notes        String?
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  customer     Customer    @relation(fields: [customerId], references: [id])
+  orderItems   OrderItem[]
+
+  @@index([deliveryDate])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id           Int     @id @default(autoincrement())
+  orderId      Int     @map("order_id")
+  dishId       Int     @map("dish_id")
+  quantity     Int     @default(1)
+  priceAtOrder Decimal @map("price_at_order") @db.Decimal(10, 2)
+  notes        String? // For special requests per item
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  dish  Dish  @relation(fields: [dishId], references: [id])
+
+  @@map("order_items")
+}
+
+model Dish {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  category    DishCategory
+  price       Decimal  @db.Decimal(10, 2)
+  description String?
+  isAvailable Boolean  @default(true) @map("is_available")
+  prepTime    Int?     @map("prep_time") // Preparation time in minutes
+  imageUrl    String?  @map("image_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  orderItems      OrderItem[]
+  dishIngredients DishIngredient[]
+
+  @@index([category])
+  @@index([isAvailable])
+  @@map("dishes")
+}
+
+model DishIngredient {
+  dishId       Int     @map("dish_id")
+  ingredientId Int     @map("ingredient_id")
+  quantity     Decimal @db.Decimal(10, 3)
+  notes        String? // e.g., "finely chopped", "optional"
+
+  dish       Dish       @relation(fields: [dishId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id])
+
+  @@id([dishId, ingredientId])
+  @@map("dish_ingredients")
+}
+
+model Ingredient {
+  id            Int      @id @default(autoincrement())
+  name          String   @unique
+  category      IngredientCategory
+  unitOfMeasure UnitOfMeasure @map("unit_of_measure")
+  costPerUnit   Decimal? @map("cost_per_unit") @db.Decimal(10, 2)
+  supplier      String?
+  minStock      Decimal? @map("min_stock") @db.Decimal(10, 3)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  dishIngredients DishIngredient[]
+
+  @@index([category])
+  @@map("ingredients")
+}
+
+// Enums
+
+enum OrderStatus {
+  NEW        @map("new")
+  CONFIRMED  @map("confirmed")
+  PREPARING  @map("preparing")
+  READY      @map("ready")
+  DELIVERED  @map("delivered")
+  CANCELLED  @map("cancelled")
+
+  @@map("order_status")
+}
+
+enum DishCategory {
+  APPETIZER  @map("appetizer")
+  MAIN       @map("main")
+  SIDE       @map("side")
+  DESSERT    @map("dessert")
+  BEVERAGE   @map("beverage")
+
+  @@map("dish_category")
+}
+
+enum IngredientCategory {
+  VEGETABLES @map("vegetables")
+  MEAT       @map("meat")
+  DAIRY      @map("dairy")
+  GRAINS     @map("grains")
+  SPICES     @map("spices")
+  OTHER      @map("other")
+
+  @@map("ingredient_category")
+}
+
+enum UnitOfMeasure {
+  KG         @map("kg")
+  GRAM       @map("gram")
+  LITER      @map("liter")
+  ML         @map("ml")
+  UNIT       @map("unit")
+
+  @@map("unit_of_measure")
+}

@@ -1,29 +1,56 @@
 // app/(dashboard)/layout.tsx
-import { redirect } from 'next/navigation'
-import { Sidebar } from '@/components/layout/sidebar'
-import { Header } from '@/components/layout/header'
-import { checkAuth } from '@/lib/auth'
+"use client";
 
-export default async function DashboardLayout({
+import { useAuth } from "@/contexts/auth-context";
+import { redirect } from "next/navigation";
+import { Sidebar } from "@/components/layout/sidebar";
+import { Header } from "@/components/layout/header";
+import { useState, useEffect } from "react";
+import { Loader2 } from "lucide-react";
+
+export default function DashboardLayout({
     children,
 }: {
-    children: React.ReactNode
+    children: React.ReactNode;
 }) {
-    const session = await checkAuth()
+    const { user, loading } = useAuth();
+    const [sidebarOpen, setSidebarOpen] = useState(false);
 
-    if (!session) {
-        redirect('/login')
+    useEffect(() => {
+        if (!loading && !user) {
+            redirect("/login");
+        }
+    }, [user, loading]);
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (!user) {
+        return null;
     }
 
     return (
-        <div className="flex h-screen bg-gray-100">
-            <Sidebar />
-            <div className="flex-1 flex flex-col">
-                <Header />
-                <main className="flex-1 overflow-y-auto p-6">
-                    {children}
+        <div className="min-h-screen bg-gray-50">
+            <Header
+                user={user}
+                onMenuClick={() => setSidebarOpen(!sidebarOpen)}
+            />
+            <div className="flex">
+                <Sidebar
+                    isOpen={sidebarOpen}
+                    onClose={() => setSidebarOpen(false)}
+                />
+                <main className="flex-1 lg:pr-64">
+                    <div className="p-4 lg:p-8">
+                        {children}
+                    </div>
                 </main>
             </div>
         </div>
-    )
+    );
 }

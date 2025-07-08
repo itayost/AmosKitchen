@@ -1,1 +1,107 @@
 // prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// Customers table
+model Customer {
+  id          String   @id @default(uuid())
+  name        String
+  phone       String   @unique
+  email       String?
+  address     String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  orders      Order[]
+
+  @@map("customers")
+}
+
+// Orders table
+model Order {
+  id           String      @id @default(uuid())
+  customerId   String
+  customer     Customer    @relation(fields: [customerId], references: [id])
+  orderDate    DateTime    @default(now())
+  deliveryDate DateTime
+  status       OrderStatus @default(NEW)
+  totalAmount  Decimal     @db.Decimal(10, 2)
+  notes        String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  items        OrderItem[]
+
+  @@map("orders")
+}
+
+// Order items table
+model OrderItem {
+  id        String  @id @default(uuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  dishId    String
+  dish      Dish    @relation(fields: [dishId], references: [id])
+  quantity  Int
+  price     Decimal @db.Decimal(10, 2)
+  notes     String?
+
+  @@map("order_items")
+}
+
+// Dishes table
+model Dish {
+  id          String           @id @default(uuid())
+  name        String
+  description String?
+  price       Decimal          @db.Decimal(10, 2)
+  category    String?
+  isAvailable Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  orderItems  OrderItem[]
+  ingredients DishIngredient[]
+
+  @@map("dishes")
+}
+
+// Ingredients table
+model Ingredient {
+  id         String           @id @default(uuid())
+  name       String           @unique
+  unit       String // e.g., "kg", "liters", "units"
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  dishes     DishIngredient[]
+
+  @@map("ingredients")
+}
+
+// Junction table for dishes and ingredients
+model DishIngredient {
+  id           String     @id @default(uuid())
+  dishId       String
+  dish         Dish       @relation(fields: [dishId], references: [id], onDelete: Cascade)
+  ingredientId String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+  quantity     Decimal    @db.Decimal(10, 3)
+
+  @@unique([dishId, ingredientId])
+  @@map("dish_ingredients")
+}
+
+// Enum for order status
+enum OrderStatus {
+  NEW
+  CONFIRMED
+  PREPARING
+  READY
+  DELIVERED
+  CANCELLED
+}

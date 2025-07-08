@@ -18,6 +18,16 @@ export type OrderStatus = 'new' | 'confirmed' | 'preparing' | 'ready' | 'deliver
 // Prisma Order Status (for mapping)
 export type PrismaOrderStatus = 'NEW' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED'
 
+
+export interface OrderHistory {
+    id: string;
+    orderId: string;
+    userId: string;
+    action: string;
+    details: any;
+    createdAt: Date;
+}
+
 // Dish Types
 export interface Dish {
     id: string

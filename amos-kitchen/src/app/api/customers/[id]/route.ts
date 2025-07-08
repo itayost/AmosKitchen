@@ -42,7 +42,20 @@ export async function GET(
             )
         }
 
-        return NextResponse.json(customer)
+        // Calculate statistics for the customer
+        const orderCount = customer.orders.length
+        const totalSpent = customer.orders.reduce(
+            (sum, order) => sum + Number(order.totalAmount),
+            0
+        )
+
+        const customerWithStats = {
+            ...customer,
+            orderCount,
+            totalSpent
+        }
+
+        return NextResponse.json(customerWithStats)
     } catch (error) {
         console.error('Error fetching customer:', error)
         return NextResponse.json(
@@ -91,7 +104,21 @@ export async function PUT(
         // Update customer
         const customer = await prisma.customer.update({
             where: { id: params.id },
-            data: validatedData
+            data: validatedData,
+            include: {
+                orders: {
+                    include: {
+                        orderItems: {
+                            include: {
+                                dish: true
+                            }
+                        }
+                    },
+                    orderBy: {
+                        createdAt: 'desc'
+                    }
+                }
+            }
         })
 
         return NextResponse.json(customer)
@@ -116,24 +143,23 @@ export async function DELETE(
     { params }: { params: { id: string } }
 ) {
     try {
-        // Check if customer has orders
-        const customer = await prisma.customer.findUnique({
+        // Check if customer exists
+        const existingCustomer = await prisma.customer.findUnique({
             where: { id: params.id },
             include: {
-                _count: {
-                    select: { orders: true }
-                }
+                orders: true
             }
         })
 
-        if (!customer) {
+        if (!existingCustomer) {
             return NextResponse.json(
                 { error: 'Customer not found' },
                 { status: 404 }
             )
         }
 
-        if (customer._count.orders > 0) {
+        // Check if customer has orders
+        if (existingCustomer.orders.length > 0) {
             return NextResponse.json(
                 { error: 'לא ניתן למחוק לקוח עם הזמנות קיימות' },
                 { status: 400 }

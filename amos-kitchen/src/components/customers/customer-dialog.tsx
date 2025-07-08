@@ -1,10 +1,9 @@
 // components/customers/customer-dialog.tsx
 'use client'
 
-import { useEffect } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { Loader2, Eye } from 'lucide-react'
 import {
     Dialog,
     DialogContent,
@@ -13,63 +12,64 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog'
-import {
-    Form,
-    FormControl,
-    FormDescription,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
-import { LoadingSpinner } from '@/components/shared/loading-spinner'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { useToast } from '@/lib/hooks/use-toast'
 import type { Customer } from '@/lib/types/database'
-
-const customerSchema = z.object({
-    name: z.string().min(2, 'שם חייב להכיל לפחות 2 תווים'),
-    phone: z.string()
-        .regex(/^[\d-+().\s]+$/, 'מספר טלפון לא תקין')
-        .min(9, 'מספר טלפון חייב להכיל לפחות 9 ספרות'),
-    email: z.string().email('כתובת אימייל לא תקינה').optional().or(z.literal('')),
-    address: z.string().optional(),
-    notes: z.string().optional()
-})
-
-type CustomerFormData = z.infer<typeof customerSchema>
 
 interface CustomerDialogProps {
     open: boolean
     onOpenChange: (open: boolean) => void
     customer: Customer | null
-    onSave: (data: Partial<Customer>) => Promise<void>
+    onSave: (customer: Partial<Customer>) => Promise<void>
 }
 
-export function CustomerDialog({ open, onOpenChange, customer, onSave }: CustomerDialogProps) {
-    const form = useForm<CustomerFormData>({
-        resolver: zodResolver(customerSchema),
-        defaultValues: {
-            name: '',
-            phone: '',
-            email: '',
-            address: '',
-            notes: ''
-        }
+interface FormData {
+    name: string
+    phone: string
+    email: string
+    address: string
+    notes: string
+}
+
+interface FormErrors {
+    name?: string
+    phone?: string
+    email?: string
+}
+
+export function CustomerDialog({
+    open,
+    onOpenChange,
+    customer,
+    onSave
+}: CustomerDialogProps) {
+    const router = useRouter()
+    const { toast } = useToast()
+    const [saving, setSaving] = useState(false)
+    const [savedCustomerId, setSavedCustomerId] = useState<string | null>(null)
+    const [formData, setFormData] = useState<FormData>({
+        name: '',
+        phone: '',
+        email: '',
+        address: '',
+        notes: ''
     })
+    const [errors, setErrors] = useState<FormErrors>({})
 
     useEffect(() => {
         if (customer) {
-            form.reset({
-                name: customer.name,
-                phone: customer.phone,
+            setFormData({
+                name: customer.name || '',
+                phone: customer.phone || '',
                 email: customer.email || '',
                 address: customer.address || '',
                 notes: customer.notes || ''
             })
         } else {
-            form.reset({
+            setFormData({
                 name: '',
                 phone: '',
                 email: '',
@@ -77,148 +77,222 @@ export function CustomerDialog({ open, onOpenChange, customer, onSave }: Custome
                 notes: ''
             })
         }
-    }, [customer, form])
+        setSavedCustomerId(null)
+        setErrors({})
+    }, [customer, open])
 
-    const onSubmit = async (data: CustomerFormData) => {
+    const validateForm = (): boolean => {
+        const newErrors: FormErrors = {}
+
+        if (!formData.name.trim()) {
+            newErrors.name = 'שם הלקוח הוא שדה חובה'
+        }
+
+        if (!formData.phone.trim()) {
+            newErrors.phone = 'מספר טלפון הוא שדה חובה'
+        } else if (!/^[\d-+\s()]+$/.test(formData.phone)) {
+            newErrors.phone = 'מספר טלפון לא תקין'
+        }
+
+        if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+            newErrors.email = 'כתובת אימייל לא תקינה'
+        }
+
+        setErrors(newErrors)
+        return Object.keys(newErrors).length === 0
+    }
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+
+        if (!validateForm()) {
+            return
+        }
+
         try {
-            // Convert empty strings to null for optional fields
-            const customerData = {
-                ...data,
-                email: data.email || null,
-                address: data.address || null,
-                notes: data.notes || null
+            setSaving(true)
+
+            const dataToSubmit = {
+                name: formData.name.trim(),
+                phone: formData.phone.trim(),
+                email: formData.email.trim() || null,
+                address: formData.address.trim() || null,
+                notes: formData.notes.trim() || null
             }
-            
-            await onSave(customerData)
-            form.reset()
+
+            await onSave(dataToSubmit)
+
+            // If it's a new customer, we'll need to get the ID from the response
+            // For now, we'll assume the onSave callback handles navigation
+            if (!customer) {
+                setSavedCustomerId('new') // Placeholder - in real implementation, get ID from response
+            } else {
+                setSavedCustomerId(customer.id)
+            }
+
+            toast({
+                title: customer ? 'הלקוח עודכן בהצלחה' : 'הלקוח נוסף בהצלחה',
+                description: 'הפרטים נשמרו במערכת'
+            })
+
+            if (!customer) {
+                // For new customers, show success state with option to view profile
+                // Don't close dialog immediately
+            } else {
+                onOpenChange(false)
+            }
         } catch (error) {
-            console.error('Error saving customer:', error)
+            toast({
+                title: 'שגיאה',
+                description: 'אירעה שגיאה בשמירת הלקוח',
+                variant: 'destructive'
+            })
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    const handleInputChange = (field: keyof FormData, value: string) => {
+        setFormData(prev => ({ ...prev, [field]: value }))
+        if (errors[field as keyof FormErrors]) {
+            setErrors(prev => ({ ...prev, [field]: undefined }))
+        }
+    }
+
+    const handleViewProfile = () => {
+        if (savedCustomerId && savedCustomerId !== 'new') {
+            router.push(`/customers/${savedCustomerId}`)
+            onOpenChange(false)
         }
     }
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                    <DialogTitle>{customer ? 'עריכת לקוח' : 'לקוח חדש'}</DialogTitle>
-                    <DialogDescription>
-                        {customer ? 'ערוך את פרטי הלקוח' : 'הזן את פרטי הלקוח החדש'}
-                    </DialogDescription>
-                </DialogHeader>
-                
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        <FormField
-                            control={form.control}
-                            name="name"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>שם מלא *</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="ישראל ישראלי" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
+                <form onSubmit={handleSubmit}>
+                    <DialogHeader>
+                        <DialogTitle>
+                            {customer ? 'עריכת לקוח' : 'הוספת לקוח חדש'}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {customer ? 'עדכן את פרטי הלקוח' : 'הזן את פרטי הלקוח החדש'}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="name">שם הלקוח *</Label>
+                            <Input
+                                id="name"
+                                value={formData.name}
+                                onChange={(e) => handleInputChange('name', e.target.value)}
+                                className={errors.name ? 'border-destructive' : ''}
+                                disabled={saving}
+                            />
+                            {errors.name && (
+                                <p className="text-sm text-destructive">{errors.name}</p>
                             )}
-                        />
-                        
-                        <FormField
-                            control={form.control}
-                            name="phone"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>טלפון *</FormLabel>
-                                    <FormControl>
-                                        <Input 
-                                            placeholder="050-1234567" 
-                                            dir="ltr"
-                                            {...field} 
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label htmlFor="phone">טלפון *</Label>
+                            <Input
+                                id="phone"
+                                type="tel"
+                                value={formData.phone}
+                                onChange={(e) => handleInputChange('phone', e.target.value)}
+                                className={errors.phone ? 'border-destructive' : ''}
+                                disabled={saving}
+                                dir="ltr"
+                            />
+                            {errors.phone && (
+                                <p className="text-sm text-destructive">{errors.phone}</p>
                             )}
-                        />
-                        
-                        <FormField
-                            control={form.control}
-                            name="email"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>אימייל</FormLabel>
-                                    <FormControl>
-                                        <Input 
-                                            type="email"
-                                            placeholder="example@email.com" 
-                                            dir="ltr"
-                                            {...field} 
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label htmlFor="email">אימייל</Label>
+                            <Input
+                                id="email"
+                                type="email"
+                                value={formData.email}
+                                onChange={(e) => handleInputChange('email', e.target.value)}
+                                className={errors.email ? 'border-destructive' : ''}
+                                disabled={saving}
+                                dir="ltr"
+                            />
+                            {errors.email && (
+                                <p className="text-sm text-destructive">{errors.email}</p>
                             )}
-                        />
-                        
-                        <FormField
-                            control={form.control}
-                            name="address"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>כתובת</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="רחוב הרצל 1, תל אביב" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        
-                        <FormField
-                            control={form.control}
-                            name="notes"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>הערות</FormLabel>
-                                    <FormControl>
-                                        <Textarea 
-                                            placeholder="העדפות תזונה, אלרגיות, הערות מיוחדות..."
-                                            className="resize-none"
-                                            rows={3}
-                                            {...field} 
-                                        />
-                                    </FormControl>
-                                    <FormDescription>
-                                        הערות פנימיות על הלקוח (לא יוצגו ללקוח)
-                                    </FormDescription>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        
-                        <DialogFooter>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => onOpenChange(false)}
-                            >
-                                ביטול
-                            </Button>
-                            <Button 
-                                type="submit" 
-                                disabled={form.formState.isSubmitting}
-                            >
-                                {form.formState.isSubmitting ? (
-                                    <>
-                                        <LoadingSpinner className="ml-2 h-4 w-4" />
-                                        שומר...
-                                    </>
-                                ) : (
-                                    customer ? 'עדכן' : 'הוסף'
-                                )}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </Form>
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label htmlFor="address">כתובת</Label>
+                            <Input
+                                id="address"
+                                value={formData.address}
+                                onChange={(e) => handleInputChange('address', e.target.value)}
+                                disabled={saving}
+                            />
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label htmlFor="notes">הערות</Label>
+                            <Textarea
+                                id="notes"
+                                value={formData.notes}
+                                onChange={(e) => handleInputChange('notes', e.target.value)}
+                                placeholder="הערות מיוחדות, העדפות תזונתיות..."
+                                disabled={saving}
+                                rows={3}
+                            />
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        {savedCustomerId && !customer ? (
+                            <div className="flex gap-2 w-full">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => onOpenChange(false)}
+                                    className="flex-1"
+                                >
+                                    סגור
+                                </Button>
+                                <Button
+                                    type="button"
+                                    onClick={handleViewProfile}
+                                    className="flex-1"
+                                >
+                                    <Eye className="h-4 w-4 ml-2" />
+                                    צפייה בפרופיל
+                                </Button>
+                            </div>
+                        ) : (
+                            <>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => onOpenChange(false)}
+                                    disabled={saving}
+                                >
+                                    ביטול
+                                </Button>
+                                <Button type="submit" disabled={saving}>
+                                    {saving ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 ml-2 animate-spin" />
+                                            שומר...
+                                        </>
+                                    ) : (
+                                        customer ? 'עדכון' : 'הוספה'
+                                    )}
+                                </Button>
+                            </>
+                        )}
+                    </DialogFooter>
+                </form>
             </DialogContent>
         </Dialog>
     )

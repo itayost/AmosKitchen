@@ -2,11 +2,8 @@
 'use client'
 
 import { useState } from 'react'
-import { format } from 'date-fns'
-import { he } from 'date-fns/locale'
-import { Edit, Trash2, MoreVertical, ChevronUp, ChevronDown } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { useRouter } from 'next/navigation'
+import { Edit, Trash2, MoreVertical, ArrowUpDown, Eye } from 'lucide-react'
 import {
     Table,
     TableBody,
@@ -15,6 +12,8 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -23,6 +22,8 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { format } from 'date-fns'
+import { he } from 'date-fns/locale'
 import type { Customer } from '@/lib/types/database'
 
 interface CustomerWithStats extends Customer {
@@ -37,44 +38,13 @@ interface CustomerListProps {
     onDelete: (customerId: string) => void
 }
 
-type SortField = 'name' | 'orderCount' | 'totalSpent' | 'lastOrderDate' | 'createdAt'
-type SortDirection = 'asc' | 'desc'
+type SortField = 'name' | 'orderCount' | 'totalSpent' | 'lastOrderDate'
+type SortOrder = 'asc' | 'desc'
 
 export function CustomerList({ customers, onEdit, onDelete }: CustomerListProps) {
-    const [sortField, setSortField] = useState<SortField>('createdAt')
-    const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
-
-    const handleSort = (field: SortField) => {
-        if (sortField === field) {
-            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
-        } else {
-            setSortField(field)
-            setSortDirection('asc')
-        }
-    }
-
-    const sortedCustomers = [...customers].sort((a, b) => {
-        let aValue: any = a[sortField]
-        let bValue: any = b[sortField]
-
-        // Handle date sorting
-        if (sortField === 'lastOrderDate' || sortField === 'createdAt') {
-            aValue = aValue ? new Date(aValue).getTime() : 0
-            bValue = bValue ? new Date(bValue).getTime() : 0
-        }
-
-        // Handle string sorting
-        if (typeof aValue === 'string') {
-            aValue = aValue.toLowerCase()
-            bValue = bValue.toLowerCase()
-        }
-
-        if (sortDirection === 'asc') {
-            return aValue > bValue ? 1 : -1
-        } else {
-            return aValue < bValue ? 1 : -1
-        }
-    })
+    const router = useRouter()
+    const [sortField, setSortField] = useState<SortField>('name')
+    const [sortOrder, setSortOrder] = useState<SortOrder>('asc')
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('he-IL', {
@@ -99,6 +69,41 @@ export function CustomerList({ customers, onEdit, onDelete }: CustomerListProps)
         }
     }
 
+    const handleSort = (field: SortField) => {
+        if (sortField === field) {
+            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+        } else {
+            setSortField(field)
+            setSortOrder('asc')
+        }
+    }
+
+    const sortedCustomers = [...customers].sort((a, b) => {
+        let aValue = a[sortField]
+        let bValue = b[sortField]
+
+        if (sortField === 'lastOrderDate') {
+            aValue = a.lastOrderDate ? new Date(a.lastOrderDate).getTime() : 0
+            bValue = b.lastOrderDate ? new Date(b.lastOrderDate).getTime() : 0
+        }
+
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+            return sortOrder === 'asc'
+                ? aValue.localeCompare(bValue)
+                : bValue.localeCompare(aValue)
+        }
+
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+            return sortOrder === 'asc' ? aValue - bValue : bValue - aValue
+        }
+
+        return 0
+    })
+
+    const handleViewProfile = (customerId: string) => {
+        router.push(`/customers/${customerId}`)
+    }
+
     const SortButton = ({ field, children }: { field: SortField; children: React.ReactNode }) => (
         <Button
             variant="ghost"
@@ -107,9 +112,7 @@ export function CustomerList({ customers, onEdit, onDelete }: CustomerListProps)
             onClick={() => handleSort(field)}
         >
             {children}
-            {sortField === field && (
-                sortDirection === 'asc' ? <ChevronUp className="mr-1 h-4 w-4" /> : <ChevronDown className="mr-1 h-4 w-4" />
-            )}
+            <ArrowUpDown className="mr-2 h-4 w-4" />
         </Button>
     )
 
@@ -118,11 +121,11 @@ export function CustomerList({ customers, onEdit, onDelete }: CustomerListProps)
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead className="text-right">
+                        <TableHead>
                             <SortButton field="name">שם הלקוח</SortButton>
                         </TableHead>
                         <TableHead className="text-right">טלפון</TableHead>
-                        <TableHead className="text-right hidden md:table-cell">כתובת</TableHead>
+                        <TableHead className="hidden md:table-cell">כתובת</TableHead>
                         <TableHead className="text-center">סטטוס</TableHead>
                         <TableHead className="text-center">
                             <SortButton field="orderCount">הזמנות</SortButton>
@@ -141,7 +144,11 @@ export function CustomerList({ customers, onEdit, onDelete }: CustomerListProps)
                         const status = getCustomerStatus(customer.orderCount, customer.lastOrderDate)
 
                         return (
-                            <TableRow key={customer.id}>
+                            <TableRow
+                                key={customer.id}
+                                className="hover:bg-muted/50 cursor-pointer"
+                                onClick={() => handleViewProfile(customer.id)}
+                            >
                                 <TableCell className="font-medium">
                                     <div>
                                         <div>{customer.name}</div>
@@ -168,23 +175,31 @@ export function CustomerList({ customers, onEdit, onDelete }: CustomerListProps)
                                 <TableCell>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
                                                 <MoreVertical className="h-4 w-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
                                             <DropdownMenuLabel>פעולות</DropdownMenuLabel>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem onClick={() => onEdit(customer)}>
-                                                <Edit className="ml-2 h-4 w-4" />
-                                                ערוך פרטים
+                                            <DropdownMenuItem onClick={() => handleViewProfile(customer.id)}>
+                                                <Eye className="h-4 w-4 ml-2" />
+                                                צפייה בפרופיל
                                             </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => onEdit(customer)}>
+                                                <Edit className="h-4 w-4 ml-2" />
+                                                עריכה מהירה
+                                            </DropdownMenuItem>
+                                            <DropdownMenuSeparator />
                                             <DropdownMenuItem
                                                 onClick={() => onDelete(customer.id)}
                                                 className="text-destructive"
                                             >
-                                                <Trash2 className="ml-2 h-4 w-4" />
-                                                מחק לקוח
+                                                <Trash2 className="h-4 w-4 ml-2" />
+                                                מחיקה
                                             </DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>

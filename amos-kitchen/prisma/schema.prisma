@@ -27,19 +27,19 @@ model Customer {
 // Orders table
 model Order {
   id              String      @id @default(uuid())
-  orderNumber     String      @unique @default("")  // Add this field
+  orderNumber     String      @unique @default("")
   customerId      String
   customer        Customer    @relation(fields: [customerId], references: [id])
   orderDate       DateTime    @default(now())
   deliveryDate    DateTime
-  deliveryAddress String?     // Add this field
+  deliveryAddress String?
   status          OrderStatus @default(NEW)
   totalAmount     Decimal     @db.Decimal(10, 2)
   notes           String?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
-  items           OrderItem[]
-  history     OrderHistory[]
+  orderItems      OrderItem[] // Changed from 'items' to 'orderItems'
+  history         OrderHistory[]
 
   @@map("orders")
 }

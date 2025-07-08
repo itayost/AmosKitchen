@@ -1,10 +1,16 @@
+// app/layout.tsx
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Rubik } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/contexts/auth-context";
+import { cn } from "@/lib/utils";
 
-const inter = Inter({ subsets: ["latin"] });
+// Rubik supports Hebrew and Latin characters well
+const rubik = Rubik({
+    subsets: ["latin", "hebrew"],
+    display: 'swap',
+});
 
 export const metadata: Metadata = {
     title: "מערכת הזמנות - עסק משפחתי",
@@ -18,7 +24,10 @@ export default function RootLayout({
 }) {
     return (
         <html lang="he" dir="rtl">
-            <body className={inter.className}>
+            <body className={cn(
+                rubik.className,
+                "min-h-screen bg-background font-sans antialiased"
+            )}>
                 <AuthProvider>
                     {children}
                     <Toaster />

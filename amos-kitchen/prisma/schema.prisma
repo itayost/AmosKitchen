@@ -39,6 +39,7 @@ model Order {
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
   items           OrderItem[]
+  history     OrderHistory[]
 
   @@map("orders")
 }
@@ -55,6 +56,20 @@ model OrderItem {
   notes     String?
 
   @@map("order_items")
+}
+
+// OrderHistory table
+model OrderHistory {
+  id          String   @id @default(cuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id])
+  userId      String?  // Who made the change
+  action      String   // 'status_change', 'item_added', 'item_removed', 'item_updated'
+  details     Json     // Store the change details
+  createdAt   DateTime @default(now())
+
+  @@index([orderId])
+  @@index([createdAt])
 }
 
 // Dishes table

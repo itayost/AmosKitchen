@@ -1,54 +1,104 @@
-'use client';
+// src/components/dashboard/recent-orders.tsx
+'use client'
 
-// components/dashboard/recent-orders.tsx
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { StatusBadge } from '../shared/status-badge';
-import { cn } from '@/lib/utils';
+import { format } from 'date-fns'
+import { he } from 'date-fns/locale'
+import { Eye, ChevronRight } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import Link from 'next/link'
+import { OrderStatusBadge } from '@/components/orders/order-status-badge'
 
 interface RecentOrdersProps {
-  orders?: Array<{
-    id: string;
-    customer: string;
-    amount: number;
-    status: string;
-    time: string;
-  }>;
-  className?: string;
+  orders: any[]
 }
 
-export function RecentOrders({ orders, className }: RecentOrdersProps) {
+export function RecentOrders({ orders }: RecentOrdersProps) {
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('he-IL', {
+      style: 'currency',
+      currency: 'ILS'
+    }).format(price)
+  }
+
   return (
-    <Card className={cn("transition-all duration-300", className)}>
-      <CardHeader>
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>הזמנות אחרונות</CardTitle>
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/orders">
+            ראה הכל
+            <ChevronRight className="mr-2 h-4 w-4" />
+          </Link>
+        </Button>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {orders?.map((order, index) => (
-            <div 
-              key={order.id} 
-              className="flex items-center justify-between animate-in slide-in-from-right duration-300"
-              style={{ animationDelay: `${index * 100}ms` }}
-            >
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
-                  <span className="text-xs font-medium text-primary">
-                    {order.customer.split(' ').map(n => n[0]).join('')}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-sm font-medium leading-none">{order.customer}</p>
-                  <p className="text-sm text-muted-foreground">{order.time}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">₪{order.amount}</span>
-                <StatusBadge status={order.status} />
-              </div>
-            </div>
-          ))}
-        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>מספר הזמנה</TableHead>
+              <TableHead>לקוח</TableHead>
+              <TableHead>תאריך משלוח</TableHead>
+              <TableHead>סטטוס</TableHead>
+              <TableHead className="text-right">סכום</TableHead>
+              <TableHead className="w-[50px]"></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {orders.map((order) => (
+              <TableRow key={order.id}>
+                <TableCell className="font-medium">
+                  {order.orderNumber}
+                </TableCell>
+                <TableCell>
+                  <div>
+                    <div className="font-medium">{order.customer.name}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {order.customer.phone}
+                    </div>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  {format(new Date(order.deliveryDate), 'dd/MM/yyyy', { locale: he })}
+                </TableCell>
+                <TableCell>
+                  <OrderStatusBadge status={order.status.toLowerCase()} />
+                </TableCell>
+                <TableCell className="text-right">
+                  {formatPrice(order.totalAmount)}
+                </TableCell>
+                <TableCell>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    asChild
+                  >
+                    <Link href={`/orders/${order.id}`}>
+                      <Eye className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+            {orders.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  אין הזמנות להצגה
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
       </CardContent>
     </Card>
-  );
+  )
 }

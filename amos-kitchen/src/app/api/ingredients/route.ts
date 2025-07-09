@@ -6,13 +6,39 @@ import { z } from 'zod'
 // Validation schema for ingredient creation
 const ingredientSchema = z.object({
     name: z.string().min(1, 'שם הרכיב הוא שדה חובה'),
-    unit: z.string().min(1, 'יחידת מידה היא שדה חובה'),
+    unit: z.enum(['kg', 'gram', 'liter', 'ml', 'unit']),
     minStock: z.number().optional(),
     currentStock: z.number().optional(),
     costPerUnit: z.number().optional(),
     supplier: z.string().optional(),
-    category: z.string().optional()
+    category: z.enum(['vegetables', 'meat', 'dairy', 'grains', 'spices', 'other']).optional()
 })
+
+// Helper function to map frontend values to Prisma enum values
+const mapToPrismaEnums = (data: any) => {
+    const categoryMap: Record<string, string> = {
+        'vegetables': 'VEGETABLES',
+        'meat': 'MEAT',
+        'dairy': 'DAIRY',
+        'grains': 'GRAINS',
+        'spices': 'SPICES',
+        'other': 'OTHER'
+    }
+
+    const unitMap: Record<string, string> = {
+        'kg': 'KG',
+        'gram': 'GRAM',
+        'liter': 'LITER',
+        'ml': 'ML',
+        'unit': 'UNIT'
+    }
+
+    return {
+        ...data,
+        category: data.category ? categoryMap[data.category] : 'OTHER',
+        unit: unitMap[data.unit] || 'UNIT'  // Using 'unit' not 'unitOfMeasure'
+    }
+}
 
 // GET /api/ingredients - Get all ingredients with optional filters
 export async function GET(request: NextRequest) {
@@ -34,7 +60,7 @@ export async function GET(request: NextRequest) {
         const ingredients = await prisma.ingredient.findMany({
             where,
             include: {
-                dishes: {
+                dishIngredients: {
                     include: {
                         dish: {
                             select: {
@@ -47,17 +73,25 @@ export async function GET(request: NextRequest) {
                 },
                 _count: {
                     select: {
-                        dishes: true
+                        dishIngredients: true
                     }
                 }
             },
-            orderBy: { name: 'asc' }
-        })
+            orderBy: {
+                name: 'asc'
+            }
+        });
 
-        // Transform data to include usage count
+        // Transform data to include usage count and format for frontend
         const ingredientsWithStats = ingredients.map(ingredient => ({
             ...ingredient,
-            dishCount: ingredient._count.dishes,
+            dishCount: ingredient._count.dishIngredients,
+            dishes: ingredient.dishIngredients.map(di => ({
+                dish: di.dish
+            })),
+            // Convert enum values back to lowercase for frontend
+            unit: ingredient.unit.toLowerCase(),
+            category: ingredient.category.toLowerCase(),
             _count: undefined
         }))
 
@@ -89,19 +123,46 @@ export async function POST(request: NextRequest) {
             )
         }
 
+        // Map frontend values to Prisma enum values
+        const mappedData = mapToPrismaEnums(validatedData)
+
         const ingredient = await prisma.ingredient.create({
             data: {
-                name: validatedData.name,
-                unit: validatedData.unit,
-                minStock: validatedData.minStock,
-                currentStock: validatedData.currentStock,
-                costPerUnit: validatedData.costPerUnit,
-                supplier: validatedData.supplier,
-                category: validatedData.category
+                name: mappedData.name,
+                unit: mappedData.unit,  // Using 'unit' field
+                category: mappedData.category,
+                minStock: mappedData.minStock,
+                currentStock: mappedData.currentStock,
+                costPerUnit: mappedData.costPerUnit,
+                supplier: mappedData.supplier
+            },
+            include: {
+                dishIngredients: {
+                    include: {
+                        dish: true
+                    }
+                },
+                _count: {
+                    select: {
+                        dishIngredients: true
+                    }
+                }
             }
         })
 
-        return NextResponse.json(ingredient, { status: 201 })
+        // Transform response to match frontend expectations
+        const response = {
+            ...ingredient,
+            dishCount: ingredient._count.dishIngredients,
+            dishes: ingredient.dishIngredients.map(di => ({
+                dish: di.dish
+            })),
+            unit: ingredient.unit.toLowerCase(),
+            category: ingredient.category.toLowerCase(),
+            _count: undefined
+        }
+
+        return NextResponse.json(response, { status: 201 })
     } catch (error) {
         if (error instanceof z.ZodError) {
             return NextResponse.json(
@@ -118,18 +179,8 @@ export async function POST(request: NextRequest) {
     }
 }
 
-// GET /api/ingredients/categories - Get unique categories
+// GET /api/ingredients/categories - Get available categories
 export async function getCategories() {
-    try {
-        const categories = await prisma.ingredient.findMany({
-            select: { category: true },
-            distinct: ['category'],
-            where: { category: { not: null } }
-        })
-
-        return categories.map(c => c.category).filter(Boolean)
-    } catch (error) {
-        console.error('Error fetching categories:', error)
-        return []
-    }
+    // Return the available categories from the enum
+    return ['vegetables', 'meat', 'dairy', 'grains', 'spices', 'other']
 }

@@ -1,19 +1,34 @@
-// lib/db.ts
+// src/lib/db.ts
 import { PrismaClient } from '@prisma/client'
 
-const globalForPrisma = globalThis as unknown as {
-    prisma: PrismaClient | undefined
+declare global {
+    var prisma: PrismaClient | undefined
 }
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-})
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
-
-// Ensure connection is established
-if (process.env.NODE_ENV !== 'production') {
-    prisma.$connect().catch((e) => {
-        console.error('Failed to connect to database:', e)
+const prismaClientSingleton = () => {
+    return new PrismaClient({
+        log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+        // Add these options to handle Supabase pooler issues
+        datasources: {
+            db: {
+                url: process.env.DATABASE_URL
+            }
+        },
     })
+}
+
+// Ensure we use a singleton in development to avoid connection issues
+export const prisma = globalThis.prisma ?? prismaClientSingleton()
+
+if (process.env.NODE_ENV !== 'production') {
+    globalThis.prisma = prisma
+}
+
+// Handle cleanup on hot reload
+if (process.env.NODE_ENV === 'development') {
+    if (module.hot) {
+        module.hot.dispose(async () => {
+            await prisma.$disconnect()
+        })
+    }
 }

@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { ChevronDown, ChevronRight, Package, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
     Table,
@@ -100,80 +101,73 @@ export function ShoppingListByCategory({ data }: ShoppingListByCategoryProps) {
                                         ) : (
                                             <ChevronRight className="h-4 w-4" />
                                         )}
-                                        <h3 className="text-lg font-medium">{group.name}</h3>
+                                        <span className="font-semibold text-base">{group.name}</span>
                                         <Badge variant="secondary">
                                             {group.ingredients.length} פריטים
                                         </Badge>
                                         {lowStockCount > 0 && (
-                                            <Badge variant="warning" className="flex items-center gap-1">
+                                            <Badge variant="destructive" className="gap-1">
                                                 <AlertTriangle className="h-3 w-3" />
                                                 {lowStockCount} במלאי נמוך
                                             </Badge>
                                         )}
                                     </div>
-                                    <span className="text-sm text-muted-foreground">
+                                    <div className="text-sm text-muted-foreground">
                                         {formatCurrency(group.totalCost)}
-                                    </span>
+                                    </div>
                                 </Button>
                             </CollapsibleTrigger>
                             <CollapsibleContent>
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead className="w-[50px]"></TableHead>
+                                            <TableHead className="w-12"></TableHead>
                                             <TableHead>רכיב</TableHead>
-                                            <TableHead className="text-right">כמות נדרשת</TableHead>
-                                            <TableHead className="text-right">במלאי</TableHead>
-                                            <TableHead className="text-right">לקנות</TableHead>
-                                            <TableHead className="text-right">עלות משוערת</TableHead>
+                                            <TableHead className="text-center">כמות</TableHead>
+                                            <TableHead className="text-center">במלאי</TableHead>
+                                            <TableHead className="text-center">לקנות</TableHead>
+                                            <TableHead className="text-left">עלות משוערת</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {group.ingredients.map((ingredient) => (
-                                            <TableRow 
-                                                key={ingredient.id}
-                                                className={checkedItems.has(ingredient.id) ? 'opacity-50' : ''}
-                                            >
-                                                <TableCell>
-                                                    <Checkbox
-                                                        checked={checkedItems.has(ingredient.id)}
-                                                        onCheckedChange={() => toggleItem(ingredient.id)}
-                                                    />
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-2">
-                                                        {ingredient.lowStock && (
-                                                            <AlertTriangle className="h-4 w-4 text-orange-500" />
-                                                        )}
-                                                        <div>
-                                                            <div className="font-medium">{ingredient.name}</div>
-                                                            <div className="text-xs text-muted-foreground">
-                                                                {ingredient.usedInDishes.slice(0, 2).map(d => d.dish).join(', ')}
-                                                                {ingredient.usedInDishes.length > 2 && ' ...'}
-                                                            </div>
+                                        {group.ingredients.map((ingredient) => {
+                                            const isChecked = checkedItems.has(ingredient.id)
+                                            return (
+                                                <TableRow
+                                                    key={ingredient.id}
+                                                    className={isChecked ? 'opacity-50' : ''}
+                                                >
+                                                    <TableCell>
+                                                        <Checkbox
+                                                            checked={isChecked}
+                                                            onCheckedChange={() => toggleItem(ingredient.id)}
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={isChecked ? 'line-through' : ''}>
+                                                                {ingredient.name}
+                                                            </span>
+                                                            {ingredient.lowStock && (
+                                                                <AlertTriangle className="h-4 w-4 text-destructive" />
+                                                            )}
                                                         </div>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    {ingredient.totalQuantity} {ingredient.unitLabel}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    {ingredient.currentStock} {ingredient.unitLabel}
-                                                </TableCell>
-                                                <TableCell className="text-right font-medium">
-                                                    {ingredient.needToBuy > 0 ? (
-                                                        <span className="text-red-600">
-                                                            {ingredient.needToBuy} {ingredient.unitLabel}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-green-600">✓</span>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    {formatCurrency(ingredient.estimatedCost)}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
+                                                    </TableCell>
+                                                    <TableCell className="text-center">
+                                                        {ingredient.totalQuantity} {ingredient.unitLabel}
+                                                    </TableCell>
+                                                    <TableCell className="text-center">
+                                                        {ingredient.currentStock || 0} {ingredient.unitLabel}
+                                                    </TableCell>
+                                                    <TableCell className="text-center font-semibold">
+                                                        {ingredient.needToBuy} {ingredient.unitLabel}
+                                                    </TableCell>
+                                                    <TableCell className="text-left">
+                                                        {formatCurrency(ingredient.estimatedCost)}
+                                                    </TableCell>
+                                                </TableRow>
+                                            )
+                                        })}
                                     </TableBody>
                                 </Table>
                             </CollapsibleContent>

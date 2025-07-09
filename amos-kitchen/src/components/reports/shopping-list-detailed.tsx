@@ -36,12 +36,19 @@ interface Ingredient {
 }
 
 interface ShoppingListDetailedProps {
-    ingredients: Ingredient[]
+    ingredients: Ingredient[] | Record<string, any>
 }
 
 export function ShoppingListDetailed({ ingredients }: ShoppingListDetailedProps) {
     const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set())
     const [sortBy, setSortBy] = useState<'name' | 'category' | 'supplier'>('name')
+
+    // Convert ingredients to array if it's an object
+    const ingredientsList: Ingredient[] = Array.isArray(ingredients)
+        ? ingredients
+        : Object.values(ingredients).flatMap((group: any) =>
+            Array.isArray(group.ingredients) ? group.ingredients : []
+          )
 
     const toggleItem = (itemId: string) => {
         const newChecked = new Set(checkedItems)
@@ -74,130 +81,144 @@ export function ShoppingListDetailed({ ingredients }: ShoppingListDetailedProps)
         return categories[category] || category
     }
 
-    const sortedIngredients = [...ingredients].sort((a, b) => {
+    if (!ingredientsList || ingredientsList.length === 0) {
+        return (
+            <div className="text-center py-8 text-muted-foreground">
+                אין רכיבים להצגה
+            </div>
+        )
+    }
+
+    const sortedIngredients = [...ingredientsList].sort((a, b) => {
         switch (sortBy) {
             case 'category':
                 return a.category.localeCompare(b.category)
             case 'supplier':
-                return a.supplier.localeCompare(b.supplier)
+                return (a.supplier || '').localeCompare(b.supplier || '')
             default:
                 return a.name.localeCompare(b.name)
         }
     })
 
-    const totalCost = ingredients.reduce((sum, ing) => sum + ing.estimatedCost, 0)
+    const totalCost = sortedIngredients.reduce((sum, item) => sum + item.estimatedCost, 0)
     const checkedCount = checkedItems.size
-    const totalCount = ingredients.length
+    const totalCount = sortedIngredients.length
 
     return (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">
-                    {checkedCount} מתוך {totalCount} פריטים נבדקו
+        <TooltipProvider>
+            <div className="space-y-4">
+                {/* Summary Bar */}
+                <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                    <div className="flex items-center gap-4">
+                        <span className="text-sm text-muted-foreground">
+                            {checkedCount} מתוך {totalCount} סומנו
+                        </span>
+                        <div className="h-4 w-px bg-border" />
+                        <span className="text-sm font-medium">
+                            סה״כ: {formatCurrency(totalCost)}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">מיון לפי:</span>
+                        <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value as any)}
+                            className="text-sm border rounded px-2 py-1"
+                        >
+                            <option value="name">שם</option>
+                            <option value="category">קטגוריה</option>
+                            <option value="supplier">ספק</option>
+                        </select>
+                    </div>
                 </div>
-                <div className="text-sm font-medium">
-                    סה"כ: {formatCurrency(totalCost)}
-                </div>
-            </div>
 
-            <TooltipProvider>
+                {/* Ingredients Table */}
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead className="w-[50px]"></TableHead>
-                            <TableHead 
-                                className="cursor-pointer hover:text-primary"
-                                onClick={() => setSortBy('name')}
-                            >
-                                רכיב {sortBy === 'name' && '↓'}
-                            </TableHead>
-                            <TableHead 
-                                className="cursor-pointer hover:text-primary"
-                                onClick={() => setSortBy('category')}
-                            >
-                                קטגוריה {sortBy === 'category' && '↓'}
-                            </TableHead>
-                            <TableHead 
-                                className="cursor-pointer hover:text-primary"
-                                onClick={() => setSortBy('supplier')}
-                            >
-                                ספק {sortBy === 'supplier' && '↓'}
-                            </TableHead>
-                            <TableHead className="text-right">כמות נדרשת</TableHead>
-                            <TableHead className="text-right">במלאי</TableHead>
-                            <TableHead className="text-right">לקנות</TableHead>
-                            <TableHead className="text-right">עלות</TableHead>
-                            <TableHead className="w-[50px]"></TableHead>
+                            <TableHead className="w-12"></TableHead>
+                            <TableHead>רכיב</TableHead>
+                            <TableHead>קטגוריה</TableHead>
+                            <TableHead>ספק</TableHead>
+                            <TableHead className="text-center">נדרש</TableHead>
+                            <TableHead className="text-center">במלאי</TableHead>
+                            <TableHead className="text-center">לקנות</TableHead>
+                            <TableHead>עלות</TableHead>
+                            <TableHead className="w-12"></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {sortedIngredients.map((ingredient) => (
-                            <TableRow 
-                                key={ingredient.id}
-                                className={checkedItems.has(ingredient.id) ? 'opacity-50' : ''}
-                            >
-                                <TableCell>
-                                    <Checkbox
-                                        checked={checkedItems.has(ingredient.id)}
-                                        onCheckedChange={() => toggleItem(ingredient.id)}
-                                    />
-                                </TableCell>
-                                <TableCell>
-                                    <div className="flex items-center gap-2">
-                                        {ingredient.lowStock && (
-                                            <AlertTriangle className="h-4 w-4 text-orange-500" />
+                        {sortedIngredients.map((ingredient) => {
+                            const isChecked = checkedItems.has(ingredient.id)
+                            return (
+                                <TableRow
+                                    key={ingredient.id}
+                                    className={isChecked ? 'opacity-50' : ''}
+                                >
+                                    <TableCell>
+                                        <Checkbox
+                                            checked={isChecked}
+                                            onCheckedChange={() => toggleItem(ingredient.id)}
+                                        />
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex items-center gap-2">
+                                            <span className={isChecked ? 'line-through' : ''}>
+                                                {ingredient.name}
+                                            </span>
+                                            {ingredient.lowStock && (
+                                                <Tooltip>
+                                                    <TooltipTrigger>
+                                                        <AlertTriangle className="h-4 w-4 text-destructive" />
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        מלאי נמוך
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            )}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Badge variant="outline">
+                                            {getCategoryLabel(ingredient.category)}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell>{ingredient.supplier || '-'}</TableCell>
+                                    <TableCell className="text-center">
+                                        {ingredient.totalQuantity} {ingredient.unitLabel}
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                        {ingredient.currentStock || 0} {ingredient.unitLabel}
+                                    </TableCell>
+                                    <TableCell className="text-center font-semibold">
+                                        {ingredient.needToBuy} {ingredient.unitLabel}
+                                    </TableCell>
+                                    <TableCell>{formatCurrency(ingredient.estimatedCost)}</TableCell>
+                                    <TableCell>
+                                        {ingredient.usedInDishes && ingredient.usedInDishes.length > 0 && (
+                                            <Tooltip>
+                                                <TooltipTrigger>
+                                                    <Info className="h-4 w-4 text-muted-foreground" />
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <div className="space-y-1">
+                                                        <p className="font-semibold">משמש במנות:</p>
+                                                        {ingredient.usedInDishes.map((dish, idx) => (
+                                                            <p key={idx} className="text-sm">
+                                                                {dish.dish} ({dish.count})
+                                                            </p>
+                                                        ))}
+                                                    </div>
+                                                </TooltipContent>
+                                            </Tooltip>
                                         )}
-                                        <span className="font-medium">{ingredient.name}</span>
-                                    </div>
-                                </TableCell>
-                                <TableCell>
-                                    <Badge variant="outline">
-                                        {getCategoryLabel(ingredient.category)}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell>{ingredient.supplier}</TableCell>
-                                <TableCell className="text-right">
-                                    {ingredient.totalQuantity} {ingredient.unitLabel}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                    {ingredient.currentStock} {ingredient.unitLabel}
-                                </TableCell>
-                                <TableCell className="text-right font-medium">
-                                    {ingredient.needToBuy > 0 ? (
-                                        <span className="text-red-600">
-                                            {ingredient.needToBuy} {ingredient.unitLabel}
-                                        </span>
-                                    ) : (
-                                        <span className="text-green-600">✓</span>
-                                    )}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                    {formatCurrency(ingredient.estimatedCost)}
-                                </TableCell>
-                                <TableCell>
-                                    <Tooltip>
-                                        <TooltipTrigger>
-                                            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <div className="space-y-2">
-                                                <p className="font-medium">משמש במנות:</p>
-                                                <ul className="text-sm space-y-1">
-                                                    {ingredient.usedInDishes.map((dish, idx) => (
-                                                        <li key={idx}>
-                                                            {dish.dish} ({dish.count} מנות)
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TableCell>
-                            </TableRow>
-                        ))}
+                                    </TableCell>
+                                </TableRow>
+                            )
+                        })}
                     </TableBody>
                 </Table>
-            </TooltipProvider>
-        </div>
+            </div>
+        </TooltipProvider>
     )
 }

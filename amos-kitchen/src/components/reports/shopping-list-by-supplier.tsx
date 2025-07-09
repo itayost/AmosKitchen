@@ -27,7 +27,7 @@ interface Ingredient {
 }
 
 interface ShoppingListBySupplierProps {
-    data: Record<string, SupplierGroup>
+    data: Record<string, SupplierGroup> | any
 }
 
 export function ShoppingListBySupplier({ data }: ShoppingListBySupplierProps) {
@@ -64,96 +64,100 @@ export function ShoppingListBySupplier({ data }: ShoppingListBySupplierProps) {
         return categories[category] || category
     }
 
+    // Handle empty or invalid data
+    if (!data || Object.keys(data).length === 0) {
+        return (
+            <div className="text-center py-8 text-muted-foreground">
+                אין נתונים להצגה
+            </div>
+        )
+    }
+
     return (
         <div className="space-y-6">
-            {Object.entries(data).map(([supplier, group]) => (
-                <Card key={supplier} className="p-6">
-                    <div className="space-y-4">
-                        {/* Supplier Header */}
-                        <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-primary/10 rounded-lg">
-                                    <Building2 className="h-5 w-5 text-primary" />
-                                </div>
-                                <div>
-                                    <h3 className="text-lg font-semibold">{group.name}</h3>
-                                    <p className="text-sm text-muted-foreground">
-                                        {group.ingredients.length} פריטים • {formatCurrency(group.totalCost)}
-                                    </p>
-                                </div>
-                            </div>
-                            <Badge variant="outline" className="flex items-center gap-1">
-                                <Phone className="h-3 w-3" />
-                                להזמנה
-                            </Badge>
-                        </div>
+            {Object.entries(data).map(([supplier, group]) => {
+                // Ensure group has the expected structure
+                const ingredients = Array.isArray(group?.ingredients) ? group.ingredients : []
+                const totalCost = group?.totalCost || 0
+                const supplierName = group?.name || supplier || 'ללא ספק'
 
-                        <Separator />
+                if (ingredients.length === 0) {
+                    return null
+                }
 
-                        {/* Ingredients List */}
-                        <div className="space-y-3">
-                            {group.ingredients.map((ingredient) => (
-                                <div 
-                                    key={ingredient.id}
-                                    className={`flex items-center justify-between py-2 ${
-                                        checkedItems.has(ingredient.id) ? 'opacity-50' : ''
-                                    }`}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <Checkbox
-                                            checked={checkedItems.has(ingredient.id)}
-                                            onCheckedChange={() => toggleItem(ingredient.id)}
-                                        />
-                                        <div className="flex items-center gap-2">
-                                            <Package className="h-4 w-4 text-muted-foreground" />
-                                            <span className="font-medium">{ingredient.name}</span>
-                                            <Badge variant="secondary" className="text-xs">
-                                                {getCategoryLabel(ingredient.category)}
-                                            </Badge>
-                                            {ingredient.lowStock && (
-                                                <Badge variant="warning" className="text-xs">
-                                                    מלאי נמוך
-                                                </Badge>
-                                            )}
-                                        </div>
+                return (
+                    <Card key={supplier} className="p-6">
+                        <div className="space-y-4">
+                            {/* Supplier Header */}
+                            <div className="flex items-start justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-primary/10 rounded-lg">
+                                        <Building2 className="h-5 w-5 text-primary" />
                                     </div>
-                                    <div className="flex items-center gap-4 text-sm">
-                                        <div className="text-right">
-                                            <div className="font-medium">
-                                                {ingredient.needToBuy > 0 ? (
-                                                    <span className="text-red-600">
-                                                        {ingredient.needToBuy} {ingredient.unitLabel}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-green-600">במלאי</span>
-                                                )}
-                                            </div>
-                                            <div className="text-muted-foreground">
-                                                נדרש: {ingredient.totalQuantity} {ingredient.unitLabel}
-                                            </div>
-                                        </div>
-                                        <div className="text-right font-medium">
-                                            {formatCurrency(ingredient.estimatedCost)}
-                                        </div>
+                                    <div>
+                                        <h3 className="text-lg font-semibold">{supplierName}</h3>
+                                        <p className="text-sm text-muted-foreground">
+                                            {ingredients.length} פריטים • {formatCurrency(totalCost)}
+                                        </p>
                                     </div>
                                 </div>
-                            ))}
-                        </div>
+                            </div>
 
-                        {/* Supplier Summary */}
-                        <div className="pt-4 border-t">
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="text-muted-foreground">
-                                    סה"כ לספק:
-                                </span>
-                                <span className="font-bold text-lg">
-                                    {formatCurrency(group.totalCost)}
-                                </span>
+                            <Separator />
+
+                            {/* Ingredients List */}
+                            <div className="space-y-3">
+                                {ingredients.map((ingredient) => {
+                                    const isChecked = checkedItems.has(ingredient.id)
+
+                                    return (
+                                        <div
+                                            key={ingredient.id}
+                                            className={`flex items-center justify-between p-3 rounded-lg border ${
+                                                isChecked ? 'bg-muted opacity-60' : 'hover:bg-accent/50'
+                                            } transition-colors`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <Checkbox
+                                                    checked={isChecked}
+                                                    onCheckedChange={() => toggleItem(ingredient.id)}
+                                                />
+                                                <div>
+                                                    <p className={`font-medium ${isChecked ? 'line-through' : ''}`}>
+                                                        {ingredient.name}
+                                                    </p>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <Badge variant="secondary" className="text-xs">
+                                                            {getCategoryLabel(ingredient.category)}
+                                                        </Badge>
+                                                        <span className="text-xs text-muted-foreground">
+                                                            {ingredient.needToBuy} {ingredient.unitLabel}
+                                                        </span>
+                                                        {ingredient.lowStock && (
+                                                            <Badge variant="destructive" className="text-xs">
+                                                                מלאי נמוך
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="font-medium">{formatCurrency(ingredient.estimatedCost)}</p>
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+
+                            {/* Supplier Total */}
+                            <div className="flex items-center justify-between pt-4 border-t">
+                                <span className="font-semibold">סה״כ לספק:</span>
+                                <span className="text-lg font-bold">{formatCurrency(totalCost)}</span>
                             </div>
                         </div>
-                    </div>
-                </Card>
-            ))}
+                    </Card>
+                )
+            })}
         </div>
     )
 }

@@ -1,6 +1,46 @@
-// app/api/orders/route.ts
+// src/app/api/orders/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { z } from 'zod'
+
+// Validation schema for order creation
+const createOrderSchema = z.object({
+    customerId: z.string().uuid(),
+    deliveryDate: z.string().datetime(),
+    deliveryAddress: z.string().optional(),
+    notes: z.string().optional(),
+    items: z.array(z.object({
+        dishId: z.string().uuid(),
+        quantity: z.number().int().positive(),
+        price: z.number().positive(),
+        notes: z.string().optional()
+    })).min(1)
+})
+
+// Generate order number (e.g., "ORD-2025-0001")
+async function generateOrderNumber(): Promise<string> {
+    const year = new Date().getFullYear()
+
+    // Get the last order number for this year
+    const lastOrder = await prisma.order.findFirst({
+        where: {
+            orderNumber: {
+                startsWith: `ORD-${year}-`
+            }
+        },
+        orderBy: {
+            orderNumber: 'desc'
+        }
+    })
+
+    let nextNumber = 1
+    if (lastOrder && lastOrder.orderNumber) {
+        const lastNumber = parseInt(lastOrder.orderNumber.split('-')[2])
+        nextNumber = lastNumber + 1
+    }
+
+    return `ORD-${year}-${nextNumber.toString().padStart(4, '0')}`
+}
 
 // Map Prisma enum values to lowercase for frontend
 const mapOrderStatus = (status: string): string => {
@@ -34,6 +74,7 @@ export async function GET(request: NextRequest) {
         // Search filter
         if (search) {
             where.OR = [
+                { orderNumber: { contains: search, mode: 'insensitive' } },
                 { customer: { name: { contains: search, mode: 'insensitive' } } },
                 { customer: { phone: { contains: search } } }
             ]
@@ -49,7 +90,7 @@ export async function GET(request: NextRequest) {
                 'delivered': 'DELIVERED',
                 'cancelled': 'CANCELLED'
             }
-            where.status = statusMap[status] || status.toUpperCase()
+            where.status = statusMap[status] || 'NEW'
         }
 
         // Date range filter
@@ -81,67 +122,46 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        // Fetch orders with pagination
-        const [ordersData, totalCount] = await Promise.all([
-            prisma.order.findMany({
-                where,
-                include: {
-                    customer: true,
-                    items: {
-                        include: {
-                            dish: true
-                        }
-                    }
-                },
-                orderBy: { createdAt: 'desc' },
-                skip,
-                take: limit
-            }),
-            prisma.order.count({ where })
-        ])
+        // Get total count for pagination
+        const totalCount = await prisma.order.count({ where })
 
-        // Transform the data to match frontend expectations
-        const orders = ordersData.map((order, index) => ({
-            id: order.id,
-            orderNumber: `ORD-${String(skip + index + 1).padStart(4, '0')}`, // Generate order number
-            customer: order.customer,
-            customerId: order.customerId,
-            deliveryDate: order.deliveryDate,
-            deliveryAddress: '', // Add empty string for now
-            totalAmount: Number(order.totalAmount),
+        // Fetch orders with related data
+        const orders = await prisma.order.findMany({
+            where,
+            include: {
+                customer: true,
+                orderItems: {
+                    include: {
+                        dish: true
+                    }
+                }
+            },
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take: limit
+        })
+
+        // Transform orders to match frontend expectations
+        const transformedOrders = orders.map(order => ({
+            ...order,
             status: mapOrderStatus(order.status),
-            notes: order.notes,
-            itemsCount: order.items.length,
-            orderItems: order.items.map(item => ({
-                id: item.id,
-                orderId: item.orderId,
-                dishId: item.dishId,
-                dish: {
-                    ...item.dish,
-                    price: Number(item.dish.price)
-                },
-                quantity: item.quantity,
-                price: Number(item.price),
-                notes: item.notes,
-                createdAt: order.createdAt,
-                updatedAt: order.updatedAt
-            })),
-            createdAt: order.createdAt,
-            updatedAt: order.updatedAt
+            totalAmount: Number(order.totalAmount),
+            items: order.orderItems // Map orderItems to items for frontend
         }))
 
-        console.log(`Returning ${orders.length} orders out of ${totalCount} total`)
-
         return NextResponse.json({
-            orders,
-            totalCount,
-            currentPage: page,
-            totalPages: Math.ceil(totalCount / limit)
+            orders: transformedOrders,
+            pagination: {
+                total: totalCount,
+                page,
+                limit,
+                totalPages: Math.ceil(totalCount / limit)
+            }
         })
     } catch (error) {
         console.error('Error fetching orders:', error)
         return NextResponse.json(
-            { error: 'Failed to fetch orders', details: error instanceof Error ? error.message : 'Unknown error' },
+            { error: 'Failed to fetch orders' },
             { status: 500 }
         )
     }
@@ -150,37 +170,41 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json()
+        console.log('Create order request:', body)
 
-        // Generate order number
-        const orderCount = await prisma.order.count()
-        const orderNumber = `ORD-${String(orderCount + 1).padStart(4, '0')}`
+        // Validate request body
+        const validatedData = createOrderSchema.parse(body)
 
         // Calculate total amount
-        const totalAmount = body.items.reduce(
-            (sum: number, item: any) => sum + (item.price * item.quantity),
-            0
-        )
+        const totalAmount = validatedData.items.reduce((sum, item) => {
+            return sum + (item.price * item.quantity)
+        }, 0)
+
+        // Generate order number
+        const orderNumber = await generateOrderNumber()
 
         // Create order with items
         const order = await prisma.order.create({
             data: {
-                customerId: body.customerId,
-                deliveryDate: new Date(body.deliveryDate),
+                orderNumber,
+                customerId: validatedData.customerId,
+                deliveryDate: new Date(validatedData.deliveryDate),
+                deliveryAddress: validatedData.deliveryAddress,
                 totalAmount,
                 status: 'NEW',
-                notes: body.notes,
-                items: {
-                    create: body.items.map((item: any) => ({
+                notes: validatedData.notes || '',
+                orderItems: {  // Changed from 'items' to 'orderItems'
+                    create: validatedData.items.map(item => ({
                         dishId: item.dishId,
                         quantity: item.quantity,
                         price: item.price,
-                        notes: item.notes
+                        notes: item.notes || ''
                     }))
                 }
             },
             include: {
                 customer: true,
-                items: {
+                orderItems: {  // Changed from 'items' to 'orderItems'
                     include: {
                         dish: true
                     }
@@ -188,29 +212,37 @@ export async function POST(request: NextRequest) {
             }
         })
 
-        // Transform the response
+        // Create initial history entry
+        await prisma.orderHistory.create({
+            data: {
+                orderId: order.id,
+                action: 'CREATED',
+                details: `הזמנה נוצרה עם ${order.orderItems.length} פריטים`
+            }
+        })
+
+        // Transform response
         const transformedOrder = {
             ...order,
-            orderNumber,
-            deliveryAddress: '',
             status: mapOrderStatus(order.status),
             totalAmount: Number(order.totalAmount),
-            itemsCount: order.items.length,
-            orderItems: order.items.map(item => ({
-                ...item,
-                price: Number(item.price),
-                dish: {
-                    ...item.dish,
-                    price: Number(item.dish.price)
-                }
-            }))
+            items: order.orderItems // Map orderItems to items for frontend consistency
         }
 
+        console.log('Order created successfully:', order.orderNumber)
         return NextResponse.json(transformedOrder, { status: 201 })
     } catch (error) {
+        if (error instanceof z.ZodError) {
+            console.error('Validation error:', error.errors)
+            return NextResponse.json(
+                { error: 'Invalid data', details: error.errors },
+                { status: 400 }
+            )
+        }
+
         console.error('Error creating order:', error)
         return NextResponse.json(
-            { error: 'Failed to create order', details: error instanceof Error ? error.message : 'Unknown error' },
+            { error: 'Failed to create order' },
             { status: 500 }
         )
     }

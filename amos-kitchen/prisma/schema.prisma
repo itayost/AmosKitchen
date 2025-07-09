@@ -90,12 +90,16 @@ model Dish {
 
 // Ingredients table
 model Ingredient {
-  id         String           @id @default(uuid())
-  name       String           @unique
-  unit       String // e.g., "kg", "liters", "units"
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
-  dishes     DishIngredient[]
+  id            String              @id @default(uuid())
+  name          String              @unique
+  category      IngredientCategory
+  unit          UnitOfMeasure
+  currentStock  Decimal?            @db.Decimal(10, 2)
+  minStock      Decimal?            @db.Decimal(10, 2)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  dishIngredients DishIngredient[]
 
   @@map("ingredients")
 }
@@ -121,4 +125,29 @@ enum OrderStatus {
   READY
   DELIVERED
   CANCELLED
+}
+
+enum DishCategory {
+  APPETIZER
+  MAIN
+  SIDE
+  DESSERT
+  BEVERAGE
+}
+
+enum IngredientCategory {
+  VEGETABLES
+  MEAT
+  DAIRY
+  GRAINS
+  SPICES
+  OTHER
+}
+
+enum UnitOfMeasure {
+  KG
+  GRAM
+  LITER
+  ML
+  UNIT
 }

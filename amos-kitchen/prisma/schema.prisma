@@ -112,6 +112,7 @@ model DishIngredient {
   ingredientId String
   ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
   quantity     Decimal    @db.Decimal(10, 3)
+  notes        String?    // Add this field for preparation notes
 
   @@unique([dishId, ingredientId])
   @@map("dish_ingredients")

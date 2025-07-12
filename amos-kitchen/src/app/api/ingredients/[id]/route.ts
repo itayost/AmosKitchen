@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
+import { IngredientCategory, UnitOfMeasure } from '@prisma/client'
 
 // Validation schema for ingredient update
 const updateIngredientSchema = z.object({
@@ -94,9 +95,13 @@ export async function PUT(
 
         const ingredient = await prisma.ingredient.update({
             where: { id: params.id },
-            data: validatedData,
+            data: {
+                ...validatedData,
+                category: validatedData.category as IngredientCategory,
+                unit: validatedData.unit as UnitOfMeasure
+            },
             include: {
-                dishes: {
+                dishIngredients: {
                     include: {
                         dish: true
                     }

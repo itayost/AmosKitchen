@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
 
                 dish.ingredients.forEach(dishIngredient => {
                     const ing = dishIngredient.ingredient
-                    const quantity = dishIngredient.quantity * item.quantity
+                    const quantity = Number(dishIngredient.quantity) * item.quantity
 
                     const existing = ingredientMap.get(ing.id) || {
                         ingredient: ing,

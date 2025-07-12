@@ -72,12 +72,12 @@ export function DishGrid({ dishes, onEdit, onDelete }: DishGridProps) {
                                     {dish.description}
                                 </p>
                             )}
-                            
+
                             <div className="flex items-center justify-between">
                                 <span className="text-2xl font-bold">
                                     {formatPrice(dish.price)}
                                 </span>
-                                <Badge variant={dish.isAvailable ? 'success' : 'secondary'}>
+                                <Badge variant={dish.isAvailable ? 'default' : 'secondary'}>
                                     {dish.isAvailable ? 'זמין' : 'לא זמין'}
                                 </Badge>
                             </div>
@@ -85,7 +85,7 @@ export function DishGrid({ dishes, onEdit, onDelete }: DishGridProps) {
                             {dish.ingredients.length > 0 && (
                                 <div className="text-xs text-muted-foreground">
                                     <span className="font-medium">רכיבים: </span>
-                                    {dish.ingredients.slice(0, 3).map(ing => 
+                                    {dish.ingredients.slice(0, 3).map(ing =>
                                         ing.ingredient.name
                                     ).join(', ')}
                                     {dish.ingredients.length > 3 && ' ...'}

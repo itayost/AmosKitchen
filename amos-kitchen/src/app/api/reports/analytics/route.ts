@@ -7,14 +7,14 @@ export async function GET(request: NextRequest) {
     try {
         const searchParams = request.nextUrl.searchParams
         const period = searchParams.get('period') || 'month'
-        
+
         // Calculate date ranges based on period
         const now = new Date()
         let startDate: Date
         let endDate: Date
         let previousStartDate: Date
         let previousEndDate: Date
-        
+
         switch (period) {
             case 'year':
                 startDate = startOfYear(now)
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
                     }
                 }
             }),
-            
+
             // All customers
             prisma.customer.findMany({
                 include: {
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
                     }
                 }
             }),
-            
+
             // Previous period orders for comparison
             prisma.order.findMany({
                 where: {
@@ -89,8 +89,8 @@ export async function GET(request: NextRequest) {
         // Calculate summary metrics
         const totalRevenue = orders.reduce((sum, order) => sum + Number(order.totalAmount), 0)
         const previousRevenue = previousOrders.reduce((sum, order) => sum + Number(order.totalAmount), 0)
-        const revenueGrowth = previousRevenue > 0 
-            ? ((totalRevenue - previousRevenue) / previousRevenue) * 100 
+        const revenueGrowth = previousRevenue > 0
+            ? ((totalRevenue - previousRevenue) / previousRevenue) * 100
             : 0
 
         const totalOrders = orders.length
@@ -130,7 +130,7 @@ export async function GET(request: NextRequest) {
 
         // Top dishes
         const dishStats = new Map<string, { name: string; quantity: number; revenue: number; category: string }>()
-        
+
         orders.forEach(order => {
             order.orderItems.forEach(item => {
                 const dishId = item.dishId
@@ -142,7 +142,10 @@ export async function GET(request: NextRequest) {
                 }
                 existing.quantity += item.quantity
                 existing.revenue += Number(item.price) * item.quantity
-                dishStats.set(dishId, existing)
+                dishStats.set(dishId, {
+                    ...existing,
+                    category: existing.category || 'uncategorized'
+                })
             })
         })
 
@@ -184,7 +187,7 @@ export async function GET(request: NextRequest) {
             else if (customer.orderCount <= 3) range = '2-3 הזמנות'
             else if (customer.orderCount <= 5) range = '4-5 הזמנות'
             else range = '6+ הזמנות'
-            
+
             acc[range] = (acc[range] || 0) + 1
             return acc
         }, {} as Record<string, number>)
@@ -237,19 +240,19 @@ function calculateRevenueByPeriod(
     startDate: Date,
     endDate: Date
 ) {
-    const intervals = periodType === 'day' 
+    const intervals = periodType === 'day'
         ? eachDayOfInterval({ start: startDate, end: endDate })
         : periodType === 'week'
-        ? eachWeekOfInterval({ start: startDate, end: endDate })
-        : eachMonthOfInterval({ start: startDate, end: endDate })
+            ? eachWeekOfInterval({ start: startDate, end: endDate })
+            : eachMonthOfInterval({ start: startDate, end: endDate })
 
     return intervals.map(interval => {
         const periodStart = interval
-        const periodEnd = periodType === 'day' 
+        const periodEnd = periodType === 'day'
             ? interval
             : periodType === 'week'
-            ? new Date(interval.getTime() + 6 * 24 * 60 * 60 * 1000)
-            : endOfMonth(interval)
+                ? new Date(interval.getTime() + 6 * 24 * 60 * 60 * 1000)
+                : endOfMonth(interval)
 
         const periodOrders = orders.filter(order => {
             const orderDate = new Date(order.orderDate)

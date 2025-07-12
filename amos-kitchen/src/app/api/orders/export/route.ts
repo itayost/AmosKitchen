@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     if (dateRange !== 'all') {
       const now = new Date()
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-      
+
       switch (dateRange) {
         case 'today':
           where.deliveryDate = {
@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
         dishName: item.dish.name,
         quantity: item.quantity,
         price: item.price,
-        total: item.quantity * item.price,
+        total: item.quantity * Number(item.price),
         notes: item.notes || ''
       })),
       notes: order.notes || '',

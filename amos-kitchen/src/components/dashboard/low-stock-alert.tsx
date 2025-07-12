@@ -35,12 +35,12 @@ export function LowStockAlert({ ingredients }: LowStockAlertProps) {
     const lowItems = ingredients.filter(i => i.currentStock > 0)
 
     return (
-        <Alert variant="warning" className="border-orange-200 bg-orange-50">
+        <Alert variant="destructive" className="border-orange-200 bg-orange-50">
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>התראת מלאי נמוך</AlertTitle>
             <AlertDescription className="mt-3 space-y-3">
                 <p>
-                    {ingredients.length} רכיבים במלאי נמוך או חסר. 
+                    {ingredients.length} רכיבים במלאי נמוך או חסר.
                     יש לבצע הזמנה בהקדם.
                 </p>
 
@@ -62,7 +62,7 @@ export function LowStockAlert({ ingredients }: LowStockAlertProps) {
                         <p className="font-medium">רכיבים במלאי נמוך:</p>
                         <div className="flex flex-wrap gap-2">
                             {lowItems.map(item => (
-                                <Badge key={item.id} variant="warning">
+                                <Badge key={item.id} variant="secondary">
                                     {item.name} - נותרו {item.currentStock} {getUnitLabel(item.unit)}
                                 </Badge>
                             ))}

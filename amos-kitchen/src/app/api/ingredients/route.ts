@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
+import { IngredientCategory } from '@prisma/client'
 
 // Validation schema for ingredient creation
 const ingredientSchema = z.object({
@@ -48,13 +49,13 @@ export async function GET(request: NextRequest) {
         const category = searchParams.get('category')
 
         const where = {
+            ...(category && { category: category as IngredientCategory }),
             ...(search && {
                 OR: [
                     { name: { contains: search, mode: 'insensitive' as const } },
                     { supplier: { contains: search, mode: 'insensitive' as const } }
                 ]
-            }),
-            ...(category && { category })
+            })
         }
 
         const ingredients = await prisma.ingredient.findMany({
@@ -132,9 +133,7 @@ export async function POST(request: NextRequest) {
                 unit: mappedData.unit,  // Using 'unit' field
                 category: mappedData.category,
                 minStock: mappedData.minStock,
-                currentStock: mappedData.currentStock,
-                costPerUnit: mappedData.costPerUnit,
-                supplier: mappedData.supplier
+                currentStock: mappedData.currentStock
             },
             include: {
                 dishIngredients: {

@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
+import { OrderStatus } from '@prisma/client'
 
 // Validation schema for updating order
 const updateOrderSchema = z.object({
@@ -216,7 +217,7 @@ export async function PATCH(
         const order = await prisma.order.update({
             where: { id: params.id },
             data: {
-                status: mapStatusToPrisma(status),
+                status: mapStatusToPrisma(status) as OrderStatus,
                 updatedAt: new Date()
             }
         })

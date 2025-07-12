@@ -53,20 +53,11 @@ export function CustomerList({ customers, onEdit, onDelete }: CustomerListProps)
         }).format(amount)
     }
 
-    const getCustomerStatus = (orderCount: number, lastOrderDate?: Date) => {
-        if (!lastOrderDate) return { label: 'לקוח חדש', variant: 'default' as const }
-
-        const daysSinceLastOrder = Math.floor(
-            (new Date().getTime() - new Date(lastOrderDate).getTime()) / (1000 * 60 * 60 * 24)
-        )
-
-        if (daysSinceLastOrder < 30) {
-            return { label: 'פעיל', variant: 'success' as const }
-        } else if (daysSinceLastOrder < 90) {
-            return { label: 'לא פעיל', variant: 'warning' as const }
-        } else {
-            return { label: 'רדום', variant: 'secondary' as const }
-        }
+    const getCustomerStatus = (orderCount: number, lastOrderDate?: Date | null) => {
+        if (orderCount === 0) return { label: 'לקוח חדש', variant: 'secondary' as const }
+        if (orderCount > 5) return { label: 'לקוח מועדף', variant: 'default' as const }
+        if (orderCount > 2) return { label: 'לקוח פעיל', variant: 'default' as const }
+        return { label: 'לקוח רגיל', variant: 'secondary' as const }
     }
 
     const handleSort = (field: SortField) => {

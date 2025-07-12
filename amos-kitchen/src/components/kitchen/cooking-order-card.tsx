@@ -33,8 +33,8 @@ interface CookingOrderCardProps {
   onSelect: (selected: boolean) => void;
 }
 
-export function CookingOrderCard({ 
-  order, 
+export function CookingOrderCard({
+  order,
   onStatusChange,
   isSelected,
   onSelect
@@ -49,8 +49,8 @@ export function CookingOrderCard({
   };
 
   const toggleItemCheck = (itemId: string) => {
-    setCheckedItems(prev => 
-      prev.includes(itemId) 
+    setCheckedItems(prev =>
+      prev.includes(itemId)
         ? prev.filter(id => id !== itemId)
         : [...prev, itemId]
     );
@@ -59,33 +59,33 @@ export function CookingOrderCard({
   const allItemsChecked = checkedItems.length === order.orderItems.length;
 
   const statusConfig = {
-    NEW: { 
-      color: 'bg-gray-50 border-gray-300', 
+    NEW: {
+      color: 'bg-gray-50 border-gray-300',
       badge: 'default',
       icon: <Package className="h-4 w-4" />
     },
-    CONFIRMED: { 
-      color: 'bg-blue-50 border-blue-300', 
+    CONFIRMED: {
+      color: 'bg-blue-50 border-blue-300',
       badge: 'default',
       icon: <Package className="h-4 w-4" />
     },
-    PREPARING: { 
-      color: 'bg-yellow-50 border-yellow-300', 
+    PREPARING: {
+      color: 'bg-yellow-50 border-yellow-300',
       badge: 'secondary',
       icon: <Clock className="h-4 w-4" />
     },
-    READY: { 
-      color: 'bg-green-50 border-green-300', 
+    READY: {
+      color: 'bg-green-50 border-green-300',
       badge: 'default',
       icon: <CheckCircle2 className="h-4 w-4" />
     },
-    DELIVERED: { 
-      color: 'bg-purple-50 border-purple-300', 
+    DELIVERED: {
+      color: 'bg-purple-50 border-purple-300',
       badge: 'default',
       icon: <CheckCircle2 className="h-4 w-4" />
     },
-    CANCELLED: { 
-      color: 'bg-red-50 border-red-300', 
+    CANCELLED: {
+      color: 'bg-red-50 border-red-300',
       badge: 'destructive',
       icon: <AlertCircle className="h-4 w-4" />
     },
@@ -118,7 +118,7 @@ export function CookingOrderCard({
               {order.status}
             </Badge>
           </div>
-          
+
           <div className="space-y-1 text-sm">
             <p className="font-medium">{order.customer.name}</p>
             <p className="flex items-center gap-1 text-muted-foreground">
@@ -181,7 +181,7 @@ export function CookingOrderCard({
         {/* Action Buttons */}
         <div className="flex gap-2 pt-2">
           {order.status === 'NEW' && (
-            <Button 
+            <Button
               onClick={() => handleStatusChange('PREPARING')}
               disabled={isUpdating}
               className="flex-1"
@@ -191,7 +191,7 @@ export function CookingOrderCard({
             </Button>
           )}
           {order.status === 'CONFIRMED' && (
-            <Button 
+            <Button
               onClick={() => handleStatusChange('PREPARING')}
               disabled={isUpdating}
               className="flex-1"
@@ -201,7 +201,7 @@ export function CookingOrderCard({
             </Button>
           )}
           {order.status === 'PREPARING' && (
-            <Button 
+            <Button
               onClick={() => handleStatusChange('READY')}
               disabled={isUpdating || !allItemsChecked}
               variant={allItemsChecked ? "default" : "outline"}
@@ -212,7 +212,7 @@ export function CookingOrderCard({
             </Button>
           )}
           {order.status === 'READY' && (
-            <Button 
+            <Button
               onClick={() => handleStatusChange('DELIVERED')}
               disabled={isUpdating}
               variant="outline"
@@ -227,7 +227,7 @@ export function CookingOrderCard({
         {/* Total */}
         <div className="pt-2 border-t text-right">
           <p className="text-sm font-medium">
-            Total: ${order.totalAmount.toFixed}
+            Total: ${order.totalAmount.toFixed(2)}
           </p>
         </div>
       </div>

@@ -11,11 +11,10 @@ export const metadata = {
 };
 
 export default async function KitchenPage() {
-  let todayOrders: Order[] = [];
+  let todayOrders: Awaited<ReturnType<typeof getOrdersForToday>> = [];
 
   try {
-    let todayOrders: Awaited<ReturnType<typeof getOrdersForToday>> = [];
-    // Ensure todayOrders is an array
+    todayOrders = await getOrdersForToday();
     if (!Array.isArray(todayOrders)) {
       console.error('getOrdersForToday did not return an array:', todayOrders);
       todayOrders = [];

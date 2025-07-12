@@ -40,31 +40,9 @@ export default function EditIngredientPage() {
         }
     }
 
-    const handleSave = async (ingredientData: Partial<Ingredient>) => {
-        try {
-            const response = await fetch(`/api/ingredients/${ingredientId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(ingredientData)
-            })
-
-            if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.error || 'Failed to update ingredient')
-            }
-
-            toast({
-                title: 'הצלחה',
-                description: 'הרכיב עודכן בהצלחה'
-            })
-            router.push('/ingredients')
-        } catch (error) {
-            toast({
-                title: 'שגיאה',
-                description: error instanceof Error ? error.message : 'לא ניתן לעדכן את הרכיב',
-                variant: 'destructive'
-            })
-        }
+    const handleSave = async () => {
+        // The dialog handles the save internally, so just navigate on success
+        router.push('/ingredients')
     }
 
     if (loading) return <LoadingSpinner />

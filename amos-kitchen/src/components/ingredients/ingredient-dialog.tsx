@@ -28,7 +28,7 @@ interface IngredientDialogProps {
     open: boolean
     onOpenChange: (open: boolean) => void
     ingredient: Ingredient | null
-    onSave: () => void
+    onSave: () => void  // Keep this as is - it's just a success callback
 }
 
 interface FormData {
@@ -36,7 +36,6 @@ interface FormData {
     unit: string
     currentStock: string
     minStock: string
-    supplier: string
     category: string
 }
 
@@ -74,7 +73,6 @@ export function IngredientDialog({ open, onOpenChange, ingredient, onSave }: Ing
         unit: '',
         currentStock: '',
         minStock: '',
-        supplier: '',
         category: ''
     })
     const [errors, setErrors] = useState<FormErrors>({})
@@ -86,8 +84,7 @@ export function IngredientDialog({ open, onOpenChange, ingredient, onSave }: Ing
                 unit: ingredient.unit || '',
                 currentStock: ingredient.currentStock?.toString() || '',
                 minStock: ingredient.minStock?.toString() || '',
-                supplier: ingredient.supplier || '',
-                category: ingredient.category || ''
+                category: ingredient.category || 'vegetables'  // Default to vegetables if missing
             })
         } else {
             setFormData({
@@ -95,7 +92,6 @@ export function IngredientDialog({ open, onOpenChange, ingredient, onSave }: Ing
                 unit: 'kg',
                 currentStock: '',
                 minStock: '',
-                supplier: '',
                 category: 'vegetables'
             })
         }
@@ -131,8 +127,7 @@ export function IngredientDialog({ open, onOpenChange, ingredient, onSave }: Ing
                 unit: formData.unit,
                 category: formData.category,
                 currentStock: formData.currentStock ? parseFloat(formData.currentStock) : null,
-                minStock: formData.minStock ? parseFloat(formData.minStock) : null,
-                supplier: formData.supplier.trim() || null
+                minStock: formData.minStock ? parseFloat(formData.minStock) : null
             }
 
             const url = ingredient
@@ -265,16 +260,6 @@ export function IngredientDialog({ open, onOpenChange, ingredient, onSave }: Ing
                                 step="0.1"
                             />
                         </div>
-                    </div>
-
-                    <div className="grid gap-2">
-                        <Label htmlFor="supplier">ספק</Label>
-                        <Input
-                            id="supplier"
-                            value={formData.supplier}
-                            onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
-                            placeholder="שם הספק"
-                        />
                     </div>
                 </div>
 

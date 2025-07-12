@@ -13,6 +13,7 @@ import { BatchCookingView } from './batch-cooking-view';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RefreshCw, Search, Filter } from 'lucide-react';
+import { Decimal } from '@prisma/client/runtime/library';
 import { useToast } from '@/lib/hooks/use-toast';
 
 interface OrderWithDetails {
@@ -23,22 +24,27 @@ interface OrderWithDetails {
     id: string
     name: string
     phone: string
-    email?: string | null  // Add ? to make it optional
-    address?: string | null  // Add ? to make it optional
+    email?: string | null
+    address: string | null
+    notes: string | null
   }
   createdAt: Date
+  updatedAt: Date
+  orderDate: Date
   deliveryDate: Date
-  deliveryAddress?: string | null
-  status: string // Accept any string
-  totalAmount: any // Accept Prisma Decimal
-  notes?: string | null
+  deliveryAddress: string | null
+  status: OrderStatus
+  totalAmount: Decimal  // Change from any to Decimal
+  notes: string | null
   orderItems: {
     id: string
     quantity: number
+    price: Decimal  // Change from number to Decimal
+    notes: string | null
     dish: {
       id: string
       name: string
-      category: string
+      category: string | null  // Change back to allow null
     }
   }[]
 }

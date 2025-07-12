@@ -13,6 +13,26 @@ import {
 } from "@/components/ui/collapsible";
 import { cn } from '@/lib/utils';
 
+interface DishAggregation {
+  id: string
+  name: string
+  category: string
+  totalQuantity: number
+  orderCount: number
+  orders: {
+    orderId: string
+    orderNumber: string
+    customerName: string
+    quantity: number
+    notes?: string
+  }[]
+}
+
+interface BatchCookingViewProps {
+  dishes: DishAggregation[]
+  orders: any[] // or define proper Order type
+}
+
 export function BatchCookingView({ dishes, orders }: BatchCookingViewProps) {
   const [expandedDishes, setExpandedDishes] = useState<string[]>([]);
 

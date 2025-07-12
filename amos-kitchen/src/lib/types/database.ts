@@ -59,7 +59,7 @@ export interface Order {
     id: string
     orderNumber: string
     customerId: string
-    customer: Customer
+    orderDate: Date
     deliveryDate: Date
     deliveryAddress?: string | null
     status: OrderStatus
@@ -84,6 +84,7 @@ export interface Ingredient {
     id: string
     name: string
     unit: string
+    category: string  // Add this if missing
     currentStock?: number | null
     minStock?: number | null
     createdAt: Date

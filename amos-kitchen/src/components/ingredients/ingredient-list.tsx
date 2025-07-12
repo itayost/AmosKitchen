@@ -52,15 +52,15 @@ export function IngredientList({ ingredients, onEdit, onDelete }: IngredientList
 
     const getStockStatus = (current: number | null, min: number | null) => {
         if (current === null || min === null) return null
-        
+
         if (current === 0) {
             return { label: 'אזל', variant: 'destructive' as const, icon: AlertTriangle }
         } else if (current < min) {
-            return { label: 'מלאי נמוך', variant: 'warning' as const, icon: AlertTriangle }
+            return { label: 'מלאי נמוך', variant: 'destructive' as const, icon: AlertTriangle }
         } else if (current < min * 1.5) {
             return { label: 'מלאי בינוני', variant: 'secondary' as const, icon: Package }
         } else {
-            return { label: 'מלאי תקין', variant: 'success' as const, icon: Package }
+            return { label: 'מלאי תקין', variant: 'default' as const, icon: Package }
         }
     }
 
@@ -92,8 +92,11 @@ export function IngredientList({ ingredients, onEdit, onDelete }: IngredientList
                 </TableHeader>
                 <TableBody>
                     {ingredients.map((ingredient) => {
-                        const stockStatus = getStockStatus(ingredient.currentStock, ingredient.minStock)
-                        
+                        const stockStatus = getStockStatus(
+                            ingredient.currentStock ?? null,
+                            ingredient.minStock ?? null
+                        )
+
                         return (
                             <TableRow key={ingredient.id}>
                                 <TableCell className="font-medium">
@@ -118,16 +121,12 @@ export function IngredientList({ ingredients, onEdit, onDelete }: IngredientList
                                 <TableCell className="text-center">
                                     {ingredient.minStock ?? '-'}
                                 </TableCell>
-                                <TableCell>{ingredient.supplier || '-'}</TableCell>
-                                <TableCell className="text-right">
-                                    {formatCurrency(ingredient.costPerUnit)}
-                                </TableCell>
                                 <TableCell className="text-center">
                                     {ingredient.dishCount > 0 ? (
                                         <div className="text-sm">
                                             <span className="font-medium">{ingredient.dishCount}</span>
                                             <div className="text-xs text-muted-foreground">
-                                                {ingredient.dishes.slice(0, 2).map(item => 
+                                                {ingredient.dishes.slice(0, 2).map(item =>
                                                     item.dish.name
                                                 ).join(', ')}
                                                 {ingredient.dishes.length > 2 && ' ...'}

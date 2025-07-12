@@ -94,38 +94,10 @@ export default function IngredientsPage() {
         setDialogOpen(true)
     }
 
-    const handleSave = async (ingredientData: Partial<Ingredient>) => {
-        try {
-            const url = selectedIngredient
-                ? `/api/ingredients/${selectedIngredient.id}`
-                : '/api/ingredients'
-
-            const response = await fetch(url, {
-                method: selectedIngredient ? 'PUT' : 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(ingredientData)
-            })
-
-            if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.error || 'Failed to save ingredient')
-            }
-
-            toast({
-                title: 'הצלחה',
-                description: selectedIngredient ? 'הרכיב עודכן בהצלחה' : 'הרכיב נוסף בהצלחה'
-            })
-
-            setDialogOpen(false)
-            setSelectedIngredient(null)
-            fetchIngredients()
-        } catch (error) {
-            toast({
-                title: 'שגיאה',
-                description: error instanceof Error ? error.message : 'לא ניתן לשמור את הרכיב',
-                variant: 'destructive'
-            })
-        }
+    const handleSave = async () => {
+        // Dialog handles the API call, just refresh the list
+        fetchIngredients()
+        setDialogOpen(false)
     }
 
     const stats = {

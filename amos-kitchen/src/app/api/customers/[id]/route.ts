@@ -7,6 +7,7 @@ import { z } from 'zod'
 export const dynamic = 'force-dynamic'
 
 // Validation schema for updating customer
+// Validation schema for updating customer
 const updateCustomerSchema = z.object({
     name: z.string().min(2).optional(),
     phone: z.string().min(9).optional(),

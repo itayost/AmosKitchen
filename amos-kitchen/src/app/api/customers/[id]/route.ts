@@ -3,19 +3,24 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
 
+// Force this route to be dynamically rendered
+export const dynamic = 'force-dynamic'
+
 // Validation schema for updating customer
 const updateCustomerSchema = z.object({
-    name: z.string().min(2).optional(),
-    phone: z.string().min(9).optional(),
-    email: z.string().email().nullable().optional(),
-    address: z.string().nullable().optional(),
-    notes: z.string().nullable().optional()
-})
+    // Validation schema for updating customer
+    const updateCustomerSchema = z.object({
+        name: z.string().min(2).optional(),
+        phone: z.string().min(9).optional(),
+        email: z.string().email().nullable().optional(),
+        address: z.string().nullable().optional(),
+        notes: z.string().nullable().optional()
+    })
 
 export async function GET(
-    request: NextRequest,
-    { params }: { params: { id: string } }
-) {
+        request: NextRequest,
+        { params }: { params: { id: string } }
+    ) {
     try {
         const customer = await prisma.customer.findUnique({
             where: { id: params.id },
@@ -35,7 +40,7 @@ export async function GET(
             }
         })
 
-        if (!customer) {
+        if(!customer) {
             return NextResponse.json(
                 { error: 'Customer not found' },
                 { status: 404 }
@@ -56,7 +61,7 @@ export async function GET(
         }
 
         return NextResponse.json(customerWithStats)
-    } catch (error) {
+    } catch(error) {
         console.error('Error fetching customer:', error)
         return NextResponse.json(
             { error: 'Failed to fetch customer' },

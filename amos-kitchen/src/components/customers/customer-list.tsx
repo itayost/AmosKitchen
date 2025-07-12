@@ -122,7 +122,7 @@ export function CustomerList({ customers, onEdit, onDelete }: CustomerListProps)
                             <SortButton field="orderCount">הזמנות</SortButton>
                         </TableHead>
                         <TableHead className="text-right">
-                            <SortButton field="totalSpent">סה"כ</SortButton>
+                            <SortButton field="totalSpent">סה&quot;כ</SortButton>
                         </TableHead>
                         <TableHead className="text-right hidden lg:table-cell">
                             <SortButton field="lastOrderDate">הזמנה אחרונה</SortButton>
@@ -163,34 +163,30 @@ export function CustomerList({ customers, onEdit, onDelete }: CustomerListProps)
                                         : '-'
                                     }
                                 </TableCell>
-                                <TableCell>
+                                <TableCell onClick={(e) => e.stopPropagation()}>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={(e) => e.stopPropagation()}
-                                            >
+                                            <Button variant="ghost" className="h-8 w-8 p-0">
                                                 <MoreVertical className="h-4 w-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
                                             <DropdownMenuLabel>פעולות</DropdownMenuLabel>
+                                            <DropdownMenuSeparator />
                                             <DropdownMenuItem onClick={() => handleViewProfile(customer.id)}>
-                                                <Eye className="h-4 w-4 ml-2" />
-                                                צפייה בפרופיל
+                                                <Eye className="ml-2 h-4 w-4" />
+                                                הצג פרופיל
                                             </DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => onEdit(customer)}>
-                                                <Edit className="h-4 w-4 ml-2" />
-                                                עריכה מהירה
+                                                <Edit className="ml-2 h-4 w-4" />
+                                                ערוך
                                             </DropdownMenuItem>
-                                            <DropdownMenuSeparator />
                                             <DropdownMenuItem
                                                 onClick={() => onDelete(customer.id)}
-                                                className="text-destructive"
+                                                className="text-red-600"
                                             >
-                                                <Trash2 className="h-4 w-4 ml-2" />
-                                                מחיקה
+                                                <Trash2 className="ml-2 h-4 w-4" />
+                                                מחק
                                             </DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>

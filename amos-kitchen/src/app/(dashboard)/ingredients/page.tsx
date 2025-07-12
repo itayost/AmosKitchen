@@ -95,49 +95,44 @@ export default function IngredientsPage() {
     }
 
     const handleSave = async () => {
-        // Dialog handles the API call, just refresh the list
-        fetchIngredients()
+        await fetchIngredients()
         setDialogOpen(false)
+        setSelectedIngredient(null)
     }
 
+    if (loading) return <LoadingSpinner />
+
+    // Calculate statistics
     const stats = {
         total: ingredients.length,
-        lowStock: ingredients.filter(i =>
-            i.currentStock && i.minStock && i.currentStock < i.minStock
-        ).length,
-        mostUsed: ingredients.filter(i => i.dishCount > 5).length,
-        unused: ingredients.filter(i => i.dishCount === 0).length
-    }
-
-    if (loading && ingredients.length === 0) {
-        return <LoadingSpinner />
+        lowStock: ingredients.filter(ing => {
+            if (!ing.currentStock || !ing.minStock) return false
+            return Number(ing.currentStock) < Number(ing.minStock)
+        }).length,
+        mostUsed: ingredients.filter(ing => ing.dishCount > 5).length,
+        unused: ingredients.filter(ing => ing.dishCount === 0).length
     }
 
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold">ניהול רכיבים</h1>
-                    <p className="text-muted-foreground">
-                        נהל את מלאי הרכיבים למנות
-                    </p>
+                    <h1 className="text-3xl font-bold tracking-tight">רכיבים</h1>
+                    <p className="text-muted-foreground">ניהול רכיבים וחומרי גלם</p>
                 </div>
-                <Button onClick={() => {
-                    setSelectedIngredient(null)
-                    setDialogOpen(true)
-                }}>
-                    <Plus className="ml-2 h-4 w-4" />
+                <Button onClick={() => setDialogOpen(true)}>
+                    <Plus className="h-4 w-4 ml-2" />
                     הוסף רכיב
                 </Button>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+            {/* Statistics */}
+            <div className="grid gap-4 md:grid-cols-4">
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-muted-foreground">
-                            סה"כ רכיבים
+                            סה&quot;כ רכיבים
                         </CardTitle>
                     </CardHeader>
                     <CardContent>

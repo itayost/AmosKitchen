@@ -16,8 +16,8 @@ interface DashboardStatsProps {
 }
 
 export function DashboardStats({ weekStats }: DashboardStatsProps) {
-    const completionRate = weekStats.orders > 0 
-        ? (weekStats.completedOrders / weekStats.orders) * 100 
+    const completionRate = weekStats.orders > 0
+        ? (weekStats.completedOrders / weekStats.orders) * 100
         : 0
 
     const orderStatuses = [
@@ -86,14 +86,14 @@ export function DashboardStats({ weekStats }: DashboardStatsProps) {
                         <div className="flex items-center justify-between text-sm">
                             <span>ממוצע הכנסה להזמנה</span>
                             <span className="font-medium">
-                                ₪{weekStats.orders > 0 
+                                ₪{weekStats.orders > 0
                                     ? (weekStats.revenue / weekStats.orders).toFixed(0)
                                     : '0'
                                 }
                             </span>
                         </div>
                         <div className="flex items-center justify-between text-sm">
-                            <span>סה"כ הכנסות השבוע</span>
+                            <span>סה&quot;כ הכנסות השבוע</span>
                             <span className="font-medium">
                                 ₪{weekStats.revenue.toFixed(0)}
                             </span>

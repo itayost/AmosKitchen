@@ -78,7 +78,7 @@ export function OrderForm({ customers = [], dishes = [] }: OrderFormProps) {
         today.setHours(0, 0, 0, 0)
 
         // Start from today
-        let current = new Date(today)
+        const current = new Date(today)  // Changed from 'let' to 'const'
 
         while (fridays.length < count) {
             // If current day is Friday and it's in the future or today
@@ -189,119 +189,89 @@ export function OrderForm({ customers = [], dishes = [] }: OrderFormProps) {
                     </Card>
                 )}
 
+                {/* Customer Selection */}
                 <Card>
                     <CardHeader>
-                        <CardTitle>פרטי הזמנה</CardTitle>
+                        <CardTitle>פרטי לקוח</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        {/* Customer Selection - Simple Dropdown */}
                         <FormField
                             control={form.control}
                             name="customerId"
                             render={({ field }) => (
-                                <FormItem className="flex flex-col">
-                                    <FormLabel>לקוח</FormLabel>
-                                    <div className="relative">
-                                        <Input
-                                            type="text"
-                                            placeholder="חפש לקוח לפי שם או טלפון..."
-                                            value={customerSearch}
-                                            onChange={(e) => setCustomerSearch(e.target.value)}
-                                            onFocus={() => setCustomerDropdownOpen(true)}
-                                            className="w-full"
-                                        />
-
-                                        {/* Selected Customer Display */}
-                                        {selectedCustomer && customerSearch === selectedCustomer.name && (
-                                            <div className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                                                {selectedCustomer.phone}
-                                            </div>
-                                        )}
-
-                                        {/* Dropdown */}
-                                        {customerDropdownOpen && (
-                                            <Card className="absolute z-50 w-full mt-1 max-h-60 overflow-auto shadow-lg">
-                                                <CardContent className="p-0">
-                                                    {filteredCustomers.length === 0 ? (
-                                                        <div className="p-4 text-center text-muted-foreground">
-                                                            לא נמצאו לקוחות תואמים
+                                <FormItem>
+                                    <FormLabel>בחר לקוח</FormLabel>
+                                    <FormControl>
+                                        <div className="relative">
+                                            <Input
+                                                placeholder="חפש לפי שם, טלפון או אימייל..."
+                                                value={customerSearch}
+                                                onChange={(e) => {
+                                                    setCustomerSearch(e.target.value)
+                                                    setCustomerDropdownOpen(true)
+                                                }}
+                                                onFocus={() => setCustomerDropdownOpen(true)}
+                                            />
+                                            {customerDropdownOpen && filteredCustomers.length > 0 && (
+                                                <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
+                                                    {filteredCustomers.map(customer => (
+                                                        <div
+                                                            key={customer.id}
+                                                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                                            onClick={() => {
+                                                                field.onChange(customer.id)
+                                                                setSelectedCustomer(customer)
+                                                                setCustomerSearch(customer.name)
+                                                                setCustomerDropdownOpen(false)
+                                                                if (customer.address) {
+                                                                    form.setValue('deliveryAddress', customer.address)
+                                                                }
+                                                            }}
+                                                        >
+                                                            <div className="font-medium">{customer.name}</div>
+                                                            <div className="text-sm text-gray-600">{customer.phone}</div>
+                                                            {customer.address && (
+                                                                <div className="text-sm text-gray-500">{customer.address}</div>
+                                                            )}
                                                         </div>
-                                                    ) : (
-                                                        filteredCustomers.map((customer) => (
-                                                            <div
-                                                                key={customer.id}
-                                                                className="p-3 hover:bg-accent cursor-pointer border-b last:border-0 transition-colors"
-                                                                onClick={() => {
-                                                                    field.onChange(customer.id)
-                                                                    setSelectedCustomer(customer)
-                                                                    setCustomerSearch(customer.name)
-                                                                    if (customer.address) {
-                                                                        form.setValue('deliveryAddress', customer.address)
-                                                                    }
-                                                                    setCustomerDropdownOpen(false)
-                                                                }}
-                                                            >
-                                                                <div className="font-medium">{customer.name}</div>
-                                                                <div className="text-sm text-muted-foreground">{customer.phone}</div>
-                                                                {customer.address && (
-                                                                    <div className="text-xs text-muted-foreground mt-1">{customer.address}</div>
-                                                                )}
-                                                            </div>
-                                                        ))
-                                                    )}
-                                                </CardContent>
-                                            </Card>
-                                        )}
-                                    </div>
-
-                                    {/* Click outside to close */}
-                                    {customerDropdownOpen && (
-                                        <div
-                                            className="fixed inset-0 z-40"
-                                            onClick={() => setCustomerDropdownOpen(false)}
-                                        />
-                                    )}
-
-                                    <FormDescription>
-                                        חפש לקוח לפי שם או מספר טלפון
-                                    </FormDescription>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}
                         />
 
-                        {/* Delivery Date - Simple Friday Selector */}
                         <FormField
                             control={form.control}
                             name="deliveryDate"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>תאריך משלוח</FormLabel>
+                                    <FormLabel>תאריך משלוח (ימי שישי בלבד)</FormLabel>
                                     <FormControl>
                                         <select
-                                            value={field.value?.toISOString() || ''}
-                                            onChange={(e) => {
-                                                field.onChange(e.target.value ? new Date(e.target.value) : undefined)
-                                            }}
-                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                            className="w-full h-10 px-3 rounded-md border"
+                                            value={field.value ? field.value.toISOString() : ''}
+                                            onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : undefined)}
                                         >
-                                            <option value="">בחר תאריך משלוח...</option>
-                                            {getNextFridays(8).map((friday) => (
+                                            <option value="">בחר תאריך משלוח</option>
+                                            {getNextFridays().map(friday => (
                                                 <option key={friday.toISOString()} value={friday.toISOString()}>
-                                                    {format(friday, 'EEEE, d בMMMM yyyy', { locale: he })}
+                                                    {format(friday, 'EEEE, dd בMMMM yyyy', { locale: he })}
                                                 </option>
                                             ))}
                                         </select>
                                     </FormControl>
                                     <FormDescription>
-                                        משלוחים מתבצעים בימי שישי בלבד
+                                        המשלוחים מתבצעים בימי שישי בלבד
                                     </FormDescription>
                                     <FormMessage />
                                 </FormItem>
                             )}
                         />
 
-                        {/* Delivery Address */}
                         <FormField
                             control={form.control}
                             name="deliveryAddress"
@@ -309,29 +279,7 @@ export function OrderForm({ customers = [], dishes = [] }: OrderFormProps) {
                                 <FormItem>
                                     <FormLabel>כתובת למשלוח</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="רחוב, מספר בית, עיר" {...field} />
-                                    </FormControl>
-                                    <FormDescription>
-                                        השאר ריק אם הכתובת זהה לכתובת הלקוח
-                                    </FormDescription>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-
-                        {/* Order Notes */}
-                        <FormField
-                            control={form.control}
-                            name="notes"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>הערות להזמנה</FormLabel>
-                                    <FormControl>
-                                        <Textarea
-                                            placeholder="הערות כלליות להזמנה..."
-                                            className="resize-none"
-                                            {...field}
-                                        />
+                                        <Input {...field} placeholder="הכנס כתובת למשלוח" />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -342,149 +290,173 @@ export function OrderForm({ customers = [], dishes = [] }: OrderFormProps) {
 
                 {/* Order Items */}
                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle>פריטי הזמנה</CardTitle>
+                    <CardHeader>
+                        <CardTitle>פרטי הזמנה</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {form.watch('items').map((item, index) => (
+                            <Card key={index} className="p-4">
+                                <div className="grid grid-cols-12 gap-4">
+                                    {/* Dish Selection */}
+                                    <div className="col-span-5">
+                                        <FormField
+                                            control={form.control}
+                                            name={`items.${index}.dishId`}
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>מנה</FormLabel>
+                                                    <FormControl>
+                                                        <select
+                                                            className="w-full h-10 px-3 rounded-md border"
+                                                            {...field}
+                                                        >
+                                                            <option value="">בחר מנה</option>
+                                                            {dishes.filter(d => d.isAvailable).map(dish => (
+                                                                <option key={dish.id} value={dish.id}>
+                                                                    {dish.name} - ₪{dish.price}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+
+                                    {/* Quantity */}
+                                    <div className="col-span-2">
+                                        <FormField
+                                            control={form.control}
+                                            name={`items.${index}.quantity`}
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>כמות</FormLabel>
+                                                    <FormControl>
+                                                        <Input
+                                                            type="number"
+                                                            min="1"
+                                                            {...field}
+                                                            onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                                                        />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+
+                                    {/* Price Display */}
+                                    <div className="col-span-3 flex items-end">
+                                        <div className="w-full">
+                                            <Label>מחיר</Label>
+                                            <div className="flex h-10 items-center rounded-md border bg-muted px-3 text-sm">
+                                                ₪{(() => {
+                                                    const dish = dishes.find(d => d.id === item.dishId)
+                                                    return dish ? (dish.price * item.quantity).toFixed(2) : '0.00'
+                                                })()}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Delete Button */}
+                                    <div className="col-span-2 flex items-end">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="icon"
+                                            onClick={() => removeItem(index)}
+                                            disabled={form.watch('items').length === 1}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                {/* Item Notes */}
+                                <div className="mt-3">
+                                    <FormField
+                                        control={form.control}
+                                        name={`items.${index}.notes`}
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>הערות למנה</FormLabel>
+                                                <FormControl>
+                                                    <Input {...field} placeholder="הערות מיוחדות למנה זו" />
+                                                </FormControl>
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                            </Card>
+                        ))}
+
                         <Button
                             type="button"
                             variant="outline"
-                            size="sm"
                             onClick={addItem}
+                            className="w-full"
                         >
-                            <Plus className="ml-2 h-4 w-4" />
+                            <Plus className="h-4 w-4 ml-2" />
                             הוסף מנה
                         </Button>
+                    </CardContent>
+                </Card>
+
+                {/* Order Notes */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>הערות להזמנה</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="space-y-4">
-                            {form.watch('items').map((item, index) => (
-                                <Card key={index}>
-                                    <CardContent className="pt-4">
-                                        <div className="grid gap-4">
-                                            <div className="grid grid-cols-12 gap-4">
-                                                {/* Dish Selection */}
-                                                <div className="col-span-6">
-                                                    <FormField
-                                                        control={form.control}
-                                                        name={`items.${index}.dishId`}
-                                                        render={({ field }) => (
-                                                            <FormItem>
-                                                                <FormLabel>מנה</FormLabel>
-                                                                <FormControl>
-                                                                    <select
-                                                                        {...field}
-                                                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                                                    >
-                                                                        <option value="">בחר מנה...</option>
-                                                                        {dishes
-                                                                            .filter(dish => dish.isAvailable)
-                                                                            .map((dish) => (
-                                                                                <option key={dish.id} value={dish.id}>
-                                                                                    {dish.name} - ₪{dish.price}
-                                                                                </option>
-                                                                            ))}
-                                                                    </select>
-                                                                </FormControl>
-                                                                <FormMessage />
-                                                            </FormItem>
-                                                        )}
-                                                    />
-                                                </div>
-
-                                                {/* Quantity */}
-                                                <div className="col-span-2">
-                                                    <FormField
-                                                        control={form.control}
-                                                        name={`items.${index}.quantity`}
-                                                        render={({ field }) => (
-                                                            <FormItem>
-                                                                <FormLabel>כמות</FormLabel>
-                                                                <FormControl>
-                                                                    <Input
-                                                                        type="number"
-                                                                        min="1"
-                                                                        {...field}
-                                                                        onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
-                                                                    />
-                                                                </FormControl>
-                                                                <FormMessage />
-                                                            </FormItem>
-                                                        )}
-                                                    />
-                                                </div>
-
-                                                {/* Price Display */}
-                                                <div className="col-span-3 flex items-end">
-                                                    <div className="w-full">
-                                                        <Label>מחיר</Label>
-                                                        <div className="flex h-10 items-center rounded-md border bg-muted px-3 text-sm">
-                                                            ₪{(() => {
-                                                                const dish = dishes.find(d => d.id === item.dishId)
-                                                                return dish ? (dish.price * item.quantity).toFixed(2) : '0.00'
-                                                            })()}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {/* Remove Button */}
-                                                <div className="col-span-1 flex items-end">
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => removeItem(index)}
-                                                        disabled={form.watch('items').length === 1}
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
-                                            </div>
-
-                                            {/* Item Notes */}
-                                            <FormField
-                                                control={form.control}
-                                                name={`items.${index}.notes`}
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>הערות למנה</FormLabel>
-                                                        <FormControl>
-                                                            <Input
-                                                                placeholder="הערות מיוחדות למנה זו..."
-                                                                {...field}
-                                                            />
-                                                        </FormControl>
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
+                        <FormField
+                            control={form.control}
+                            name="notes"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormControl>
+                                        <Textarea
+                                            {...field}
+                                            placeholder="הערות כלליות להזמנה..."
+                                            rows={3}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
                     </CardContent>
-                    <CardFooter className="flex justify-between border-t pt-4">
+                </Card>
+
+                {/* Order Summary */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>סיכום הזמנה</CardTitle>
+                    </CardHeader>
+                    <CardContent>
                         <div className="text-lg font-semibold">
-                            סה״כ להזמנה:
+                            סה&quot;כ להזמנה:
                         </div>
                         <div className="text-2xl font-bold">
                             ₪{orderTotal.toFixed(2)}
                         </div>
+                    </CardContent>
+                    <CardFooter className="flex justify-between">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => router.push('/orders')}
+                        >
+                            ביטול
+                        </Button>
+                        <Button
+                            type="submit"
+                            disabled={isLoading || customers.length === 0}
+                        >
+                            {isLoading ? 'שומר...' : 'צור הזמנה'}
+                        </Button>
                     </CardFooter>
                 </Card>
-
-                {/* Form Actions */}
-                <div className="flex gap-4 justify-end">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => router.push('/orders')}
-                        disabled={isLoading}
-                    >
-                        ביטול
-                    </Button>
-                    <Button type="submit" disabled={isLoading || customers.length === 0}>
-                        {isLoading ? 'יוצר הזמנה...' : 'צור הזמנה'}
-                    </Button>
-                </div>
             </form>
         </Form>
     )

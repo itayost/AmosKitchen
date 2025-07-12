@@ -74,7 +74,7 @@ export default function OrdersPage() {
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-muted-foreground">
-                            סה"כ הזמנות
+                            סה&quot;כ הזמנות
                         </CardTitle>
                     </CardHeader>
                     <CardContent>

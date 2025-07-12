@@ -151,7 +151,7 @@ export default function ShoppingListPage() {
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-muted-foreground">
-                            סה"כ רכיבים
+                            סה&quot;כ רכיבים
                         </CardTitle>
                     </CardHeader>
                     <CardContent>

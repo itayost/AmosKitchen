@@ -75,7 +75,7 @@ export default function DishDetailsPage() {
             const data = await response.json()
             setDish(data)
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'שגיאה בטעינת פרטי המנה')
+            setError(err instanceof Error ? err.message : 'An error occurred')
         } finally {
             setLoading(false)
         }
@@ -86,6 +86,17 @@ export default function DishDetailsPage() {
             style: 'currency',
             currency: 'ILS'
         }).format(price)
+    }
+
+    const getUnitLabel = (unit: string) => {
+        const units: Record<string, string> = {
+            kg: 'ק"ג',
+            gram: 'גרם',
+            liter: 'ליטר',
+            ml: 'מ"ל',
+            unit: 'יחידה'
+        }
+        return units[unit] || unit
     }
 
     const getCategoryLabel = (category: string) => {
@@ -100,11 +111,22 @@ export default function DishDetailsPage() {
     }
 
     if (loading) return <LoadingSpinner />
-    if (error) return <div className="text-center py-8 text-red-500">{error}</div>
-    if (!dish) return <div className="text-center py-8">מנה לא נמצאה</div>
+    if (error || !dish) {
+        return (
+            <div className="p-6">
+                <Card>
+                    <CardContent className="p-6">
+                        <p className="text-center text-muted-foreground">
+                            {error || 'המנה לא נמצאה'}
+                        </p>
+                    </CardContent>
+                </Card>
+            </div>
+        )
+    }
 
     return (
-        <div className="space-y-6">
+        <div className="p-6 space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -118,12 +140,12 @@ export default function DishDetailsPage() {
                     <div>
                         <h1 className="text-3xl font-bold">{dish.name}</h1>
                         <p className="text-muted-foreground">
-                            {getCategoryLabel(dish.category)}
+                            <Badge variant="outline">{getCategoryLabel(dish.category)}</Badge>
                         </p>
                     </div>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" asChild>
+                <div>
+                    <Button asChild>
                         <Link href={`/dishes/${dishId}/edit`}>
                             <Edit className="ml-2 h-4 w-4" />
                             עריכה
@@ -147,7 +169,7 @@ export default function DishDetailsPage() {
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-muted-foreground">
-                            סה"כ הזמנות
+                            סה&quot;כ הזמנות
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -230,8 +252,7 @@ export default function DishDetailsPage() {
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>רכיב</TableHead>
-                                            <TableHead className="text-right">כמות</TableHead>
-                                            <TableHead>יחידה</TableHead>
+                                            <TableHead>כמות</TableHead>
                                             <TableHead>הערות</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -241,11 +262,8 @@ export default function DishDetailsPage() {
                                                 <TableCell className="font-medium">
                                                     {item.ingredient.name}
                                                 </TableCell>
-                                                <TableCell className="text-right">
-                                                    {item.quantity}
-                                                </TableCell>
                                                 <TableCell>
-                                                    {item.ingredient.unit}
+                                                    {item.quantity} {getUnitLabel(item.ingredient.unit)}
                                                 </TableCell>
                                                 <TableCell className="text-muted-foreground">
                                                     {item.notes || '-'}
@@ -255,8 +273,8 @@ export default function DishDetailsPage() {
                                     </TableBody>
                                 </Table>
                             ) : (
-                                <p className="text-center py-8 text-muted-foreground">
-                                    לא הוגדרו רכיבים למנה זו
+                                <p className="text-center text-muted-foreground py-8">
+                                    אין רכיבים מוגדרים למנה זו
                                 </p>
                             )}
                         </CardContent>
@@ -268,7 +286,7 @@ export default function DishDetailsPage() {
                         <CardHeader>
                             <CardTitle>הזמנות אחרונות</CardTitle>
                             <CardDescription>
-                                10 ההזמנות האחרונות שכללו מנה זו
+                                20 ההזמנות האחרונות שכללו מנה זו
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -276,44 +294,39 @@ export default function DishDetailsPage() {
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead>מספר הזמנה</TableHead>
+                                            <TableHead>תאריך</TableHead>
                                             <TableHead>לקוח</TableHead>
-                                            <TableHead className="text-center">כמות</TableHead>
-                                            <TableHead>תאריך משלוח</TableHead>
+                                            <TableHead>כמות</TableHead>
+                                            <TableHead>סטטוס</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {dish.orderItems.map((item) => (
+                                        {dish.orderItems.slice(0, 20).map((item) => (
                                             <TableRow key={item.id}>
                                                 <TableCell>
-                                                    <Link
-                                                        href={`/orders/${item.order.id}`}
-                                                        className="text-blue-600 hover:underline"
-                                                    >
-                                                        {item.order.orderNumber}
-                                                    </Link>
+                                                    {format(new Date(item.createdAt), 'dd/MM/yyyy', { locale: he })}
                                                 </TableCell>
                                                 <TableCell>
                                                     <Link
                                                         href={`/customers/${item.order.customer.id}`}
-                                                        className="text-blue-600 hover:underline"
+                                                        className="text-primary hover:underline"
                                                     >
                                                         {item.order.customer.name}
                                                     </Link>
                                                 </TableCell>
-                                                <TableCell className="text-center">
-                                                    {item.quantity}
-                                                </TableCell>
+                                                <TableCell>{item.quantity}</TableCell>
                                                 <TableCell>
-                                                    {format(new Date(item.order.deliveryDate), 'dd/MM/yyyy', { locale: he })}
+                                                    <Badge variant="outline">
+                                                        {item.order.status}
+                                                    </Badge>
                                                 </TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
                                 </Table>
                             ) : (
-                                <p className="text-center py-8 text-muted-foreground">
-                                    אין הזמנות למנה זו
+                                <p className="text-center text-muted-foreground py-8">
+                                    אין הזמנות עדיין
                                 </p>
                             )}
                         </CardContent>

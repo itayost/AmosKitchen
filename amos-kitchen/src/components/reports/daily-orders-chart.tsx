@@ -48,10 +48,9 @@ export function DailyOrdersChart({ data }: DailyOrdersChartProps) {
                     <div className="mt-2 space-y-1">
                         {payload.map((entry: any, index: number) => (
                             <p key={index} className="text-sm" style={{ color: entry.color }}>
-                                {entry.name}: {entry.name === 'הזמנות' 
-                                    ? entry.value 
-                                    : formatCurrency(entry.value)
-                                }
+                                {entry.name}: {entry.name === 'הזמנות'
+                                    ? entry.value
+                                    : formatCurrency(entry.value)}
                             </p>
                         ))}
                     </div>
@@ -67,73 +66,80 @@ export function DailyOrdersChart({ data }: DailyOrdersChartProps) {
                 <CardTitle>מגמת הזמנות יומית</CardTitle>
             </CardHeader>
             <CardContent>
-                <ResponsiveContainer width="100%" height={350}>
-                    <AreaChart data={chartData}>
-                        <defs>
-                            <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
-                                <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                            </linearGradient>
-                            <linearGradient id="colorOrders" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="hsl(var(--destructive))" stopOpacity={0.8}/>
-                                <stop offset="95%" stopColor="hsl(var(--destructive))" stopOpacity={0}/>
-                            </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis 
-                            dataKey="date" 
-                            tick={{ fontSize: 12 }}
-                        />
-                        <YAxis 
-                            yAxisId="left"
-                            tick={{ fontSize: 12 }}
-                        />
-                        <YAxis 
-                            yAxisId="right" 
-                            orientation="right"
-                            tick={{ fontSize: 12 }}
-                        />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Legend />
-                        <Area
-                            yAxisId="left"
-                            type="monotone"
-                            dataKey="revenue"
-                            name="הכנסות"
-                            stroke="hsl(var(--primary))"
-                            fillOpacity={1}
-                            fill="url(#colorRevenue)"
-                        />
-                        <Area
-                            yAxisId="right"
-                            type="monotone"
-                            dataKey="orders"
-                            name="הזמנות"
-                            stroke="hsl(var(--destructive))"
-                            fillOpacity={1}
-                            fill="url(#colorOrders)"
-                        />
-                    </AreaChart>
-                </ResponsiveContainer>
-
-                <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t">
+                <div className="h-[350px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart
+                            data={chartData}
+                            margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                        >
+                            <defs>
+                                <linearGradient id="colorOrders" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8} />
+                                    <stop offset="95%" stopColor="#8884d8" stopOpacity={0} />
+                                </linearGradient>
+                                <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#82ca9d" stopOpacity={0.8} />
+                                    <stop offset="95%" stopColor="#82ca9d" stopOpacity={0} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis
+                                dataKey="date"
+                                style={{ fontSize: '12px' }}
+                            />
+                            <YAxis
+                                yAxisId="left"
+                                style={{ fontSize: '12px' }}
+                            />
+                            <YAxis
+                                yAxisId="right"
+                                orientation="right"
+                                style={{ fontSize: '12px' }}
+                                tickFormatter={formatCurrency}
+                            />
+                            <Tooltip content={<CustomTooltip />} />
+                            <Legend
+                                wrapperStyle={{ fontSize: '14px' }}
+                                iconType="line"
+                            />
+                            <Area
+                                yAxisId="left"
+                                type="monotone"
+                                dataKey="orders"
+                                stroke="#8884d8"
+                                fillOpacity={1}
+                                fill="url(#colorOrders)"
+                                name="הזמנות"
+                            />
+                            <Area
+                                yAxisId="right"
+                                type="monotone"
+                                dataKey="revenue"
+                                stroke="#82ca9d"
+                                fillOpacity={1}
+                                fill="url(#colorRevenue)"
+                                name="הכנסות"
+                            />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
+                <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
                     <div className="text-center">
-                        <p className="text-sm text-muted-foreground">סה"כ הזמנות</p>
-                        <p className="text-2xl font-bold">
-                            {data.reduce((sum, day) => sum + day.count, 0)}
-                        </p>
+                        <p className="text-muted-foreground">סה&quot;כ הזמנות</p>
+                        <p className="text-2xl font-bold">{data.reduce((sum, day) => sum + day.count, 0)}</p>
                     </div>
                     <div className="text-center">
-                        <p className="text-sm text-muted-foreground">סה"כ הכנסות</p>
+                        <p className="text-muted-foreground">סה&quot;כ הכנסות</p>
                         <p className="text-2xl font-bold">
                             {formatCurrency(data.reduce((sum, day) => sum + day.revenue, 0))}
                         </p>
                     </div>
                     <div className="text-center">
-                        <p className="text-sm text-muted-foreground">ממוצע ליום</p>
+                        <p className="text-muted-foreground">ממוצע להזמנה</p>
                         <p className="text-2xl font-bold">
                             {formatCurrency(
-                                data.reduce((sum, day) => sum + day.revenue, 0) / (data.length || 1)
+                                data.reduce((sum, day) => sum + day.revenue, 0) /
+                                Math.max(data.reduce((sum, day) => sum + day.count, 0), 1)
                             )}
                         </p>
                     </div>

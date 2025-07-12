@@ -82,27 +82,27 @@ export function CustomerGrid({ customers, onEdit, onDelete }: CustomerGridProps)
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
                                         <DropdownMenuLabel>פעולות</DropdownMenuLabel>
+                                        <DropdownMenuSeparator />
                                         <DropdownMenuItem onClick={() => handleViewProfile(customer.id)}>
-                                            <Eye className="h-4 w-4 ml-2" />
-                                            צפייה בפרופיל
+                                            <Eye className="ml-2 h-4 w-4" />
+                                            הצג פרופיל
                                         </DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => onEdit(customer)}>
-                                            <Edit className="h-4 w-4 ml-2" />
-                                            עריכה
+                                            <Edit className="ml-2 h-4 w-4" />
+                                            ערוך
                                         </DropdownMenuItem>
-                                        <DropdownMenuSeparator />
                                         <DropdownMenuItem
                                             onClick={() => onDelete(customer.id)}
-                                            className="text-destructive"
+                                            className="text-red-600"
                                         >
-                                            <Trash2 className="h-4 w-4 ml-2" />
-                                            מחיקה
+                                            <Trash2 className="ml-2 h-4 w-4" />
+                                            מחק
                                         </DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </div>
                         </CardHeader>
-                        <CardContent className="space-y-3">
+                        <CardContent className="pb-4 space-y-3">
                             <div className="space-y-2 text-sm">
                                 {customer.phone && (
                                     <div className="flex items-center gap-2">
@@ -130,7 +130,7 @@ export function CustomerGrid({ customers, onEdit, onDelete }: CustomerGridProps)
                                     <p className="text-sm font-semibold">{customer.orderCount}</p>
                                 </div>
                                 <div>
-                                    <p className="text-xs text-muted-foreground">סה"כ</p>
+                                    <p className="text-xs text-muted-foreground">סה&quot;כ</p>
                                     <p className="text-sm font-semibold">{formatCurrency(customer.totalSpent)}</p>
                                 </div>
                             </div>

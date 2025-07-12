@@ -14,6 +14,7 @@ import {
     Package,
     BarChart3,
     X,
+    ChefHat,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -28,6 +29,12 @@ const navigation = [
         name: "לוח בקרה",
         href: "/dashboard",
         icon: Home,
+    },
+    {
+        name: "מטבח - יום שישי",
+        href: "/kitchen",
+        icon: ChefHat,
+        className: "bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold",
     },
     {
         name: "הזמנות",
@@ -82,7 +89,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                                     variant={isActive ? "secondary" : "ghost"}
                                     className={cn(
                                         "w-full justify-start",
-                                        isActive && "bg-secondary"
+                                        isActive && "bg-secondary",
+                                        item.className
                                     )}
                                     onClick={() => onClose()}
                                 >

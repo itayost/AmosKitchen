@@ -223,3 +223,110 @@
 [dir="rtl"] .rdp-nav {
     flex-direction: row-reverse;
 }
+
+/* Kitchen-specific styles */
+.kitchen-dashboard {
+    min-height: 100vh;
+    background-color: #f9fafb;
+}
+
+/* Print styles for kitchen view */
+@media print {
+    .no-print {
+        display: none !important;
+    }
+
+    .print-break {
+        page-break-after: always;
+    }
+
+    .print-avoid-break {
+        page-break-inside: avoid;
+    }
+
+    /* Optimize layout for printing */
+    .kitchen-dashboard {
+        background: white !important;
+    }
+
+    /* Remove shadows and borders for cleaner print */
+    .print\:no-shadow {
+        box-shadow: none !important;
+    }
+
+    /* Ensure cards don't break across pages */
+    .cooking-order-card {
+        page-break-inside: avoid;
+    }
+
+    /* Hide interactive elements */
+    button,
+    input[type="checkbox"],
+    .tabs-list {
+        display: none !important;
+    }
+
+    /* Show only essential information */
+    .order-status-badge {
+        border: 1px solid currentColor !important;
+    }
+}
+
+/* Animation for loading states */
+@keyframes pulse-light {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
+}
+
+.animate-pulse-light {
+    animation: pulse-light 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Status-specific colors */
+.status-new {
+    --status-color: #6b7280;
+    --status-bg: #f3f4f6;
+    --status-border: #e5e7eb;
+}
+
+.status-confirmed {
+    --status-color: #3b82f6;
+    --status-bg: #eff6ff;
+    --status-border: #dbeafe;
+}
+
+.status-preparing {
+    --status-color: #f59e0b;
+    --status-bg: #fef3c7;
+    --status-border: #fde68a;
+}
+
+.status-ready {
+    --status-color: #10b981;
+    --status-bg: #d1fae5;
+    --status-border: #a7f3d0;
+}
+
+.status-delivered {
+    --status-color: #8b5cf6;
+    --status-bg: #ede9fe;
+    --status-border: #ddd6fe;
+}
+
+/* Responsive adjustments for kitchen tablets */
+@media (max-width: 768px) {
+    .kitchen-order-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .kitchen-header-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}

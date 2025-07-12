@@ -18,7 +18,9 @@ async function getFormData() {
                     phone: true,
                     email: true,
                     address: true,
-                    notes: true
+                    notes: true,
+                    createdAt: true,
+                    updatedAt: true
                 },
                 orderBy: { name: 'asc' }
             }),
@@ -30,7 +32,9 @@ async function getFormData() {
                     description: true,
                     price: true,
                     category: true,
-                    isAvailable: true
+                    isAvailable: true,
+                    createdAt: true,
+                    updatedAt: true
                 },
                 orderBy: { name: 'asc' }
             })
@@ -46,9 +50,11 @@ async function getFormData() {
 
         const dishes = dishesData.map(dish => ({
             ...dish,
-            price: Number(dish.price), // Convert Decimal to number
-            category: dish.category.toLowerCase(), // Ensure lowercase for frontend
-            description: dish.description || ''
+            price: Number(dish.price),
+            category: dish.category?.toLowerCase() || 'main',
+            description: dish.description || '',
+            createdAt: dish.createdAt,
+            updatedAt: dish.updatedAt
         }))
 
         return { customers, dishes }

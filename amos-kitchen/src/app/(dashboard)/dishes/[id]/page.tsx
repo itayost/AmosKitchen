@@ -202,7 +202,7 @@ export default function DishDetailsPage() {
                                 <div className="text-sm font-medium text-muted-foreground mb-1">
                                     סטטוס
                                 </div>
-                                <Badge variant={dish.isAvailable ? 'success' : 'secondary'}>
+                                <Badge variant={dish.isAvailable ? 'default' : 'secondary'}>
                                     {dish.isAvailable ? 'זמין להזמנה' : 'לא זמין'}
                                 </Badge>
                             </div>

@@ -23,13 +23,11 @@ export async function GET(
         const ingredient = await prisma.ingredient.findUnique({
             where: { id: params.id },
             include: {
-                dishes: {
+                dishIngredients: {
                     include: {
                         dish: {
                             include: {
-                                _count: {
-                                    select: { orderItems: true }
-                                }
+                                orderItems: true
                             }
                         }
                     }
@@ -51,7 +49,7 @@ export async function GET(
         return NextResponse.json({
             ...ingredient,
             stats: {
-                dishCount: ingredient.dishes.length,
+                dishCount: ingredient.dishIngredients.length,
                 weeklyUsage,
                 monthlyUsage,
                 lowStock: ingredient.currentStock && ingredient.minStock

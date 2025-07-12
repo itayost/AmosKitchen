@@ -136,7 +136,7 @@ export default function WeeklyReportPage() {
                 <div className="flex gap-2">
                     <DatePicker
                         date={selectedDate}
-                        onDateChange={setSelectedDate}
+                        onDateChange={(date) => date && setSelectedDate(date)}
                     />
                     <Button
                         onClick={handleExport}

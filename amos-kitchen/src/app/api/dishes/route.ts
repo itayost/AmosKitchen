@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
         // Transform data for frontend
         const dishesWithStats = dishes.map(dish => ({
             ...dish,
-            category: dish.category.toLowerCase(),
+            category: dish.category?.toLowerCase() || 'main',
             orderCount: dish._count.orderItems,
             _count: undefined
         }))
@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
         // Transform response for frontend
         const response = {
             ...dish,
-            category: dish.category.toLowerCase()
+            category: dish.category?.toLowerCase() || 'main',
         }
 
         return NextResponse.json(response, { status: 201 })
@@ -208,7 +208,7 @@ export async function PUT(
         // Transform response for frontend
         const response = {
             ...dish,
-            category: dish.category.toLowerCase()
+            category: dish.category?.toLowerCase() || 'main',
         }
 
         return NextResponse.json(response)

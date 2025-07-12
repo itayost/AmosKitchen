@@ -127,7 +127,7 @@ export default function ShoppingListPage() {
                 <div className="flex gap-2">
                     <DatePicker
                         date={selectedDate}
-                        onDateChange={setSelectedDate}
+                        onDateChange={(date) => date && setSelectedDate(date)}
                     />
                     <Button
                         variant="outline"

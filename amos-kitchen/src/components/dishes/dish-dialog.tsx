@@ -35,7 +35,7 @@ interface DishDialogProps {
     onSave: (dish: Partial<Dish> & { ingredients?: DishIngredient[] }) => Promise<void>
 }
 
-interface DishWithIngredients extends Dish {
+export interface DishWithIngredients extends Dish {
     ingredients?: {
         ingredientId: string
         quantity: number

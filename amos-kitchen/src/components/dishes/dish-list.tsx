@@ -105,7 +105,7 @@ export function DishList({ dishes, onEdit, onDelete }: DishListProps) {
                                 {formatPrice(dish.price)}
                             </TableCell>
                             <TableCell className="text-center">
-                                <Badge variant={dish.isAvailable ? 'success' : 'secondary'}>
+                                <Badge variant={dish.isAvailable ? 'default' : 'secondary'}>
                                     {dish.isAvailable ? 'זמין' : 'לא זמין'}
                                 </Badge>
                             </TableCell>

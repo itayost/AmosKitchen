@@ -204,3 +204,38 @@ export async function DELETE(
         )
     }
 }
+
+export async function PATCH(
+    request: NextRequest,
+    { params }: { params: { id: string } }
+) {
+    try {
+        const body = await request.json()
+        const { status } = body
+
+        const order = await prisma.order.update({
+            where: { id: params.id },
+            data: {
+                status: mapStatusToPrisma(status),
+                updatedAt: new Date()
+            }
+        })
+
+        // Add to order history
+        await prisma.orderHistory.create({
+            data: {
+                orderId: params.id,
+                action: `סטטוס שונה ל-${status}`,
+                details: { previousStatus: order.status, newStatus: status }
+            }
+        })
+
+        return NextResponse.json({ success: true })
+    } catch (error) {
+        return NextResponse.json(
+            { error: 'Failed to update order' },
+            { status: 500 }
+        )
+    }
+}
+

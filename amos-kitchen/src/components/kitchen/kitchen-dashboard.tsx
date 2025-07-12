@@ -15,29 +15,33 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RefreshCw, Search, Filter } from 'lucide-react';
 import { useToast } from '@/lib/hooks/use-toast';
 
-type OrderWithDetails = Order & {
+interface OrderWithDetails {
+  id: string
+  orderNumber: string
+  customerId: string
   customer: {
-    id: string;
-    name: string;
-    phone: string;
-    email: string | null;
-    address: string | null;
-    notes: string | null;
-  };
-  orderItems: Array<{
-    id: string;
-    quantity: number;
-    price: number;
-    notes: string | null;
+    id: string
+    name: string
+    phone: string
+    email?: string | null  // Add ? to make it optional
+    address?: string | null  // Add ? to make it optional
+  }
+  createdAt: Date
+  deliveryDate: Date
+  deliveryAddress?: string | null
+  status: string // Accept any string
+  totalAmount: any // Accept Prisma Decimal
+  notes?: string | null
+  orderItems: {
+    id: string
+    quantity: number
     dish: {
-      id: string;
-      name: string;
-      category: DishCategory;
-      price: number;
-      description: string | null;
-    };
-  }>;
-};
+      id: string
+      name: string
+      category: string
+    }
+  }[]
+}
 
 interface KitchenDashboardProps {
   orders: OrderWithDetails[];

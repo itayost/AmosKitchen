@@ -93,9 +93,9 @@ export default function CustomerProfilePage() {
         )
 
         if (daysSinceLastOrder < 30) {
-            return { label: 'לקוח פעיל', variant: 'success' as const }
+            return { label: 'לקוח פעיל', variant: 'default' as const }
         } else if (daysSinceLastOrder < 90) {
-            return { label: 'לקוח לא פעיל', variant: 'warning' as const }
+            return { label: 'לקוח לא פעיל', variant: 'secondary' as const }
         } else {
             return { label: 'לקוח רדום', variant: 'secondary' as const }
         }
@@ -325,20 +325,20 @@ export default function CustomerProfilePage() {
                                                     <div className="flex items-center gap-2">
                                                         <h4 className="font-semibold">הזמנה #{order.orderNumber}</h4>
                                                         <Badge variant={
-                                                            order.status === 'DELIVERED' ? 'success' :
-                                                                order.status === 'CANCELLED' ? 'destructive' :
+                                                            order.status === 'delivered' ? 'default' :
+                                                                order.status === 'cancelled' ? 'destructive' :
                                                                     'default'
                                                         }>
-                                                            {order.status === 'NEW' && 'חדשה'}
-                                                            {order.status === 'CONFIRMED' && 'אושרה'}
-                                                            {order.status === 'PREPARING' && 'בהכנה'}
-                                                            {order.status === 'READY' && 'מוכנה'}
-                                                            {order.status === 'DELIVERED' && 'נמסרה'}
-                                                            {order.status === 'CANCELLED' && 'בוטלה'}
+                                                            {order.status === 'new' && 'חדשה'}
+                                                            {order.status === 'confirmed' && 'אושרה'}
+                                                            {order.status === 'preparing' && 'בהכנה'}
+                                                            {order.status === 'ready' && 'מוכנה'}
+                                                            {order.status === 'delivered' && 'נמסרה'}
+                                                            {order.status === 'cancelled' && 'בוטלה'}
                                                         </Badge>
                                                     </div>
                                                     <p className="text-sm text-muted-foreground">
-                                                        {format(new Date(order.orderDate), 'dd/MM/yyyy HH:mm')}
+                                                        {format(new Date(order.createdAt), 'dd/MM/yyyy HH:mm')}
                                                     </p>
                                                 </div>
                                                 <div className="text-right">

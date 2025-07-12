@@ -2,63 +2,73 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
+import { useParams, useRouter } from 'next/navigation';
+import { ArrowRight, Save, Loader2, Plus, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import { Trash2, Plus, Save, ArrowLeft, Clock, Package, User } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { useToast } from '@/lib/hooks/use-toast';
-import { format } from 'date-fns';
-import { he } from 'date-fns/locale';
+import type { Order, Customer, Dish } from '@/lib/types/database';
 
-// Import types from your existing types file
-import type {
-    Order,
-    OrderItem,
-    OrderHistory,
-    OrderStatus,
-    UpdateOrderInput,
-    Dish
-} from '@/lib/types/database';
+interface UpdateOrderInput {
+    status?: string;
+    notes?: string;
+    deliveryAddress?: string;
+    items?: {
+        id?: string;
+        dishId: string;
+        quantity: number;
+        price: number;
+        notes?: string;
+    }[];
+}
 
-const orderStatuses = [
-    { value: 'new', label: 'חדש', color: 'bg-blue-500' },
-    { value: 'confirmed', label: 'מאושר', color: 'bg-green-500' },
-    { value: 'preparing', label: 'בהכנה', color: 'bg-yellow-500' },
-    { value: 'ready', label: 'מוכן', color: 'bg-purple-500' },
-    { value: 'delivered', label: 'נמסר', color: 'bg-gray-500' },
-    { value: 'cancelled', label: 'בוטל', color: 'bg-red-500' },
-];
+type OrderItemInput = {
+    id?: string;
+    dishId: string;
+    quantity: number;
+    price: number;
+    notes?: string;
+}
 
-export default function EditOrderPage({ params }: { params: { id: string } }) {
+export default function EditOrderPage() {
+    const params = useParams();
     const router = useRouter();
     const { toast } = useToast();
+
     const [order, setOrder] = useState<Order | null>(null);
-    const [items, setItems] = useState<UpdateOrderInput['items']>([]);
-    const [status, setStatus] = useState<OrderStatus>('new');
-    const [notes, setNotes] = useState('');
-    const [deliveryAddress, setDeliveryAddress] = useState('');
+    const [customer, setCustomer] = useState<Customer | null>(null);
     const [availableDishes, setAvailableDishes] = useState<Dish[]>([]);
+    const [items, setItems] = useState<UpdateOrderInput['items']>([]);
+    const [status, setStatus] = useState<string>('');
+    const [notes, setNotes] = useState<string>('');
+    const [deliveryAddress, setDeliveryAddress] = useState<string>('');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
-        fetchOrder();
-        fetchDishes();
+        Promise.all([fetchOrder(), fetchDishes()]);
     }, [params.id]);
 
     const fetchOrder = async () => {
         try {
             const response = await fetch(`/api/orders/${params.id}`);
             if (!response.ok) throw new Error('Failed to fetch order');
-            const data: Order = await response.json();
+            const data = await response.json();
+
             setOrder(data);
-            // Transform orderItems to match UpdateOrderInput format
-            setItems(data.orderItems.map(item => ({
+            setCustomer(data.customer);
+            setItems(data.orderItems.map((item: any) => ({
                 id: item.id,
                 dishId: item.dishId,
                 quantity: item.quantity,
@@ -91,13 +101,15 @@ export default function EditOrderPage({ params }: { params: { id: string } }) {
         }
     };
 
-    const handleUpdateItem = (index: number, updates: Partial<UpdateOrderInput['items'][0]>) => {
+    const handleUpdateItem = (index: number, updates: Partial<OrderItemInput>) => {
+        if (!items) return;
         const newItems = [...items];
         newItems[index] = { ...newItems[index], ...updates };
         setItems(newItems);
     };
 
     const handleRemoveItem = (index: number) => {
+        if (!items) return;
         const newItems = items.filter((_, i) => i !== index);
         setItems(newItems);
     };
@@ -107,7 +119,7 @@ export default function EditOrderPage({ params }: { params: { id: string } }) {
 
         const dish = availableDishes[0];
         setItems([
-            ...items,
+            ...(items || []),
             {
                 dishId: dish.id,
                 quantity: 1,
@@ -118,7 +130,7 @@ export default function EditOrderPage({ params }: { params: { id: string } }) {
     };
 
     const handleSave = async () => {
-        if (items.length === 0) {
+        if (!items || items.length === 0) {
             toast({
                 title: 'שגיאה',
                 description: 'ההזמנה חייבת להכיל לפחות פריט אחד',
@@ -146,26 +158,15 @@ export default function EditOrderPage({ params }: { params: { id: string } }) {
 
             const updatedOrder: Order = await response.json();
             setOrder(updatedOrder);
-            // Transform back to UpdateOrderInput format
-            setItems(updatedOrder.orderItems.map(item => ({
-                id: item.id,
-                dishId: item.dishId,
-                quantity: item.quantity,
-                price: item.price,
-                notes: item.notes || undefined,
-            })));
 
             toast({
-                title: 'הצלחה',
+                title: 'ההזמנה עודכנה',
                 description: 'ההזמנה עודכנה בהצלחה',
             });
 
-            // Redirect after short delay
-            setTimeout(() => {
-                router.push('/orders');
-            }, 1500);
+            router.push(`/orders/${params.id}`);
         } catch (error) {
-            console.error('Error updating order:', error);
+            console.error('Error saving order:', error);
             toast({
                 title: 'שגיאה',
                 description: 'נכשל בעדכון ההזמנה',
@@ -177,60 +178,19 @@ export default function EditOrderPage({ params }: { params: { id: string } }) {
     };
 
     const calculateTotal = () => {
+        if (!items) return 0;
         return items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     };
 
-    const getActionDescription = (history: OrderHistory) => {
-        const { action, details } = history;
-
-        switch (action) {
-            case 'status_change':
-                return `סטטוס שונה מ-${details.fromLabel} ל-${details.toLabel}`;
-            case 'item_added':
-                return `נוסף: ${details.dishName} (${details.quantity} יח׳)`;
-            case 'item_removed':
-                return `הוסר: ${details.dishName} (${details.quantity} יח׳)`;
-            case 'item_updated':
-                return `עודכן: ${details.dishName} (${details.oldQuantity} → ${details.newQuantity} יח׳)`;
-            case 'order_updated':
-                const changes = [];
-                if (details.deliveryDate) changes.push('תאריך משלוח');
-                if (details.notes) changes.push('הערות');
-                if (details.deliveryAddress) changes.push('כתובת');
-                return `עודכנו: ${changes.join(', ')}`;
-            default:
-                return action;
-        }
-    };
-
-    const getStatusBadge = (statusValue: OrderStatus) => {
-        const statusConfig = orderStatuses.find(s => s.value === statusValue);
-        if (!statusConfig) return null;
-
-        return (
-            <Badge className={`${statusConfig.color} text-white`}>
-                {statusConfig.label}
-            </Badge>
-        );
-    };
-
     if (loading) {
-        return (
-            <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
-        );
+        return <LoadingSpinner />;
     }
 
-    if (!order) {
+    if (!order || !customer) {
         return (
-            <div className="text-center p-8">
-                <p className="text-lg text-muted-foreground">ההזמנה לא נמצאה</p>
-                <Button
-                    className="mt-4"
-                    variant="outline"
-                    onClick={() => router.push('/orders')}
-                >
+            <div className="text-center py-12">
+                <h2 className="text-2xl font-semibold">הזמנה לא נמצאה</h2>
+                <Button onClick={() => router.push('/orders')} className="mt-4">
                     חזור להזמנות
                 </Button>
             </div>
@@ -238,152 +198,68 @@ export default function EditOrderPage({ params }: { params: { id: string } }) {
     }
 
     return (
-        <div className="container mx-auto p-6 max-w-7xl" dir="rtl">
+        <div className="space-y-6">
             {/* Header */}
-            <div className="flex justify-between items-center mb-6">
-                <div>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => router.push(`/orders/${params.id}`)}
+                    >
+                        <ArrowRight className="h-4 w-4 ml-2" />
+                        חזור להזמנה
+                    </Button>
                     <h1 className="text-3xl font-bold">עריכת הזמנה #{order.orderNumber}</h1>
-                    <p className="text-muted-foreground mt-1">
-                        נוצרה ב-{format(new Date(order.createdAt), 'dd/MM/yyyy HH:mm')}
-                    </p>
                 </div>
-                <Button
-                    variant="outline"
-                    onClick={() => router.push('/orders')}
-                >
-                    <ArrowLeft className="ml-2 h-4 w-4" />
-                    חזור להזמנות
+                <Button onClick={handleSave} disabled={saving}>
+                    {saving && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+                    <Save className="h-4 w-4 ml-2" />
+                    שמור שינויים
                 </Button>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Main Content */}
                 <div className="lg:col-span-2 space-y-6">
-                    {/* Customer Info */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <User className="h-5 w-5" />
-                                פרטי לקוח
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <p className="text-sm text-muted-foreground">שם</p>
-                                    <p className="font-medium">{order.customer.name}</p>
-                                </div>
-                                <div>
-                                    <p className="text-sm text-muted-foreground">טלפון</p>
-                                    <p className="font-medium">{order.customer.phone}</p>
-                                </div>
-                                {order.customer.email && (
-                                    <div>
-                                        <p className="text-sm text-muted-foreground">אימייל</p>
-                                        <p className="font-medium">{order.customer.email}</p>
-                                    </div>
-                                )}
-                                <div>
-                                    <p className="text-sm text-muted-foreground">תאריך משלוח</p>
-                                    <p className="font-medium">
-                                        {format(new Date(order.deliveryDate), 'dd/MM/yyyy')}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="deliveryAddress">כתובת למשלוח</Label>
-                                <Textarea
-                                    id="deliveryAddress"
-                                    value={deliveryAddress}
-                                    onChange={(e) => setDeliveryAddress(e.target.value)}
-                                    placeholder="הזן כתובת למשלוח..."
-                                    rows={2}
-                                />
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Order Status & Notes */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>סטטוס הזמנה</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <Select value={status} onValueChange={setStatus}>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {orderStatuses.map((s) => (
-                                            <SelectItem key={s.value} value={s.value}>
-                                                <div className="flex items-center gap-2">
-                                                    <div className={`w-2 h-2 rounded-full ${s.color}`} />
-                                                    {s.label}
-                                                </div>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>הערות להזמנה</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <Textarea
-                                    value={notes}
-                                    onChange={(e) => setNotes(e.target.value)}
-                                    placeholder="הערות כלליות להזמנה..."
-                                    rows={3}
-                                />
-                            </CardContent>
-                        </Card>
-                    </div>
-
                     {/* Order Items */}
                     <Card>
-                        <CardHeader>
-                            <div className="flex justify-between items-center">
-                                <CardTitle className="flex items-center gap-2">
-                                    <Package className="h-5 w-5" />
-                                    פריטי הזמנה
-                                </CardTitle>
-                                <Button
-                                    size="sm"
-                                    onClick={handleAddItem}
-                                    disabled={availableDishes.length === 0}
-                                >
-                                    <Plus className="ml-2 h-4 w-4" />
-                                    הוסף פריט
-                                </Button>
-                            </div>
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <CardTitle>פריטי הזמנה</CardTitle>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleAddItem}
+                                disabled={availableDishes.length === 0}
+                            >
+                                <Plus className="h-4 w-4 ml-2" />
+                                הוסף פריט
+                            </Button>
                         </CardHeader>
-                        <CardContent>
-                            <div className="space-y-4">
-                                {items.map((item, index) => (
-                                    <div key={index} className="border rounded-lg p-4 bg-muted/20">
-                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                            <div className="md:col-span-2">
+                        <CardContent className="space-y-4">
+                            {items && items.length > 0 ? (
+                                items.map((item, index) => (
+                                    <div key={index} className="flex gap-4 p-4 border rounded-lg">
+                                        <div className="flex-1 space-y-4">
+                                            <div>
                                                 <Label>מנה</Label>
                                                 <Select
                                                     value={item.dishId}
                                                     onValueChange={(value) => {
                                                         const dish = availableDishes.find(d => d.id === value);
-                                                        handleUpdateItem(index, {
-                                                            dishId: value,
-                                                            price: dish?.price || 0,
-                                                        });
+                                                        if (dish) {
+                                                            handleUpdateItem(index, {
+                                                                dishId: value,
+                                                                price: dish.price
+                                                            });
+                                                        }
                                                     }}
                                                 >
                                                     <SelectTrigger>
                                                         <SelectValue />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        {availableDishes.map((dish) => (
+                                                        {availableDishes.map(dish => (
                                                             <SelectItem key={dish.id} value={dish.id}>
                                                                 {dish.name} - ₪{dish.price}
                                                             </SelectItem>
@@ -391,125 +267,133 @@ export default function EditOrderPage({ params }: { params: { id: string } }) {
                                                     </SelectContent>
                                                 </Select>
                                             </div>
-
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <Label>כמות</Label>
+                                                    <Input
+                                                        type="number"
+                                                        min="1"
+                                                        value={item.quantity}
+                                                        onChange={(e) => handleUpdateItem(index, {
+                                                            quantity: parseInt(e.target.value) || 1
+                                                        })}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <Label>מחיר ליחידה</Label>
+                                                    <Input
+                                                        type="number"
+                                                        value={item.price}
+                                                        onChange={(e) => handleUpdateItem(index, {
+                                                            price: parseFloat(e.target.value) || 0
+                                                        })}
+                                                    />
+                                                </div>
+                                            </div>
                                             <div>
-                                                <Label>כמות</Label>
+                                                <Label>הערות</Label>
                                                 <Input
-                                                    type="number"
-                                                    min="1"
-                                                    value={item.quantity}
+                                                    value={item.notes || ''}
                                                     onChange={(e) => handleUpdateItem(index, {
-                                                        quantity: parseInt(e.target.value) || 1,
+                                                        notes: e.target.value
                                                     })}
+                                                    placeholder="הערות לפריט"
                                                 />
                                             </div>
-
-                                            <div className="flex items-end justify-between">
-                                                <div>
-                                                    <Label>סה"כ</Label>
-                                                    <p className="text-lg font-semibold">
-                                                        ₪{(item.price * item.quantity).toFixed(2)}
-                                                    </p>
-                                                </div>
-                                                <Button
-                                                    size="icon"
-                                                    variant="destructive"
-                                                    onClick={() => handleRemoveItem(index)}
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
+                                        </div>
+                                        <div className="flex flex-col justify-between items-end">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => handleRemoveItem(index)}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                            <div className="text-lg font-semibold">
+                                                ₪{(item.price * item.quantity).toFixed(2)}
                                             </div>
                                         </div>
-
-                                        <div className="mt-3">
-                                            <Label>הערות לפריט</Label>
-                                            <Input
-                                                value={item.notes || ''}
-                                                onChange={(e) => handleUpdateItem(index, {
-                                                    notes: e.target.value,
-                                                })}
-                                                placeholder="הערות או בקשות מיוחדות..."
-                                            />
-                                        </div>
                                     </div>
-                                ))}
-
-                                {items.length === 0 && (
-                                    <div className="text-center py-12 text-muted-foreground">
-                                        <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                                        <p>אין פריטים בהזמנה</p>
-                                        <p className="text-sm">לחץ על "הוסף פריט" כדי להתחיל</p>
-                                    </div>
-                                )}
-                            </div>
-
-                            {items.length > 0 && (
-                                <div className="mt-6 pt-4 border-t">
-                                    <div className="flex justify-between items-center text-lg font-semibold">
-                                        <span>סה"כ להזמנה:</span>
-                                        <span className="text-2xl">₪{calculateTotal().toFixed(2)}</span>
-                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-center py-8 text-muted-foreground">
+                                    אין פריטים בהזמנה
                                 </div>
                             )}
                         </CardContent>
                     </Card>
 
-                    {/* Action Buttons */}
-                    <div className="flex justify-end gap-3">
-                        <Button
-                            variant="outline"
-                            onClick={() => router.push('/orders')}
-                            disabled={saving}
-                        >
-                            ביטול
-                        </Button>
-                        <Button
-                            onClick={handleSave}
-                            disabled={saving || items.length === 0}
-                        >
-                            {saving ? (
-                                <>
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white ml-2" />
-                                    שומר...
-                                </>
-                            ) : (
-                                <>
-                                    <Save className="ml-2 h-4 w-4" />
-                                    שמור שינויים
-                                </>
-                            )}
-                        </Button>
-                    </div>
-                </div>
-
-                {/* Sidebar - History */}
-                <div className="lg:col-span-1">
-                    <Card className="sticky top-6">
+                    {/* Order Notes */}
+                    <Card>
                         <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Clock className="h-5 w-5" />
-                                היסטוריית שינויים
-                            </CardTitle>
+                            <CardTitle>הערות להזמנה</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="space-y-3 max-h-[600px] overflow-y-auto">
-                                {order.history && order.history.length > 0 ? (
-                                    order.history.map((entry) => (
-                                        <div key={entry.id} className="border-b pb-3 last:border-0">
-                                            <p className="text-sm font-medium">
-                                                {getActionDescription(entry)}
-                                            </p>
-                                            <p className="text-xs text-muted-foreground">
-                                                {format(new Date(entry.createdAt), 'dd/MM/yyyy HH:mm', { locale: he })}
-                                            </p>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="text-center py-8 text-muted-foreground">
-                                        <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                                        <p className="text-sm">אין היסטוריית שינויים</p>
-                                    </div>
+                            <Textarea
+                                value={notes}
+                                onChange={(e) => setNotes(e.target.value)}
+                                placeholder="הערות כלליות להזמנה"
+                                rows={4}
+                            />
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Sidebar */}
+                <div className="space-y-6">
+                    {/* Customer Info */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>פרטי לקוח</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                            <div>
+                                <p className="font-semibold">{customer.name}</p>
+                                <p className="text-sm text-muted-foreground">{customer.phone}</p>
+                                {customer.email && (
+                                    <p className="text-sm text-muted-foreground">{customer.email}</p>
                                 )}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Order Details */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>פרטי הזמנה</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div>
+                                <Label>סטטוס</Label>
+                                <Select value={status} onValueChange={setStatus}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="new">חדשה</SelectItem>
+                                        <SelectItem value="confirmed">אושרה</SelectItem>
+                                        <SelectItem value="preparing">בהכנה</SelectItem>
+                                        <SelectItem value="ready">מוכנה</SelectItem>
+                                        <SelectItem value="delivered">נמסרה</SelectItem>
+                                        <SelectItem value="cancelled">בוטלה</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div>
+                                <Label>כתובת משלוח</Label>
+                                <Input
+                                    value={deliveryAddress}
+                                    onChange={(e) => setDeliveryAddress(e.target.value)}
+                                    placeholder="כתובת למשלוח"
+                                />
+                            </div>
+
+                            <div className="pt-4 border-t">
+                                <div className="flex justify-between text-lg font-semibold">
+                                    <span>סה"כ לתשלום</span>
+                                    <span>₪{calculateTotal().toFixed(2)}</span>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>

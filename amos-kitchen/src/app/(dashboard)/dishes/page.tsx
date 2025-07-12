@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DishList } from '@/components/dishes/dish-list'
 import { DishGrid } from '@/components/dishes/dish-grid'
-import { DishDialog } from '@/components/dishes/dish-dialog'
+import { DishDialog, type DishWithIngredients } from '@/components/dishes/dish-dialog'
 import { LoadingSpinner } from '@/components/shared/loading-spinner'
 import { useDebounce } from '@/lib/hooks/use-debounce'
 import { useToast } from '@/lib/hooks/use-toast'
@@ -18,14 +18,10 @@ import type { Dish } from '@/lib/types/database'
 
 interface DishWithStats extends Dish {
     orderCount: number
+    // Remove totalQuantity
     ingredients: {
-        id: string
-        quantity: number
-        notes?: string
         ingredient: {
-            id: string
             name: string
-            unit: string
         }
     }[]
 }
@@ -46,7 +42,7 @@ export default function DishesPage() {
     const [selectedCategory, setSelectedCategory] = useState('all')
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
     const [dialogOpen, setDialogOpen] = useState(false)
-    const [selectedDish, setSelectedDish] = useState<DishWithStats | null>(null)
+    const [selectedDish, setSelectedDish] = useState<DishWithIngredients | null>(null)
 
     const debouncedSearch = useDebounce(search, 300)
     const { toast } = useToast()
@@ -106,9 +102,20 @@ export default function DishesPage() {
         }
     }
 
-    const handleEdit = (dish: DishWithStats) => {
-        setSelectedDish(dish)
-        setDialogOpen(true)
+    const handleEdit = async (dish: DishWithStats) => {
+        try {
+            const response = await fetch(`/api/dishes/${dish.id}`)
+            if (!response.ok) throw new Error('Failed to fetch dish')
+            const fullDish = await response.json()
+            setSelectedDish(fullDish)
+            setDialogOpen(true)
+        } catch (error) {
+            toast({
+                title: 'שגיאה',
+                description: 'נכשל בטעינת פרטי המנה',
+                variant: 'destructive'
+            })
+        }
     }
 
     const handleSave = async (dishData: Partial<Dish>) => {

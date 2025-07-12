@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/card';
 import { KitchenDashboard } from '@/components/kitchen/kitchen-dashboard';
 import { getOrdersForToday } from '@/lib/actions/orders';
 import { Loader2 } from 'lucide-react';
+import type { Order } from '@/lib/types/database'
 
 export const metadata = {
   title: 'מטבח - הזמנות להיום',
@@ -10,10 +11,10 @@ export const metadata = {
 };
 
 export default async function KitchenPage() {
-  let todayOrders = [];
+  let todayOrders: Order[] = [];
 
   try {
-    todayOrders = await getOrdersForToday();
+    let todayOrders: Awaited<ReturnType<typeof getOrdersForToday>> = [];
     // Ensure todayOrders is an array
     if (!Array.isArray(todayOrders)) {
       console.error('getOrdersForToday did not return an array:', todayOrders);

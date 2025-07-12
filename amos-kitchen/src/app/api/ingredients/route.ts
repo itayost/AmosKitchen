@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
 }
 
 // GET /api/ingredients/categories - Get available categories
-export async function getCategories() {
+async function getCategories() {
     // Return the available categories from the enum
     return ['vegetables', 'meat', 'dairy', 'grains', 'spices', 'other']
 }

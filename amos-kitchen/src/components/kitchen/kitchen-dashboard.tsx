@@ -269,7 +269,7 @@ export function KitchenDashboard({ orders: initialOrders }: KitchenDashboardProp
               {filteredOrders.map((order) => (
                 <CookingOrderCard
                   key={order.id}
-                  order={order}
+                  order={order as any} // Temporary fix - cast to any
                   onStatusChange={(status) => handleStatusChange(order.id, status)}
                   isSelected={selectedOrders.includes(order.id)}
                   onSelect={(selected) => {
@@ -301,10 +301,11 @@ function aggregateDishes(orders: OrderWithDetails[]) {
     totalQuantity: number;
     orderCount: number;
     orders: Array<{
+      orderId: string;
       orderNumber: string;
       customerName: string;
       quantity: number;
-      notes: string | null;
+      notes?: string;  // Make it optional
     }>;
   }>();
 
@@ -316,23 +317,25 @@ function aggregateDishes(orders: OrderWithDetails[]) {
         existing.totalQuantity += item.quantity;
         existing.orderCount += 1;
         existing.orders.push({
+          orderId: order.id,
           orderNumber: order.orderNumber,
           customerName: order.customer.name,
           quantity: item.quantity,
-          notes: item.notes
+          notes: item.notes || undefined  // Convert null to undefined
         });
       } else {
         dishMap.set(item.dish.id, {
           id: item.dish.id,
           name: item.dish.name,
-          category: item.dish.category,
+          category: item.dish.category as DishCategory,
           totalQuantity: item.quantity,
           orderCount: 1,
           orders: [{
+            orderId: order.id,
             orderNumber: order.orderNumber,
             customerName: order.customer.name,
             quantity: item.quantity,
-            notes: item.notes
+            notes: item.notes || undefined  // Convert null to undefined
           }]
         });
       }
@@ -340,7 +343,6 @@ function aggregateDishes(orders: OrderWithDetails[]) {
   });
 
   return Array.from(dishMap.values()).sort((a, b) => {
-    // Sort by category first, then by quantity
     if (a.category !== b.category) {
       return a.category.localeCompare(b.category);
     }

@@ -33,7 +33,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card'
 import { OrderStatusBadge } from './order-status-badge'
 import { useRouter } from 'next/navigation'
-import type { Order, OrderStatus } from '@/lib/types/database'
+import type { Order, OrderStatus, Customer } from '@/lib/types/database'
 
 interface OrderListProps {
     orders: Order[]
@@ -42,6 +42,10 @@ interface OrderListProps {
     totalPages: number
     onPageChange: (page: number) => void
     onRefresh: () => void
+}
+
+interface OrderWithCustomer extends Order {
+    customer: Customer
 }
 
 type SortField = 'orderNumber' | 'customer' | 'deliveryDate' | 'totalAmount' | 'status' | 'createdAt'
@@ -58,6 +62,9 @@ export function OrderList({
     const router = useRouter()
     const [sortField, setSortField] = useState<SortField>('createdAt')
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+
+    // Cast orders to include customer
+    const ordersWithCustomer = orders as OrderWithCustomer[]
 
     const handleSort = (field: SortField) => {
         if (sortField === field) {
@@ -100,14 +107,17 @@ export function OrderList({
         }
     }
 
-    // Sort orders
-    const sortedOrders = [...orders].sort((a, b) => {
-        let aValue: any = a[sortField]
-        let bValue: any = b[sortField]
+    // Sort orders - use ordersWithCustomer
+    const sortedOrders = [...ordersWithCustomer].sort((a, b) => {
+        let aValue: any
+        let bValue: any
 
         if (sortField === 'customer') {
             aValue = a.customer.name
             bValue = b.customer.name
+        } else {
+            aValue = a[sortField as keyof Order]
+            bValue = b[sortField as keyof Order]
         }
 
         if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
@@ -137,7 +147,7 @@ export function OrderList({
         )
     }
 
-    if (!orders || orders.length === 0) {
+    if (!ordersWithCustomer || ordersWithCustomer.length === 0) {
         return (
             <Card>
                 <CardContent className="p-8">
@@ -282,7 +292,7 @@ export function OrderList({
             {/* Pagination */}
             <div className="flex items-center justify-between">
                 <div className="text-sm text-muted-foreground">
-                    מציג {((currentPage - 1) * 10) + 1} עד {Math.min(currentPage * 10, orders.length)} מתוך {orders.length} תוצאות
+                    מציג {((currentPage - 1) * 10) + 1} עד {Math.min(currentPage * 10, ordersWithCustomer.length)} מתוך {ordersWithCustomer.length} תוצאות
                 </div>
                 <div className="flex gap-2">
                     <Button

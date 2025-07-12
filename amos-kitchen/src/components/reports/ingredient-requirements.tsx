@@ -86,7 +86,7 @@ export function IngredientRequirements({ ingredients, deliveryDate }: Ingredient
                         </p>
                         <div className="flex flex-wrap gap-2">
                             {lowStockIngredients.map(item => (
-                                <Badge key={item.ingredient.id} variant="warning">
+                                <Badge key={item.ingredient.id} variant="destructive">
                                     {item.ingredient.name} - נדרש {item.totalQuantity} {getUnitLabel(item.unit)}
                                 </Badge>
                             ))}
@@ -122,7 +122,7 @@ export function IngredientRequirements({ ingredients, deliveryDate }: Ingredient
                                 </h4>
                                 <div className="grid gap-3 md:grid-cols-2">
                                     {items.map(item => (
-                                        <div 
+                                        <div
                                             key={item.ingredient.id}
                                             className="flex items-center justify-between p-3 rounded-lg border"
                                         >

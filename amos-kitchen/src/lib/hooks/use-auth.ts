@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
-import type { User } from '@/types/auth'
+import type { User } from '@supabase/supabase-js'
 
 export function useAuth() {
     const [user, setUser] = useState<User | null>(null)

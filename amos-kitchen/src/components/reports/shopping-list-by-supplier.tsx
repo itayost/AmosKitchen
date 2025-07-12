@@ -76,10 +76,11 @@ export function ShoppingListBySupplier({ data }: ShoppingListBySupplierProps) {
     return (
         <div className="space-y-6">
             {Object.entries(data).map(([supplier, group]) => {
-                // Ensure group has the expected structure
-                const ingredients = Array.isArray(group?.ingredients) ? group.ingredients : []
-                const totalCost = group?.totalCost || 0
-                const supplierName = group?.name || supplier || 'ללא ספק'
+                // Cast group to the expected type
+                const typedGroup = group as SupplierGroup
+                const ingredients = Array.isArray(typedGroup?.ingredients) ? typedGroup.ingredients : []
+                const totalCost = typedGroup?.totalCost || 0
+                const supplierName = typedGroup?.name || supplier || 'ללא ספק'
 
                 if (ingredients.length === 0) {
                     return null
@@ -113,9 +114,8 @@ export function ShoppingListBySupplier({ data }: ShoppingListBySupplierProps) {
                                     return (
                                         <div
                                             key={ingredient.id}
-                                            className={`flex items-center justify-between p-3 rounded-lg border ${
-                                                isChecked ? 'bg-muted opacity-60' : 'hover:bg-accent/50'
-                                            } transition-colors`}
+                                            className={`flex items-center justify-between p-3 rounded-lg border ${isChecked ? 'bg-muted opacity-60' : 'hover:bg-accent/50'
+                                                } transition-colors`}
                                         >
                                             <div className="flex items-center gap-3">
                                                 <Checkbox

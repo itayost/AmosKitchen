@@ -23,12 +23,3 @@ export const prisma = globalThis.prisma ?? prismaClientSingleton()
 if (process.env.NODE_ENV !== 'production') {
     globalThis.prisma = prisma
 }
-
-// Handle cleanup on hot reload
-if (process.env.NODE_ENV === 'development') {
-    if (module.hot) {
-        module.hot.dispose(async () => {
-            await prisma.$disconnect()
-        })
-    }
-}

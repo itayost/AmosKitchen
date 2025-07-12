@@ -40,11 +40,11 @@ export function OrderFilters({ filters, onFiltersChange }: OrderFiltersProps) {
     }
 
     const handleStatusChange = (value: string) => {
-        onFiltersChange({ ...filters, status: value, page: 1 })
+        onFiltersChange({ ...filters, status: value as 'all' | OrderStatus, page: 1 })
     }
 
     const handleDateRangeChange = (value: string) => {
-        onFiltersChange({ ...filters, dateRange: value, page: 1 })
+        onFiltersChange({ ...filters, dateRange: value as 'all' | 'today' | 'week' | 'month', page: 1 })
     }
 
     return (

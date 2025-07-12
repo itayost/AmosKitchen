@@ -111,130 +111,132 @@ export default function WeeklyReportPage() {
 
     const weekStart = startOfWeek(new Date(report.weekOf), { weekStartsOn: 0 })
     const weekEnd = endOfWeek(new Date(report.weekOf), { weekStartsOn: 0 })
-    const friday = new Date(report.friday)
 
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
+            <div className="flex justify-between items-start">
+                <div>
                     <Button
                         variant="ghost"
-                        size="icon"
-                        onClick={() => router.back()}
+                        size="sm"
+                        onClick={() => router.push('/reports')}
+                        className="mb-2"
                     >
-                        <ArrowRight className="h-4 w-4" />
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                        חזרה לדוחות
                     </Button>
-                    <div>
-                        <h1 className="text-3xl font-bold">סיכום שבועי</h1>
-                        <p className="text-muted-foreground">
-                            {format(weekStart, 'dd/MM/yyyy', { locale: he })} -
-                            {format(weekEnd, 'dd/MM/yyyy', { locale: he })}
-                        </p>
-                    </div>
+                    <h1 className="text-3xl font-bold">דוח שבועי</h1>
+                    <p className="text-muted-foreground">
+                        שבוע {format(weekStart, 'dd/MM')} - {format(weekEnd, 'dd/MM/yyyy')}
+                    </p>
                 </div>
                 <div className="flex gap-2">
                     <DatePicker
-                        date={selectedDate}
-                        onDateChange={(date) => date && setSelectedDate(date)}
+                        value={selectedDate}
+                        onChange={(date) => date && setSelectedDate(date)}
                     />
                     <Button
                         onClick={handleExport}
                         disabled={exporting}
                     >
                         <Download className="ml-2 h-4 w-4" />
-                        ייצא ל-Excel
+                        ייצוא לאקסל
                     </Button>
                 </div>
             </div>
 
-            {/* Key Metrics */}
-            <div className="grid gap-4 grid-cols-1 md:grid-cols-4">
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            סה"כ הזמנות
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex items-center gap-2">
-                            <Package className="h-4 w-4 text-blue-500" />
-                            <span className="text-2xl font-bold">{report.summary.totalOrders}</span>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            הכנסות
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex items-center gap-2">
-                            <DollarSign className="h-4 w-4 text-green-500" />
-                            <span className="text-2xl font-bold">
-                                ₪{report.summary.totalRevenue.toFixed(2)}
-                            </span>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            לקוחות
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex items-center gap-2">
-                            <Users className="h-4 w-4 text-purple-500" />
-                            <span className="text-2xl font-bold">{report.summary.uniqueCustomers}</span>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            ממוצע הזמנה
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex items-center gap-2">
-                            <TrendingUp className="h-4 w-4 text-orange-500" />
-                            <span className="text-2xl font-bold">
-                                ₪{report.summary.averageOrderValue.toFixed(2)}
-                            </span>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
+            {/* Summary Stats */}
+            <WeeklySummaryStats data={report.summary} />
 
-            {/* Detailed Reports */}
+            {/* Main Content Tabs */}
             <Tabs defaultValue="overview" className="space-y-4">
-                <TabsList>
+                <TabsList className="grid w-full grid-cols-5">
                     <TabsTrigger value="overview">סקירה כללית</TabsTrigger>
                     <TabsTrigger value="dishes">מנות פופולריות</TabsTrigger>
                     <TabsTrigger value="customers">ניתוח לקוחות</TabsTrigger>
                     <TabsTrigger value="ingredients">רכיבים נדרשים</TabsTrigger>
+                    <TabsTrigger value="details">פירוט הזמנות</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="overview" className="space-y-4">
-                    <WeeklySummaryStats summary={report.summary} />
-                    <DailyOrdersChart data={report.summary.ordersByDay} />
+                <TabsContent value="overview" className="space-y-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>הזמנות לפי יום</CardTitle>
+                            <CardDescription>
+                                {/* Fixed: Escaped the quote properly */}
+                                מגמת הזמנות במהלך השבוע - מיום ראשון עד יום שישי
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <DailyOrdersChart data={report.summary.ordersByDay} />
+                        </CardContent>
+                    </Card>
+
+                    <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>התפלגות לפי סטטוס</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-2">
+                                    {Object.entries(report.summary.ordersByStatus).map(([status, count]) => (
+                                        <div key={status} className="flex justify-between items-center">
+                                            <span className="text-sm">{status}</span>
+                                            <span className="font-medium">{count}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>סטטיסטיקות נוספות</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm">ערך הזמנה ממוצע</span>
+                                        <span className="font-medium">₪{report.summary.averageOrderValue.toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm">לקוחות ייחודיים</span>
+                                        <span className="font-medium">{report.summary.uniqueCustomers}</span>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
                 </TabsContent>
 
-                <TabsContent value="dishes">
-                    <TopDishesChart dishes={report.topDishes} />
+                <TabsContent value="dishes" className="space-y-6">
+                    <TopDishesChart data={report.topDishes} />
                 </TabsContent>
 
-                <TabsContent value="customers">
-                    <CustomerAnalysis customers={report.topCustomers} />
+                <TabsContent value="customers" className="space-y-6">
+                    <CustomerAnalysis data={report.topCustomers} />
                 </TabsContent>
 
-                <TabsContent value="ingredients">
-                    <IngredientRequirements
-                        ingredients={report.ingredientRequirements}
-                        deliveryDate={friday}
-                    />
+                <TabsContent value="ingredients" className="space-y-6">
+                    <IngredientRequirements data={report.ingredientRequirements} />
+                </TabsContent>
+
+                <TabsContent value="details" className="space-y-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>כל ההזמנות</CardTitle>
+                            <CardDescription>
+                                רשימה מלאה של כל ההזמנות לשבוע זה
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {/* Orders table would go here */}
+                            <div className="text-center text-muted-foreground py-8">
+                                טבלת הזמנות מפורטת
+                            </div>
+                        </CardContent>
+                    </Card>
                 </TabsContent>
             </Tabs>
         </div>

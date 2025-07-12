@@ -267,6 +267,7 @@ export default function EditOrderPage() {
                                                     </SelectContent>
                                                 </Select>
                                             </div>
+
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div>
                                                     <Label>כמות</Label>
@@ -290,6 +291,7 @@ export default function EditOrderPage() {
                                                     />
                                                 </div>
                                             </div>
+
                                             <div>
                                                 <Label>הערות</Label>
                                                 <Input
@@ -297,42 +299,39 @@ export default function EditOrderPage() {
                                                     onChange={(e) => handleUpdateItem(index, {
                                                         notes: e.target.value
                                                     })}
-                                                    placeholder="הערות לפריט"
+                                                    placeholder="הערות למנה"
                                                 />
                                             </div>
                                         </div>
-                                        <div className="flex flex-col justify-between items-end">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => handleRemoveItem(index)}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                            <div className="text-lg font-semibold">
-                                                ₪{(item.price * item.quantity).toFixed(2)}
-                                            </div>
-                                        </div>
+
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => handleRemoveItem(index)}
+                                            disabled={items.length === 1}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
                                     </div>
                                 ))
                             ) : (
-                                <div className="text-center py-8 text-muted-foreground">
+                                <p className="text-center py-8 text-muted-foreground">
                                     אין פריטים בהזמנה
-                                </div>
+                                </p>
                             )}
                         </CardContent>
                     </Card>
 
-                    {/* Order Notes */}
+                    {/* Notes */}
                     <Card>
                         <CardHeader>
-                            <CardTitle>הערות להזמנה</CardTitle>
+                            <CardTitle>הערות</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <Textarea
                                 value={notes}
                                 onChange={(e) => setNotes(e.target.value)}
-                                placeholder="הערות כלליות להזמנה"
+                                placeholder="הערות להזמנה..."
                                 rows={4}
                             />
                         </CardContent>
@@ -348,19 +347,26 @@ export default function EditOrderPage() {
                         </CardHeader>
                         <CardContent className="space-y-2">
                             <div>
-                                <p className="font-semibold">{customer.name}</p>
-                                <p className="text-sm text-muted-foreground">{customer.phone}</p>
-                                {customer.email && (
-                                    <p className="text-sm text-muted-foreground">{customer.email}</p>
-                                )}
+                                <Label>שם</Label>
+                                <p className="font-medium">{customer.name}</p>
                             </div>
+                            <div>
+                                <Label>טלפון</Label>
+                                <p className="font-medium">{customer.phone}</p>
+                            </div>
+                            {customer.email && (
+                                <div>
+                                    <Label>אימייל</Label>
+                                    <p className="font-medium">{customer.email}</p>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
 
-                    {/* Order Details */}
+                    {/* Order Status & Summary */}
                     <Card>
                         <CardHeader>
-                            <CardTitle>פרטי הזמנה</CardTitle>
+                            <CardTitle>סיכום הזמנה</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div>
@@ -391,7 +397,8 @@ export default function EditOrderPage() {
 
                             <div className="pt-4 border-t">
                                 <div className="flex justify-between text-lg font-semibold">
-                                    <span>סה"כ לתשלום</span>
+                                    {/* Fixed: Escaped the quote character */}
+                                    <span>סה&quot;כ לתשלום</span>
                                     <span>₪{calculateTotal().toFixed(2)}</span>
                                 </div>
                             </div>

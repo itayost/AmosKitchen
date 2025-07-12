@@ -1,294 +1,326 @@
-// src/app/(dashboard)/dishes/page.tsx
+// src/app/(dashboard)/dishes/[id]/page.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Search, Download, Filter } from 'lucide-react'
+import { useParams, useRouter } from 'next/navigation'
+import {
+    ArrowRight,
+    Edit,
+    Package,
+    DollarSign,
+    ShoppingCart,
+    TrendingUp,
+    Calendar,
+    Users
+} from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { DishList } from '@/components/dishes/dish-list'
-import { DishGrid } from '@/components/dishes/dish-grid'
-import { DishDialog, type DishWithIngredients } from '@/components/dishes/dish-dialog'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { LoadingSpinner } from '@/components/shared/loading-spinner'
-import { useDebounce } from '@/lib/hooks/use-debounce'
-import { useToast } from '@/lib/hooks/use-toast'
+import { format } from 'date-fns'
+import { he } from 'date-fns/locale'
 import Link from 'next/link'
-import type { Dish } from '@/lib/types/database'
+import type { Dish, OrderItem, Order } from '@/lib/types/database'
 
-interface DishWithStats extends Dish {
-    orderCount: number
-    // Remove totalQuantity
+interface DishDetails extends Dish {
     ingredients: {
+        id: string
+        quantity: number
+        notes?: string
         ingredient: {
+            id: string
             name: string
+            unit: string
         }
     }[]
+    orderItems: (OrderItem & {
+        order: Order & {
+            customer: {
+                id: string
+                name: string
+            }
+        }
+    })[]
+    stats: {
+        totalOrders: number
+        totalQuantity: number
+        totalRevenue: number
+    }
 }
 
-const categories = [
-    { value: 'all', label: 'כל הקטגוריות' },
-    { value: 'appetizer', label: 'מנות ראשונות' },
-    { value: 'main', label: 'מנות עיקריות' },
-    { value: 'side', label: 'תוספות' },
-    { value: 'dessert', label: 'קינוחים' },
-    { value: 'beverage', label: 'משקאות' }
-]
+export default function DishDetailsPage() {
+    const params = useParams()
+    const router = useRouter()
+    const dishId = params.id as string
 
-export default function DishesPage() {
-    const [dishes, setDishes] = useState<DishWithStats[]>([])
+    const [dish, setDish] = useState<DishDetails | null>(null)
     const [loading, setLoading] = useState(true)
-    const [search, setSearch] = useState('')
-    const [selectedCategory, setSelectedCategory] = useState('all')
-    const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
-    const [dialogOpen, setDialogOpen] = useState(false)
-    const [selectedDish, setSelectedDish] = useState<DishWithIngredients | null>(null)
-
-    const debouncedSearch = useDebounce(search, 300)
-    const { toast } = useToast()
+    const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
-        fetchDishes()
-    }, [debouncedSearch, selectedCategory])
+        fetchDishDetails()
+    }, [dishId])
 
-    const fetchDishes = async () => {
+    const fetchDishDetails = async () => {
         try {
             setLoading(true)
-            const params = new URLSearchParams()
-            if (debouncedSearch) params.append('search', debouncedSearch)
-            if (selectedCategory !== 'all') params.append('category', selectedCategory)
+            const response = await fetch(`/api/dishes/${dishId}`)
 
-            const response = await fetch(`/api/dishes?${params}`)
-            if (!response.ok) throw new Error('Failed to fetch dishes')
+            if (!response.ok) {
+                throw new Error('Failed to fetch dish details')
+            }
 
             const data = await response.json()
-            setDishes(data)
-        } catch (error) {
-            console.error('Error fetching dishes:', error)
-            toast({
-                title: 'שגיאה',
-                description: 'לא ניתן לטעון את רשימת המנות',
-                variant: 'destructive'
-            })
+            setDish(data)
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'שגיאה בטעינת פרטי המנה')
         } finally {
             setLoading(false)
         }
     }
 
-    const handleDelete = async (dishId: string) => {
-        if (!confirm('האם אתה בטוח שברצונך למחוק מנה זו?')) return
+    const formatPrice = (price: number) => {
+        return new Intl.NumberFormat('he-IL', {
+            style: 'currency',
+            currency: 'ILS'
+        }).format(price)
+    }
 
-        try {
-            const response = await fetch(`/api/dishes/${dishId}`, {
-                method: 'DELETE'
-            })
-
-            if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.error || 'Failed to delete dish')
-            }
-
-            toast({
-                title: 'הצלחה',
-                description: 'המנה נמחקה בהצלחה'
-            })
-            fetchDishes()
-        } catch (error) {
-            toast({
-                title: 'שגיאה',
-                description: error instanceof Error ? error.message : 'לא ניתן למחוק את המנה',
-                variant: 'destructive'
-            })
+    const getCategoryLabel = (category: string) => {
+        const categories: Record<string, string> = {
+            appetizer: 'מנה ראשונה',
+            main: 'מנה עיקרית',
+            side: 'תוספת',
+            dessert: 'קינוח',
+            beverage: 'משקה'
         }
+        return categories[category] || category
     }
 
-    const handleEdit = async (dish: DishWithStats) => {
-        try {
-            const response = await fetch(`/api/dishes/${dish.id}`)
-            if (!response.ok) throw new Error('Failed to fetch dish')
-            const fullDish = await response.json()
-            setSelectedDish(fullDish)
-            setDialogOpen(true)
-        } catch (error) {
-            toast({
-                title: 'שגיאה',
-                description: 'נכשל בטעינת פרטי המנה',
-                variant: 'destructive'
-            })
-        }
-    }
-
-    const handleSave = async (dishData: Partial<Dish>) => {
-        try {
-            const url = selectedDish
-                ? `/api/dishes/${selectedDish.id}`
-                : '/api/dishes'
-
-            const response = await fetch(url, {
-                method: selectedDish ? 'PUT' : 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(dishData)
-            })
-
-            if (!response.ok) throw new Error('Failed to save dish')
-
-            toast({
-                title: 'הצלחה',
-                description: selectedDish ? 'המנה עודכנה בהצלחה' : 'המנה נוספה בהצלחה'
-            })
-
-            setDialogOpen(false)
-            setSelectedDish(null)
-            fetchDishes()
-        } catch (error) {
-            toast({
-                title: 'שגיאה',
-                description: 'לא ניתן לשמור את המנה',
-                variant: 'destructive'
-            })
-        }
-    }
-
-    const stats = {
-        total: dishes.length,
-        available: dishes.filter(d => d.isAvailable).length,
-        unavailable: dishes.filter(d => !d.isAvailable).length,
-        popular: dishes.filter(d => d.orderCount > 10).length
-    }
-
-    if (loading && dishes.length === 0) {
-        return <LoadingSpinner />
-    }
+    if (loading) return <LoadingSpinner />
+    if (error) return <div className="text-center py-8 text-red-500">{error}</div>
+    if (!dish) return <div className="text-center py-8">מנה לא נמצאה</div>
 
     return (
         <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold">ניהול מנות</h1>
-                    <p className="text-muted-foreground">
-                        נהל את תפריט המנות של המסעדה
-                    </p>
+                <div className="flex items-center gap-4">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => router.back()}
+                    >
+                        <ArrowRight className="h-4 w-4" />
+                    </Button>
+                    <div>
+                        <h1 className="text-3xl font-bold">{dish.name}</h1>
+                        <p className="text-muted-foreground">
+                            {getCategoryLabel(dish.category)}
+                        </p>
+                    </div>
                 </div>
-                <Button onClick={() => {
-                    setSelectedDish(null)
-                    setDialogOpen(true)
-                }}>
-                    <Plus className="ml-2 h-4 w-4" />
-                    הוסף מנה
-                </Button>
+                <div className="flex gap-2">
+                    <Button variant="outline" asChild>
+                        <Link href={`/dishes/${dishId}/edit`}>
+                            <Edit className="ml-2 h-4 w-4" />
+                            עריכה
+                        </Link>
+                    </Button>
+                </div>
             </div>
 
             {/* Stats Cards */}
-            <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-4">
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-muted-foreground">
-                            סה"כ מנות
+                            מחיר
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{stats.total}</div>
+                        <div className="text-2xl font-bold">{formatPrice(dish.price)}</div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="pb-2">
+                        {/* Fixed: Escaped the quote character */}
+                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                            סה&quot;כ הזמנות
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{dish.stats.totalOrders}</div>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-muted-foreground">
-                            זמינות
+                            כמות כוללת
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-green-600">{stats.available}</div>
+                        <div className="text-2xl font-bold">{dish.stats.totalQuantity}</div>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-muted-foreground">
-                            לא זמינות
+                            הכנסות
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-red-600">{stats.unavailable}</div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            פופולריות
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-blue-600">{stats.popular}</div>
+                        <div className="text-2xl font-bold text-green-600">
+                            {formatPrice(dish.stats.totalRevenue)}
+                        </div>
                     </CardContent>
                 </Card>
             </div>
 
-            {/* Filters */}
-            <Card>
-                <CardContent className="pt-6">
-                    <div className="flex flex-col lg:flex-row gap-4">
-                        <div className="flex-1">
-                            <div className="relative">
-                                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                                <Input
-                                    placeholder="חיפוש מנה..."
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    className="pr-10"
-                                />
+            {/* Tabs */}
+            <Tabs defaultValue="details" className="space-y-4">
+                <TabsList>
+                    <TabsTrigger value="details">פרטים</TabsTrigger>
+                    <TabsTrigger value="ingredients">רכיבים</TabsTrigger>
+                    <TabsTrigger value="orders">הזמנות אחרונות</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="details">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>פרטי המנה</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div>
+                                <div className="text-sm font-medium text-muted-foreground mb-1">
+                                    תיאור
+                                </div>
+                                <p>{dish.description || 'אין תיאור'}</p>
                             </div>
-                        </div>
-                        <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
-                            <TabsList>
-                                {categories.map(cat => (
-                                    <TabsTrigger key={cat.value} value={cat.value}>
-                                        {cat.label}
-                                    </TabsTrigger>
-                                ))}
-                            </TabsList>
-                        </Tabs>
-                        <div className="flex gap-2">
-                            <Button
-                                variant={viewMode === 'list' ? 'default' : 'outline'}
-                                size="sm"
-                                onClick={() => setViewMode('list')}
-                            >
-                                רשימה
-                            </Button>
-                            <Button
-                                variant={viewMode === 'grid' ? 'default' : 'outline'}
-                                size="sm"
-                                onClick={() => setViewMode('grid')}
-                            >
-                                רשת
-                            </Button>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+                            <div>
+                                <div className="text-sm font-medium text-muted-foreground mb-1">
+                                    סטטוס
+                                </div>
+                                <Badge variant={dish.isAvailable ? 'default' : 'secondary'}>
+                                    {dish.isAvailable ? 'זמין להזמנה' : 'לא זמין'}
+                                </Badge>
+                            </div>
+                            <div>
+                                <div className="text-sm font-medium text-muted-foreground mb-1">
+                                    תאריך יצירה
+                                </div>
+                                <p>{format(new Date(dish.createdAt), 'dd/MM/yyyy', { locale: he })}</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
 
-            {/* Dishes Display */}
-            {viewMode === 'list' ? (
-                <DishList
-                    dishes={dishes}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                />
-            ) : (
-                <DishGrid
-                    dishes={dishes}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                />
-            )}
+                <TabsContent value="ingredients">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>רכיבי המנה</CardTitle>
+                            <CardDescription>
+                                רשימת הרכיבים והכמויות הנדרשות
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {dish.ingredients.length > 0 ? (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>רכיב</TableHead>
+                                            <TableHead className="text-right">כמות</TableHead>
+                                            <TableHead>יחידה</TableHead>
+                                            <TableHead>הערות</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {dish.ingredients.map((item) => (
+                                            <TableRow key={item.id}>
+                                                <TableCell className="font-medium">
+                                                    {item.ingredient.name}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {item.quantity}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {item.ingredient.unit}
+                                                </TableCell>
+                                                <TableCell className="text-muted-foreground">
+                                                    {item.notes || '-'}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            ) : (
+                                <p className="text-center py-8 text-muted-foreground">
+                                    לא הוגדרו רכיבים למנה זו
+                                </p>
+                            )}
+                        </CardContent>
+                    </Card>
+                </TabsContent>
 
-            {/* Add/Edit Dialog */}
-            <DishDialog
-                open={dialogOpen}
-                onOpenChange={setDialogOpen}
-                dish={selectedDish}
-                onSave={handleSave}
-            />
+                <TabsContent value="orders">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>הזמנות אחרונות</CardTitle>
+                            <CardDescription>
+                                10 ההזמנות האחרונות שכללו מנה זו
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {dish.orderItems.length > 0 ? (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>מספר הזמנה</TableHead>
+                                            <TableHead>לקוח</TableHead>
+                                            <TableHead className="text-center">כמות</TableHead>
+                                            <TableHead>תאריך משלוח</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {dish.orderItems.map((item) => (
+                                            <TableRow key={item.id}>
+                                                <TableCell>
+                                                    <Link
+                                                        href={`/orders/${item.order.id}`}
+                                                        className="text-blue-600 hover:underline"
+                                                    >
+                                                        {item.order.orderNumber}
+                                                    </Link>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Link
+                                                        href={`/customers/${item.order.customer.id}`}
+                                                        className="text-blue-600 hover:underline"
+                                                    >
+                                                        {item.order.customer.name}
+                                                    </Link>
+                                                </TableCell>
+                                                <TableCell className="text-center">
+                                                    {item.quantity}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {format(new Date(item.order.deliveryDate), 'dd/MM/yyyy', { locale: he })}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            ) : (
+                                <p className="text-center py-8 text-muted-foreground">
+                                    אין הזמנות למנה זו
+                                </p>
+                            )}
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+            </Tabs>
         </div>
     )
 }

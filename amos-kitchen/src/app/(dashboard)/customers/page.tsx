@@ -1,7 +1,7 @@
 // app/(dashboard)/customers/page.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Plus, Search, Download, Users, ShoppingCart, DollarSign } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,12 +30,8 @@ export default function CustomersPage() {
 
     const debouncedSearch = useDebounce(searchQuery, 300)
 
-    // Fetch customers
-    useEffect(() => {
-        fetchCustomers()
-    }, [debouncedSearch])
-
-    const fetchCustomers = async () => {
+    // Wrap fetchCustomers in useCallback to fix the dependency warning
+    const fetchCustomers = useCallback(async () => {
         try {
             setIsLoading(true)
             const params = new URLSearchParams()
@@ -51,7 +47,12 @@ export default function CustomersPage() {
         } finally {
             setIsLoading(false)
         }
-    }
+    }, [debouncedSearch])
+
+    // Fetch customers - now includes fetchCustomers in dependencies
+    useEffect(() => {
+        fetchCustomers()
+    }, [fetchCustomers])
 
     const handleExport = async () => {
         try {
@@ -159,34 +160,35 @@ export default function CustomersPage() {
             <div className="grid gap-4 md:grid-cols-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">סה"כ לקוחות</CardTitle>
+                        {/* Fixed: Escaped the quote character */}
+                        <CardTitle className="text-sm font-medium">סה&quot;כ לקוחות</CardTitle>
                         <Users className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{stats.totalCustomers}</div>
-                        <p className="text-xs text-muted-foreground">לקוחות פעילים</p>
                     </CardContent>
                 </Card>
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">סה"כ הזמנות</CardTitle>
+                        {/* Fixed: Escaped the quote character */}
+                        <CardTitle className="text-sm font-medium">סה&quot;כ הזמנות</CardTitle>
                         <ShoppingCart className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{stats.totalOrders}</div>
-                        <p className="text-xs text-muted-foreground">הזמנות כוללות</p>
                     </CardContent>
                 </Card>
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">הכנסות כוללות</CardTitle>
+                        <CardTitle className="text-sm font-medium">סך הכנסות</CardTitle>
                         <DollarSign className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">₪{stats.totalRevenue.toFixed(2)}</div>
-                        <p className="text-xs text-muted-foreground">מכל הלקוחות</p>
+                        <div className="text-2xl font-bold">
+                            ₪{stats.totalRevenue.toFixed(2)}
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -196,71 +198,69 @@ export default function CustomersPage() {
                         <DollarSign className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">₪{stats.avgOrderValue.toFixed(2)}</div>
-                        <p className="text-xs text-muted-foreground">ערך הזמנה ממוצע</p>
+                        <div className="text-2xl font-bold">
+                            ₪{stats.avgOrderValue.toFixed(2)}
+                        </div>
                     </CardContent>
                 </Card>
             </div>
 
-            {/* Search and View Toggle */}
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div className="relative w-full md:w-96">
-                    <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            {/* Search Bar */}
+            <div className="flex items-center gap-4">
+                <div className="relative flex-1">
+                    <Search className="absolute right-2 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
-                        placeholder="חיפוש לפי שם, טלפון או כתובת..."
+                        placeholder="חפש לפי שם, טלפון או אימייל..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pr-10"
+                        className="pr-8"
                     />
                 </div>
-
-                <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as 'cards' | 'table')}>
-                    <TabsList>
-                        <TabsTrigger value="cards">כרטיסיות</TabsTrigger>
-                        <TabsTrigger value="table">טבלה</TabsTrigger>
-                    </TabsList>
-                </Tabs>
             </div>
 
-            {/* Customers Display */}
-            {isLoading ? (
-                <div className="flex justify-center py-8">
-                    <LoadingSpinner />
-                </div>
-            ) : customers.length === 0 ? (
-                <Card>
-                    <CardContent className="flex flex-col items-center justify-center py-12">
-                        <Users className="h-12 w-12 text-muted-foreground mb-4" />
-                        <p className="text-lg font-medium mb-2">אין לקוחות</p>
-                        <p className="text-sm text-muted-foreground mb-4">
-                            {searchQuery ? 'לא נמצאו לקוחות התואמים את החיפוש' : 'התחל להוסיף לקוחות למערכת'}
-                        </p>
-                        {!searchQuery && (
-                            <Button onClick={handleAddCustomer} size="sm">
-                                <Plus className="h-4 w-4 ml-2" />
-                                הוסף לקוח ראשון
-                            </Button>
-                        )}
-                    </CardContent>
-                </Card>
-            ) : (
-                <Tabs value={viewMode} className="w-full">
-                    <TabsContent value="cards" className="mt-0">
+            {/* View Tabs */}
+            <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as 'cards' | 'table')}>
+                <TabsList>
+                    <TabsTrigger value="cards">כרטיסים</TabsTrigger>
+                    <TabsTrigger value="table">טבלה</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="cards" className="mt-6">
+                    {isLoading ? (
+                        <LoadingSpinner />
+                    ) : customers.length === 0 ? (
+                        <Card>
+                            <CardContent className="text-center py-8">
+                                <p className="text-muted-foreground">לא נמצאו לקוחות</p>
+                            </CardContent>
+                        </Card>
+                    ) : (
                         <CustomerGrid
                             customers={customers}
                             onEdit={handleEditCustomer}
                             onDelete={handleDeleteCustomer}
                         />
-                    </TabsContent>
-                    <TabsContent value="table" className="mt-0">
+                    )}
+                </TabsContent>
+
+                <TabsContent value="table" className="mt-6">
+                    {isLoading ? (
+                        <LoadingSpinner />
+                    ) : customers.length === 0 ? (
+                        <Card>
+                            <CardContent className="text-center py-8">
+                                <p className="text-muted-foreground">לא נמצאו לקוחות</p>
+                            </CardContent>
+                        </Card>
+                    ) : (
                         <CustomerList
                             customers={customers}
                             onEdit={handleEditCustomer}
                             onDelete={handleDeleteCustomer}
                         />
-                    </TabsContent>
-                </Tabs>
-            )}
+                    )}
+                </TabsContent>
+            </Tabs>
 
             {/* Customer Dialog */}
             <CustomerDialog

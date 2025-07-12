@@ -13,25 +13,6 @@ import {
 } from "@/components/ui/collapsible";
 import { cn } from '@/lib/utils';
 
-interface DishAggregation {
-  id: string;
-  name: string;
-  category: DishCategory;
-  totalQuantity: number;
-  orderCount: number;
-  orders: Array<{
-    orderNumber: string;
-    customerName: string;
-    quantity: number;
-    notes: string | null;
-  }>;
-}
-
-interface BatchCookingViewProps {
-  dishes: DishAggregation[];
-  orders: any[];
-}
-
 export function BatchCookingView({ dishes, orders }: BatchCookingViewProps) {
   const [expandedDishes, setExpandedDishes] = useState<string[]>([]);
 
@@ -76,17 +57,35 @@ export function BatchCookingView({ dishes, orders }: BatchCookingViewProps) {
     }
   };
 
-  const dishesByCategory = dishes.reduce((acc, dish) => {
-    if (!acc[dish.category]) {
-      acc[dish.category] = [];
+  // Default config for unknown categories
+  const defaultCategoryConfig = {
+    label: 'אחר',
+    icon: <Utensils className="h-5 w-5" />,
+    color: 'bg-gray-50 border-gray-200',
+    badge: 'bg-gray-100 text-gray-800'
+  };
+
+  // Filter out dishes with invalid categories
+  const validDishes = dishes.filter(dish => {
+    if (!dish.category) {
+      console.warn('Dish without category:', dish);
+      return false;
     }
-    acc[dish.category].push(dish);
+    return true;
+  });
+
+  const dishesByCategory = validDishes.reduce((acc, dish) => {
+    const category = dish.category || 'OTHER';
+    if (!acc[category]) {
+      acc[category] = [];
+    }
+    acc[category].push(dish);
     return acc;
-  }, {} as Record<DishCategory, DishAggregation[]>);
+  }, {} as Record<string, DishAggregation[]>);
 
   // Calculate category totals
   const categoryTotals = Object.entries(dishesByCategory).map(([category, dishes]) => ({
-    category: category as DishCategory,
+    category,
     totalQuantity: dishes.reduce((sum, dish) => sum + dish.totalQuantity, 0),
     dishCount: dishes.length
   }));
@@ -96,7 +95,8 @@ export function BatchCookingView({ dishes, orders }: BatchCookingViewProps) {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         {categoryTotals.map(({ category, totalQuantity, dishCount }) => {
-          const config = categoryConfig[category];
+          const config = categoryConfig[category as keyof typeof categoryConfig] || defaultCategoryConfig;
+
           return (
             <Card key={category} className={cn("p-4", config.color)}>
               <div className="flex items-center justify-between mb-2">
@@ -112,7 +112,7 @@ export function BatchCookingView({ dishes, orders }: BatchCookingViewProps) {
 
       {/* Dishes by Category */}
       {Object.entries(dishesByCategory).map(([category, categoryDishes]) => {
-        const config = categoryConfig[category as DishCategory];
+        const config = categoryConfig[category as keyof typeof categoryConfig] || defaultCategoryConfig;
 
         return (
           <Card key={category} className="overflow-hidden">
@@ -133,6 +133,7 @@ export function BatchCookingView({ dishes, orders }: BatchCookingViewProps) {
                   open={expandedDishes.includes(dish.id)}
                   onOpenChange={() => toggleDish(dish.id)}
                 >
+                  {/* Rest of your collapsible content remains the same */}
                   <Card className="overflow-hidden">
                     <CollapsibleTrigger asChild>
                       <Button

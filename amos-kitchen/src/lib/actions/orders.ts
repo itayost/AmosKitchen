@@ -45,6 +45,16 @@ export async function getOrdersForToday() {
 
 export async function updateOrderStatus(orderId: string, newStatus: OrderStatus) {
     try {
+        // Get the current order to track the previous status
+        const currentOrder = await prisma.order.findUnique({
+            where: { id: orderId },
+            select: { status: true }
+        });
+
+        if (!currentOrder) {
+            return { success: false, error: 'Order not found' };
+        }
+
         // Update the order status
         const updatedOrder = await prisma.order.update({
             where: { id: orderId },
@@ -62,13 +72,19 @@ export async function updateOrderStatus(orderId: string, newStatus: OrderStatus)
             }
         });
 
-        // Create history entry
+        // Create history entry with correct fields
         await prisma.orderHistory.create({
             data: {
                 orderId: orderId,
-                status: newStatus,
-                notes: `Status changed to ${newStatus}`,
-                createdBy: 'Kitchen Staff' // You might want to get this from the session
+                action: 'STATUS_CHANGED',  // Required field
+                details: {
+                    previousStatus: currentOrder.status,
+                    newStatus: newStatus,
+                    notes: `Status changed from ${currentOrder.status} to ${newStatus}`,
+                    changedBy: 'Kitchen Staff',
+                    timestamp: new Date().toISOString()
+                },
+                userId: null  // Optional - set to null or pass actual user ID
             }
         });
 
@@ -84,12 +100,21 @@ export async function updateOrderStatus(orderId: string, newStatus: OrderStatus)
 
 export async function bulkUpdateOrderStatus(orderIds: string[], newStatus: OrderStatus) {
     try {
+        // Get current statuses for history tracking
+        const currentOrders = await prisma.order.findMany({
+            where: {
+                id: { in: orderIds }
+            },
+            select: {
+                id: true,
+                status: true
+            }
+        });
+
         // Update multiple orders at once
         await prisma.order.updateMany({
             where: {
-                id: {
-                    in: orderIds
-                }
+                id: { in: orderIds }
             },
             data: {
                 status: newStatus,
@@ -97,12 +122,20 @@ export async function bulkUpdateOrderStatus(orderIds: string[], newStatus: Order
             }
         });
 
-        // Create history entries for all orders
-        const historyEntries = orderIds.map(orderId => ({
-            orderId,
-            status: newStatus,
-            notes: `Bulk status change to ${newStatus}`,
-            createdBy: 'Kitchen Staff'
+        // Create history entries for all orders with correct fields
+        const historyEntries = currentOrders.map(order => ({
+            orderId: order.id,
+            action: 'STATUS_CHANGED',  // Required field
+            details: {
+                previousStatus: order.status,
+                newStatus: newStatus,
+                notes: `Bulk status change from ${order.status} to ${newStatus}`,
+                changedBy: 'Kitchen Staff',
+                bulkUpdate: true,
+                totalOrders: orderIds.length,
+                timestamp: new Date().toISOString()
+            },
+            userId: null  // Optional - set to null or pass actual user ID
         }));
 
         await prisma.orderHistory.createMany({

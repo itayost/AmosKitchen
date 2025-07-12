@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Order, OrderStatus, DishCategory } from '@prisma/client';
 import { updateOrderStatus, bulkUpdateOrderStatus } from '@/lib/actions/orders';
 import { Button } from '@/components/ui/button';
@@ -63,7 +63,7 @@ export function KitchenDashboard({ orders: initialOrders }: KitchenDashboardProp
     return () => clearInterval(interval);
   }, []);
 
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
       const response = await fetch('/api/orders/today');
@@ -90,7 +90,20 @@ export function KitchenDashboard({ orders: initialOrders }: KitchenDashboardProp
     } finally {
       setIsRefreshing(false);
     }
-  };
+  }, [toast]);
+
+  // Fetch fresh data when component mounts
+  useEffect(() => {
+    handleRefresh();
+  }, [handleRefresh]);
+
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      handleRefresh();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [handleRefresh]);
 
   const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
     const result = await updateOrderStatus(orderId, newStatus);

@@ -62,38 +62,32 @@ export function CookingOrderCard({
     NEW: { 
       color: 'bg-gray-50 border-gray-300', 
       badge: 'default',
-      icon: <Package className="h-4 w-4" />,
-      text: 'חדש'
+      icon: <Package className="h-4 w-4" />
     },
-    CONFIRMED: {
-      color: 'bg-blue-50 border-blue-300',
+    CONFIRMED: { 
+      color: 'bg-blue-50 border-blue-300', 
       badge: 'default',
-      icon: <Package className="h-4 w-4" />,
-      text: 'מאושר'
+      icon: <Package className="h-4 w-4" />
     },
-    PREPARING: {
-      color: 'bg-yellow-50 border-yellow-300',
+    PREPARING: { 
+      color: 'bg-yellow-50 border-yellow-300', 
       badge: 'secondary',
-      icon: <Clock className="h-4 w-4" />,
-      text: 'בהכנה'
+      icon: <Clock className="h-4 w-4" />
     },
-    READY: {
-      color: 'bg-green-50 border-green-300',
+    READY: { 
+      color: 'bg-green-50 border-green-300', 
       badge: 'default',
-      icon: <CheckCircle2 className="h-4 w-4" />,
-      text: 'מוכן'
+      icon: <CheckCircle2 className="h-4 w-4" />
     },
-    DELIVERED: {
-      color: 'bg-purple-50 border-purple-300',
+    DELIVERED: { 
+      color: 'bg-purple-50 border-purple-300', 
       badge: 'default',
-      icon: <CheckCircle2 className="h-4 w-4" />,
-      text: 'נמסר'
+      icon: <CheckCircle2 className="h-4 w-4" />
     },
-    CANCELLED: {
-      color: 'bg-red-50 border-red-300',
+    CANCELLED: { 
+      color: 'bg-red-50 border-red-300', 
       badge: 'destructive',
-      icon: <AlertCircle className="h-4 w-4" />,
-      text: 'בוטל'
+      icon: <AlertCircle className="h-4 w-4" />
     },
   };
 
@@ -117,14 +111,14 @@ export function CookingOrderCard({
         <div className="pr-8">
           <div className="flex items-center justify-between mb-2">
             <h3 className="font-bold text-lg">
-              הזמנה #{order.orderNumber}
+              Order #{order.orderNumber}
             </h3>
             <Badge variant={config.badge as any} className="flex items-center gap-1">
               {config.icon}
-              {config.text}
+              {order.status}
             </Badge>
           </div>
-
+          
           <div className="space-y-1 text-sm">
             <p className="font-medium">{order.customer.name}</p>
             <p className="flex items-center gap-1 text-muted-foreground">
@@ -172,13 +166,13 @@ export function CookingOrderCard({
             {order.notes && (
               <p className="flex items-start gap-1">
                 <AlertCircle className="h-4 w-4 text-yellow-600 flex-shrink-0 mt-0.5" />
-                <span><strong>הזמנה:</strong> {order.notes}</span>
+                <span><strong>Order:</strong> {order.notes}</span>
               </p>
             )}
             {order.customer.notes && (
               <p className="flex items-start gap-1 mt-1">
                 <AlertCircle className="h-4 w-4 text-yellow-600 flex-shrink-0 mt-0.5" />
-                <span><strong>לקוח:</strong> {order.customer.notes}</span>
+                <span><strong>Customer:</strong> {order.customer.notes}</span>
               </p>
             )}
           </div>
@@ -187,45 +181,45 @@ export function CookingOrderCard({
         {/* Action Buttons */}
         <div className="flex gap-2 pt-2">
           {order.status === 'NEW' && (
-            <Button
+            <Button 
               onClick={() => handleStatusChange('PREPARING')}
               disabled={isUpdating}
               className="flex-1"
               size="sm"
             >
-              התחל הכנה
+              Start Preparing
             </Button>
           )}
           {order.status === 'CONFIRMED' && (
-            <Button
+            <Button 
               onClick={() => handleStatusChange('PREPARING')}
               disabled={isUpdating}
               className="flex-1"
               size="sm"
             >
-              התחל הכנה
+              Start Preparing
             </Button>
           )}
           {order.status === 'PREPARING' && (
-            <Button
+            <Button 
               onClick={() => handleStatusChange('READY')}
               disabled={isUpdating || !allItemsChecked}
               variant={allItemsChecked ? "default" : "outline"}
               className="flex-1"
               size="sm"
             >
-              {allItemsChecked ? 'סמן כמוכן' : `סמן את כל הפריטים (${checkedItems.length}/${order.orderItems.length})`}
+              {allItemsChecked ? 'Mark as Ready' : `Check all items (${checkedItems.length}/${order.orderItems.length})`}
             </Button>
           )}
           {order.status === 'READY' && (
-            <Button
+            <Button 
               onClick={() => handleStatusChange('DELIVERED')}
               disabled={isUpdating}
               variant="outline"
               className="flex-1"
               size="sm"
             >
-              סמן כנמסר
+              Mark Delivered
             </Button>
           )}
         </div>
@@ -233,7 +227,7 @@ export function CookingOrderCard({
         {/* Total */}
         <div className="pt-2 border-t text-right">
           <p className="text-sm font-medium">
-            סה״כ: ₪{order.totalAmount.toFixed(2)}
+            Total: ${order.totalAmount.toFixed}
           </p>
         </div>
       </div>

@@ -3,8 +3,10 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Clock, Package, CheckCircle2, AlertCircle, Timer } from 'lucide-react';
+import { Clock, Package, CheckCircle2, AlertCircle, Timer, Calendar } from 'lucide-react';
 import { Order, OrderStatus } from '@prisma/client';
+import { format, formatDistance } from 'date-fns';
+import { he } from 'date-fns/locale';
 
 interface KitchenHeaderProps {
   orders: Array<Order & {
@@ -17,25 +19,69 @@ interface KitchenHeaderProps {
   }>;
 }
 
+// Helper function to get the target Friday
+function getTargetFriday() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const currentDay = today.getDay();
+  let daysUntilFriday = (5 - currentDay + 7) % 7;
+
+  if (currentDay === 5) {
+    const now = new Date();
+    const cutoffTime = new Date(today);
+    cutoffTime.setHours(18, 0, 0, 0);
+
+    if (now < cutoffTime) {
+      daysUntilFriday = 0;
+    } else {
+      daysUntilFriday = 7;
+    }
+  }
+
+  const targetFriday = new Date(today);
+  targetFriday.setDate(today.getDate() + daysUntilFriday);
+
+  return targetFriday;
+}
+
 export function KitchenHeader({ orders }: KitchenHeaderProps) {
   const stats = calculateStats(orders);
-  const progress = (stats.readyOrders + stats.deliveredOrders) / stats.totalOrders * 100;
-  
+  const progress = (stats.readyOrders + stats.deliveredOrders) / stats.totalOrders * 100 || 0;
+
+  const targetFriday = getTargetFriday();
+  const isToday = targetFriday.toDateString() === new Date().toDateString();
+  const formattedDate = format(targetFriday, 'dd בMMMM', { locale: he });
+  const daysUntil = formatDistance(targetFriday, new Date(), {
+    locale: he,
+    addSuffix: true
+  });
+
   return (
     <Card className="p-6">
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Clock className="h-6 w-6" />
-            {new Date().toLocaleTimeString('en-US', { 
-              hour: '2-digit', 
-              minute: '2-digit',
-              hour12: false 
-            })}
-          </h2>
-          <Badge variant="outline" className="text-lg px-3 py-1">
+          <div>
+            <h2 className="text-2xl font-bold flex items-center gap-2">
+              <Clock className="h-6 w-6" />
+              {new Date().toLocaleTimeString('he-IL', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+              })}
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              <Calendar className="h-4 w-4 inline mr-1" />
+              הזמנות ליום שישי, {formattedDate}
+              {!isToday && <span className="text-xs mr-2">({daysUntil})</span>}
+            </p>
+          </div>
+          <Badge
+            variant={isToday ? "default" : "outline"}
+            className={`text-lg px-3 py-1 ${isToday ? 'bg-green-600' : ''}`}
+          >
             <Timer className="h-4 w-4 mr-1" />
-            יום שישי - יום משלוחים
+            {isToday ? 'יום המשלוחים!' : `${daysUntil} למשלוחים`}
           </Badge>
         </div>
 
@@ -106,18 +152,23 @@ export function KitchenHeader({ orders }: KitchenHeaderProps) {
           <p className="text-sm text-muted-foreground">
             <strong>סה״כ מנות להכנה:</strong> {stats.totalDishes} פריטים
           </p>
+          {stats.totalOrders === 0 && (
+            <p className="text-sm text-muted-foreground mt-1">
+              אין הזמנות ליום שישי הקרוב
+            </p>
+          )}
         </div>
       </div>
     </Card>
   );
 }
 
-function StatCard({ 
-  icon, 
-  label, 
-  value, 
-  color 
-}: { 
+function StatCard({
+  icon,
+  label,
+  value,
+  color
+}: {
   icon: React.ReactNode;
   label: string;
   value: number;
@@ -141,17 +192,17 @@ function StatCard({
   );
 }
 
-function StatusPill({ 
-  status, 
-  count, 
-  color 
-}: { 
+function StatusPill({
+  status,
+  count,
+  color
+}: {
   status: string;
   count: number;
   color: string;
 }) {
   if (count === 0) return null;
-  
+
   return (
     <Badge variant="secondary" className={`${color} border-0`}>
       {status}: {count}
@@ -172,7 +223,7 @@ function calculateStats(orders: any[]) {
 
   orders.forEach(order => {
     stats.totalDishes += order.orderItems.reduce((sum: number, item: any) => sum + item.quantity, 0);
-    
+
     switch (order.status as OrderStatus) {
       case 'NEW':
         stats.newOrders++;

@@ -11,7 +11,8 @@ import {
     Eye,
     ChevronUp,
     ChevronDown,
-    MoreVertical
+    MoreVertical,
+    AlertTriangle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -31,9 +32,11 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { OrderStatusBadge } from './order-status-badge'
+import { PreferenceBadgeGroup } from '@/components/customers/preference-badge'
 import { useRouter } from 'next/navigation'
-import type { Order, OrderStatus, Customer } from '@/lib/types/database'
+import type { Order, OrderStatus, Customer, CustomerPreference } from '@/lib/types/database'
 
 interface OrderListProps {
     orders: Order[]
@@ -45,7 +48,9 @@ interface OrderListProps {
 }
 
 interface OrderWithCustomer extends Order {
-    customer: Customer
+    customer: Customer & {
+        preferences?: CustomerPreference[]
+    }
 }
 
 type SortField = 'orderNumber' | 'customer' | 'deliveryDate' | 'totalAmount' | 'status' | 'createdAt'
@@ -62,8 +67,9 @@ export function OrderList({
     const router = useRouter()
     const [sortField, setSortField] = useState<SortField>('createdAt')
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+    const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
 
-    // Cast orders to include customer
+    // Cast orders to include customer with preferences
     const ordersWithCustomer = orders as OrderWithCustomer[]
 
     const handleSort = (field: SortField) => {
@@ -73,6 +79,16 @@ export function OrderList({
             setSortField(field)
             setSortDirection('asc')
         }
+    }
+
+    const toggleRowExpansion = (orderId: string) => {
+        const newExpanded = new Set(expandedRows)
+        if (newExpanded.has(orderId)) {
+            newExpanded.delete(orderId)
+        } else {
+            newExpanded.add(orderId)
+        }
+        setExpandedRows(newExpanded)
     }
 
     const handleStatusUpdate = async (orderId: string, newStatus: OrderStatus) => {
@@ -107,193 +123,216 @@ export function OrderList({
         }
     }
 
-    // Sort orders - use ordersWithCustomer
     const sortedOrders = [...ordersWithCustomer].sort((a, b) => {
-        let aValue: any
-        let bValue: any
+        let aValue: any = a[sortField as keyof Order]
+        let bValue: any = b[sortField as keyof Order]
 
         if (sortField === 'customer') {
-            aValue = a.customer.name
-            bValue = b.customer.name
-        } else {
-            aValue = a[sortField as keyof Order]
-            bValue = b[sortField as keyof Order]
+            aValue = a.customer?.name || ''
+            bValue = b.customer?.name || ''
         }
 
-        if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
-        if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
-        return 0
+        if (aValue instanceof Date) aValue = aValue.getTime()
+        if (bValue instanceof Date) bValue = bValue.getTime()
+
+        if (typeof aValue === 'string') {
+            return sortDirection === 'asc'
+                ? aValue.localeCompare(bValue)
+                : bValue.localeCompare(aValue)
+        }
+
+        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue
     })
 
-    const SortIndicator = ({ field }: { field: SortField }) => {
-        if (sortField !== field) return null
-        return sortDirection === 'asc' ?
-            <ChevronUp className="h-4 w-4" /> :
-            <ChevronDown className="h-4 w-4" />
+    const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat('he-IL', {
+            style: 'currency',
+            currency: 'ILS'
+        }).format(amount)
     }
+
+    const hasCriticalPreferences = (preferences?: CustomerPreference[]) => {
+        if (!preferences) return false
+        return preferences.some(p => p.type === 'ALLERGY' || p.type === 'MEDICAL')
+    }
+
+    const SortButton = ({ field, children }: { field: SortField; children: React.ReactNode }) => (
+        <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2"
+            onClick={() => handleSort(field)}
+        >
+            {children}
+            {sortField === field ? (
+                sortDirection === 'asc' ? <ChevronUp className="h-3 w-3 mr-1" /> : <ChevronDown className="h-3 w-3 mr-1" />
+            ) : null}
+        </Button>
+    )
 
     if (isLoading) {
         return (
             <Card>
-                <CardContent className="p-8">
-                    <div className="flex items-center justify-center">
-                        <div className="text-center">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-                            <p className="text-gray-500">טוען הזמנות...</p>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-        )
-    }
-
-    if (!ordersWithCustomer || ordersWithCustomer.length === 0) {
-        return (
-            <Card>
-                <CardContent className="p-8">
-                    <div className="text-center text-gray-500">
-                        <p>לא נמצאו הזמנות</p>
-                    </div>
+                <CardContent className="p-8 text-center">
+                    <p className="text-muted-foreground">טוען הזמנות...</p>
                 </CardContent>
             </Card>
         )
     }
 
     return (
-        <>
+        <div className="space-y-4">
             <Card>
-                <CardContent className="p-0">
+                <div className="overflow-x-auto">
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead
-                                    className="cursor-pointer"
-                                    onClick={() => handleSort('orderNumber')}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        מספר הזמנה
-                                        <SortIndicator field="orderNumber" />
-                                    </div>
+                                <TableHead className="w-[50px]"></TableHead>
+                                <TableHead>
+                                    <SortButton field="orderNumber">מס׳ הזמנה</SortButton>
                                 </TableHead>
-                                <TableHead
-                                    className="cursor-pointer"
-                                    onClick={() => handleSort('customer')}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        לקוח
-                                        <SortIndicator field="customer" />
-                                    </div>
+                                <TableHead>
+                                    <SortButton field="customer">לקוח</SortButton>
                                 </TableHead>
-                                <TableHead
-                                    className="cursor-pointer"
-                                    onClick={() => handleSort('deliveryDate')}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        תאריך משלוח
-                                        <SortIndicator field="deliveryDate" />
-                                    </div>
+                                <TableHead>
+                                    <SortButton field="deliveryDate">תאריך משלוח</SortButton>
                                 </TableHead>
-                                <TableHead
-                                    className="cursor-pointer"
-                                    onClick={() => handleSort('totalAmount')}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        סכום
-                                        <SortIndicator field="totalAmount" />
-                                    </div>
+                                <TableHead>
+                                    <SortButton field="status">סטטוס</SortButton>
                                 </TableHead>
-                                <TableHead
-                                    className="cursor-pointer"
-                                    onClick={() => handleSort('status')}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        סטטוס
-                                        <SortIndicator field="status" />
-                                    </div>
+                                <TableHead className="text-right">
+                                    <SortButton field="totalAmount">סכום</SortButton>
                                 </TableHead>
-                                <TableHead>פעולות</TableHead>
+                                <TableHead className="w-[100px]">פעולות</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {sortedOrders.map((order) => (
-                                <TableRow key={order.id}>
-                                    <TableCell className="font-medium">
-                                        {order.orderNumber}
-                                    </TableCell>
-                                    <TableCell>
-                                        <div>
-                                            <div className="font-medium">{order.customer.name}</div>
-                                            <div className="text-sm text-muted-foreground">{order.customer.phone}</div>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        {format(new Date(order.deliveryDate), 'dd/MM/yyyy')}
-                                    </TableCell>
-                                    <TableCell>₪{order.totalAmount}</TableCell>
-                                    <TableCell>
-                                        <OrderStatusBadge status={order.status} />
-                                    </TableCell>
-                                    <TableCell>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                                    <MoreVertical className="h-4 w-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                <DropdownMenuItem
-                                                    onClick={() => router.push(`/orders/${order.id}`)}
-                                                    className="gap-2"
-                                                >
-                                                    <Eye className="h-4 w-4" />
-                                                    צפייה
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem
-                                                    onClick={() => router.push(`/orders/${order.id}/edit`)}
-                                                    className="gap-2"
-                                                >
-                                                    <Edit className="h-4 w-4" />
-                                                    עריכה
-                                                </DropdownMenuItem>
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuLabel>שנה סטטוס</DropdownMenuLabel>
-                                                {(['new', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'] as OrderStatus[]).map((status) => (
-                                                    <DropdownMenuItem
-                                                        key={status}
-                                                        onClick={() => handleStatusUpdate(order.id, status)}
-                                                        disabled={order.status === status}
-                                                    >
-                                                        {status === 'new' && 'חדש'}
-                                                        {status === 'confirmed' && 'אושר'}
-                                                        {status === 'preparing' && 'בהכנה'}
-                                                        {status === 'ready' && 'מוכן'}
-                                                        {status === 'delivered' && 'נמסר'}
-                                                        {status === 'cancelled' && 'בוטל'}
+                                <>
+                                    <TableRow
+                                        key={order.id}
+                                        className={cn(
+                                            "cursor-pointer hover:bg-muted/50",
+                                            hasCriticalPreferences(order.customer?.preferences) && "bg-red-50/30"
+                                        )}
+                                    >
+                                        <TableCell>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => toggleRowExpansion(order.id)}
+                                            >
+                                                {expandedRows.has(order.id) ?
+                                                    <ChevronUp className="h-4 w-4" /> :
+                                                    <ChevronDown className="h-4 w-4" />
+                                                }
+                                            </Button>
+                                        </TableCell>
+                                        <TableCell
+                                            className="font-medium"
+                                            onClick={() => router.push(`/orders/${order.id}`)}
+                                        >
+                                            {order.orderNumber}
+                                        </TableCell>
+                                        <TableCell onClick={() => router.push(`/orders/${order.id}`)}>
+                                            <div className="space-y-1">
+                                                <div className="flex items-center gap-2">
+                                                    <span>{order.customer?.name || 'לקוח לא ידוע'}</span>
+                                                    {hasCriticalPreferences(order.customer?.preferences) && (
+                                                        <Badge variant="destructive" className="h-4 px-1">
+                                                            <AlertTriangle className="h-3 w-3" />
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                                {order.customer?.preferences && order.customer.preferences.length > 0 && (
+                                                    <PreferenceBadgeGroup
+                                                        preferences={order.customer.preferences}
+                                                        maxVisible={2}
+                                                        showIcon={false}
+                                                        className="mt-1"
+                                                    />
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell onClick={() => router.push(`/orders/${order.id}`)}>
+                                            {format(new Date(order.deliveryDate), 'dd/MM/yyyy')}
+                                        </TableCell>
+                                        <TableCell>
+                                            <OrderStatusBadge status={order.status} />
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            {formatCurrency(Number(order.totalAmount))}
+                                        </TableCell>
+                                        <TableCell>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="icon">
+                                                        <MoreVertical className="h-4 w-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="start">
+                                                    <DropdownMenuLabel>פעולות</DropdownMenuLabel>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem onClick={() => router.push(`/orders/${order.id}`)}>
+                                                        <Eye className="h-4 w-4 ml-2" />
+                                                        צפייה
                                                     </DropdownMenuItem>
-                                                ))}
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuItem
-                                                    className="gap-2 text-red-600"
-                                                    onClick={() => handleDelete(order.id)}
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                    מחיקה
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </TableCell>
-                                </TableRow>
+                                                    <DropdownMenuItem onClick={() => router.push(`/orders/${order.id}/edit`)}>
+                                                        <Edit className="h-4 w-4 ml-2" />
+                                                        עריכה
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem
+                                                        className="text-destructive"
+                                                        onClick={() => handleDelete(order.id)}
+                                                    >
+                                                        <Trash2 className="h-4 w-4 ml-2" />
+                                                        מחיקה
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </TableCell>
+                                    </TableRow>
+
+                                    {/* Expanded Row - Show Preferences */}
+                                    {expandedRows.has(order.id) && order.customer?.preferences && order.customer.preferences.length > 0 && (
+                                        <TableRow>
+                                            <TableCell colSpan={7} className="bg-muted/30">
+                                                <div className="p-4 space-y-3">
+                                                    <h4 className="text-sm font-semibold">העדפות לקוח:</h4>
+                                                    <PreferenceBadgeGroup
+                                                        preferences={order.customer.preferences}
+                                                        maxVisible={20}
+                                                        showIcon={true}
+                                                    />
+                                                    {order.customer.preferences.some(p => p.notes) && (
+                                                        <div className="mt-2 space-y-1">
+                                                            {order.customer.preferences
+                                                                .filter(p => p.notes)
+                                                                .map(p => (
+                                                                    <p key={p.id} className="text-sm text-muted-foreground">
+                                                                        • {p.value}: {p.notes}
+                                                                    </p>
+                                                                ))
+                                                            }
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </>
                             ))}
                         </TableBody>
                     </Table>
-                </CardContent>
+                </div>
             </Card>
 
             {/* Pagination */}
             <div className="flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">
-                    מציג {((currentPage - 1) * 10) + 1} עד {Math.min(currentPage * 10, ordersWithCustomer.length)} מתוך {ordersWithCustomer.length} תוצאות
-                </div>
+                <p className="text-sm text-muted-foreground">
+                    עמוד {currentPage} מתוך {totalPages}
+                </p>
                 <div className="flex gap-2">
                     <Button
                         variant="outline"
@@ -302,43 +341,19 @@ export function OrderList({
                         disabled={currentPage === 1}
                     >
                         <ChevronRight className="h-4 w-4" />
+                        הקודם
                     </Button>
-                    <div className="flex items-center gap-1">
-                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                            let pageNum
-                            if (totalPages <= 5) {
-                                pageNum = i + 1
-                            } else if (currentPage <= 3) {
-                                pageNum = i + 1
-                            } else if (currentPage >= totalPages - 2) {
-                                pageNum = totalPages - 4 + i
-                            } else {
-                                pageNum = currentPage - 2 + i
-                            }
-
-                            return (
-                                <Button
-                                    key={pageNum}
-                                    variant={currentPage === pageNum ? "default" : "outline"}
-                                    size="sm"
-                                    onClick={() => onPageChange(pageNum)}
-                                    className="w-10"
-                                >
-                                    {pageNum}
-                                </Button>
-                            )
-                        })}
-                    </div>
                     <Button
                         variant="outline"
                         size="sm"
                         onClick={() => onPageChange(currentPage + 1)}
                         disabled={currentPage === totalPages}
                     >
+                        הבא
                         <ChevronLeft className="h-4 w-4" />
                     </Button>
                 </div>
             </div>
-        </>
+        </div>
     )
 }

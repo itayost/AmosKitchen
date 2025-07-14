@@ -2,15 +2,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
-
-// Validation schema for creating customer
-const createCustomerSchema = z.object({
-    name: z.string().min(2),
-    phone: z.string().min(9),
-    email: z.string().email().nullable().optional(),
-    address: z.string().nullable().optional(),
-    notes: z.string().nullable().optional()
-})
+import { createCustomerSchema } from '@/lib/validators/customer'
+import { normalizePhoneNumber } from '@/lib/validators/customer'
+import { Prisma } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
     try {
@@ -27,7 +21,7 @@ export async function GET(request: NextRequest) {
             ]
         } : {}
 
-        // Fetch customers with order statistics
+        // Fetch customers with order statistics and preferences
         const customers = await prisma.customer.findMany({
             where,
             include: {
@@ -36,6 +30,11 @@ export async function GET(request: NextRequest) {
                         id: true,
                         totalAmount: true,
                         createdAt: true
+                    }
+                },
+                preferences: {
+                    orderBy: {
+                        type: 'asc' as const
                     }
                 }
             },
@@ -65,6 +64,7 @@ export async function GET(request: NextRequest) {
                 email: customer.email,
                 address: customer.address,
                 notes: customer.notes,
+                preferences: customer.preferences,
                 createdAt: customer.createdAt,
                 updatedAt: customer.updatedAt,
                 orderCount,
@@ -87,12 +87,15 @@ export async function POST(request: NextRequest) {
     try {
         const body = await request.json()
 
-        // Validate input
+        // Validate input using the imported schema
         const validatedData = createCustomerSchema.parse(body)
+
+        // Normalize phone number
+        const normalizedPhone = normalizePhoneNumber(validatedData.phone)
 
         // Check if phone number already exists
         const existingCustomer = await prisma.customer.findUnique({
-            where: { phone: validatedData.phone }
+            where: { phone: normalizedPhone }
         })
 
         if (existingCustomer) {
@@ -102,9 +105,28 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        // Create customer
+        // Prepare preferences data if provided
+        const preferencesData = validatedData.preferences?.map(pref => ({
+            type: pref.type,
+            value: pref.value.trim(),
+            notes: pref.notes?.trim() || null
+        })) || []
+
+        // Create customer with preferences
         const customer = await prisma.customer.create({
-            data: validatedData
+            data: {
+                name: validatedData.name.trim(),
+                phone: normalizedPhone,
+                email: validatedData.email?.trim() || null,
+                address: validatedData.address?.trim() || null,
+                notes: validatedData.notes?.trim() || null,
+                preferences: {
+                    create: preferencesData
+                }
+            },
+            include: {
+                preferences: true
+            }
         })
 
         return NextResponse.json(customer, { status: 201 })
@@ -114,6 +136,15 @@ export async function POST(request: NextRequest) {
                 { error: 'Invalid input', details: error.errors },
                 { status: 400 }
             )
+        }
+
+        if (error instanceof Prisma.PrismaClientKnownRequestError) {
+            if (error.code === 'P2002') {
+                return NextResponse.json(
+                    { error: 'לקוח עם פרטים דומים כבר קיים במערכת' },
+                    { status: 400 }
+                )
+            }
         }
 
         console.error('Error creating customer:', error)

@@ -24,12 +24,14 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { format } from 'date-fns'
 import { he } from 'date-fns/locale'
-import type { Customer } from '@/lib/types/database'
+import { PreferenceBadgeGroup } from './preference-badge'
+import type { Customer, CustomerPreference } from '@/lib/types/database'
 
 interface CustomerWithStats extends Customer {
     orderCount: number
     totalSpent: number
     lastOrderDate?: Date
+    preferences?: CustomerPreference[]
 }
 
 interface CustomerListProps {
@@ -107,6 +109,11 @@ export function CustomerList({ customers, onEdit, onDelete }: CustomerListProps)
         </Button>
     )
 
+    const hasCriticalPreferences = (preferences?: CustomerPreference[]) => {
+        if (!preferences) return false
+        return preferences.some(pref => pref.type === 'ALLERGY' || pref.type === 'MEDICAL')
+    }
+
     return (
         <div className="rounded-md border">
             <Table>
@@ -117,6 +124,7 @@ export function CustomerList({ customers, onEdit, onDelete }: CustomerListProps)
                         </TableHead>
                         <TableHead className="text-right">טלפון</TableHead>
                         <TableHead className="hidden md:table-cell">כתובת</TableHead>
+                        <TableHead>העדפות</TableHead>
                         <TableHead className="text-center">סטטוס</TableHead>
                         <TableHead className="text-center">
                             <SortButton field="orderCount">הזמנות</SortButton>
@@ -133,6 +141,7 @@ export function CustomerList({ customers, onEdit, onDelete }: CustomerListProps)
                 <TableBody>
                     {sortedCustomers.map((customer) => {
                         const status = getCustomerStatus(customer.orderCount, customer.lastOrderDate)
+                        const hasCritical = hasCriticalPreferences(customer.preferences)
 
                         return (
                             <TableRow
@@ -142,7 +151,14 @@ export function CustomerList({ customers, onEdit, onDelete }: CustomerListProps)
                             >
                                 <TableCell className="font-medium">
                                     <div>
-                                        <div>{customer.name}</div>
+                                        <div className="flex items-center gap-2">
+                                            {customer.name}
+                                            {hasCritical && (
+                                                <Badge variant="destructive" className="h-5 px-1">
+                                                    !
+                                                </Badge>
+                                            )}
+                                        </div>
                                         {customer.email && (
                                             <div className="text-sm text-muted-foreground">{customer.email}</div>
                                         )}
@@ -151,6 +167,13 @@ export function CustomerList({ customers, onEdit, onDelete }: CustomerListProps)
                                 <TableCell className="text-right">{customer.phone}</TableCell>
                                 <TableCell className="hidden md:table-cell">
                                     {customer.address || '-'}
+                                </TableCell>
+                                <TableCell>
+                                    <PreferenceBadgeGroup
+                                        preferences={customer.preferences || []}
+                                        maxVisible={2}
+                                        showIcon={false}
+                                    />
                                 </TableCell>
                                 <TableCell className="text-center">
                                     <Badge variant={status.variant}>{status.label}</Badge>
@@ -166,27 +189,29 @@ export function CustomerList({ customers, onEdit, onDelete }: CustomerListProps)
                                 <TableCell onClick={(e) => e.stopPropagation()}>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" className="h-8 w-8 p-0">
+                                            <Button variant="ghost" size="icon">
                                                 <MoreVertical className="h-4 w-4" />
+                                                <span className="sr-only">פתח תפריט</span>
                                             </Button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
+                                        <DropdownMenuContent align="start">
                                             <DropdownMenuLabel>פעולות</DropdownMenuLabel>
                                             <DropdownMenuSeparator />
                                             <DropdownMenuItem onClick={() => handleViewProfile(customer.id)}>
-                                                <Eye className="ml-2 h-4 w-4" />
-                                                הצג פרופיל
+                                                <Eye className="h-4 w-4 ml-2" />
+                                                צפייה בפרופיל
                                             </DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => onEdit(customer)}>
-                                                <Edit className="ml-2 h-4 w-4" />
-                                                ערוך
+                                                <Edit className="h-4 w-4 ml-2" />
+                                                עריכה
                                             </DropdownMenuItem>
+                                            <DropdownMenuSeparator />
                                             <DropdownMenuItem
                                                 onClick={() => onDelete(customer.id)}
-                                                className="text-red-600"
+                                                className="text-destructive focus:text-destructive"
                                             >
-                                                <Trash2 className="ml-2 h-4 w-4" />
-                                                מחק
+                                                <Trash2 className="h-4 w-4 ml-2" />
+                                                מחיקה
                                             </DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>

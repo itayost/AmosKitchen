@@ -2,7 +2,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { Phone, Mail, MapPin, ShoppingCart, Edit, Trash2, MoreVertical, Eye } from 'lucide-react'
+import { Phone, Mail, MapPin, ShoppingCart, Edit, Trash2, MoreVertical, Eye, AlertTriangle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -16,12 +16,14 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { format } from 'date-fns'
 import { he } from 'date-fns/locale'
-import type { Customer } from '@/lib/types/database'
+import { PreferenceBadgeGroup } from './preference-badge'
+import type { Customer, CustomerPreference } from '@/lib/types/database'
 
 interface CustomerWithStats extends Customer {
     orderCount: number
     totalSpent: number
     lastOrderDate?: Date
+    preferences?: CustomerPreference[]
 }
 
 interface CustomerGridProps {
@@ -51,10 +53,16 @@ export function CustomerGrid({ customers, onEdit, onDelete }: CustomerGridProps)
         router.push(`/customers/${customerId}`)
     }
 
+    const hasCriticalPreferences = (preferences?: CustomerPreference[]) => {
+        if (!preferences) return false
+        return preferences.some(pref => pref.type === 'ALLERGY' || pref.type === 'MEDICAL')
+    }
+
     return (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {customers.map((customer) => {
                 const status = getCustomerStatus(customer.orderCount, customer.lastOrderDate)
+                const hasCritical = hasCriticalPreferences(customer.preferences)
 
                 return (
                     <Card
@@ -64,8 +72,13 @@ export function CustomerGrid({ customers, onEdit, onDelete }: CustomerGridProps)
                     >
                         <CardHeader className="pb-3">
                             <div className="flex items-start justify-between">
-                                <div>
-                                    <CardTitle className="text-lg">{customer.name}</CardTitle>
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <CardTitle className="text-lg">{customer.name}</CardTitle>
+                                        {hasCritical && (
+                                            <AlertTriangle className="h-4 w-4 text-destructive" />
+                                        )}
+                                    </div>
                                     <Badge variant={status.variant} className="mt-1">
                                         {status.label}
                                     </Badge>
@@ -78,61 +91,96 @@ export function CustomerGrid({ customers, onEdit, onDelete }: CustomerGridProps)
                                             onClick={(e) => e.stopPropagation()}
                                         >
                                             <MoreVertical className="h-4 w-4" />
+                                            <span className="sr-only">פתח תפריט</span>
                                         </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
+                                    <DropdownMenuContent align="start">
                                         <DropdownMenuLabel>פעולות</DropdownMenuLabel>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem onClick={() => handleViewProfile(customer.id)}>
-                                            <Eye className="ml-2 h-4 w-4" />
-                                            הצג פרופיל
+                                            <Eye className="h-4 w-4 ml-2" />
+                                            צפייה בפרופיל
                                         </DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => onEdit(customer)}>
-                                            <Edit className="ml-2 h-4 w-4" />
-                                            ערוך
+                                            <Edit className="h-4 w-4 ml-2" />
+                                            עריכה
                                         </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
                                         <DropdownMenuItem
                                             onClick={() => onDelete(customer.id)}
-                                            className="text-red-600"
+                                            className="text-destructive focus:text-destructive"
                                         >
-                                            <Trash2 className="ml-2 h-4 w-4" />
-                                            מחק
+                                            <Trash2 className="h-4 w-4 ml-2" />
+                                            מחיקה
                                         </DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </div>
                         </CardHeader>
-                        <CardContent className="pb-4 space-y-3">
-                            <div className="space-y-2 text-sm">
-                                {customer.phone && (
+                        <CardContent className="pb-3">
+                            <div className="space-y-3">
+                                {/* Contact Info */}
+                                <div className="space-y-2 text-sm">
                                     <div className="flex items-center gap-2">
                                         <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                                        <span>{customer.phone}</span>
+                                        <span className="font-medium">{customer.phone}</span>
                                     </div>
-                                )}
-                                {customer.email && (
-                                    <div className="flex items-center gap-2">
-                                        <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                                        <span className="truncate">{customer.email}</span>
-                                    </div>
-                                )}
-                                {customer.address && (
-                                    <div className="flex items-center gap-2">
-                                        <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                                        <span className="truncate">{customer.address}</span>
-                                    </div>
-                                )}
-                            </div>
+                                    {customer.email && (
+                                        <div className="flex items-center gap-2">
+                                            <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                                            <span className="truncate">{customer.email}</span>
+                                        </div>
+                                    )}
+                                    {customer.address && (
+                                        <div className="flex items-center gap-2">
+                                            <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                                            <span className="truncate">{customer.address}</span>
+                                        </div>
+                                    )}
+                                </div>
 
-                            <div className="grid grid-cols-2 gap-3 pt-3 border-t">
-                                <div>
-                                    <p className="text-xs text-muted-foreground">הזמנות</p>
-                                    <p className="text-sm font-semibold">{customer.orderCount}</p>
+                                {/* Preferences */}
+                                {customer.preferences && customer.preferences.length > 0 && (
+                                    <div className="pt-2 border-t">
+                                        <PreferenceBadgeGroup
+                                            preferences={customer.preferences}
+                                            maxVisible={3}
+                                            showIcon={true}
+                                            className="mt-2"
+                                        />
+                                    </div>
+                                )}
+
+                                {/* Stats */}
+                                <div className="grid grid-cols-2 gap-3 pt-3 border-t">
+                                    <div>
+                                        <div className="flex items-center gap-1 text-muted-foreground">
+                                            <ShoppingCart className="h-3.5 w-3.5" />
+                                            <span className="text-xs">הזמנות</span>
+                                        </div>
+                                        <p className="text-lg font-semibold">{customer.orderCount}</p>
+                                    </div>
+                                    <div>
+                                        <div className="text-xs text-muted-foreground">סה&quot;כ</div>
+                                        <p className="text-lg font-semibold text-green-600">
+                                            {formatCurrency(customer.totalSpent)}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p className="text-xs text-muted-foreground">סה&quot;כ</p>
-                                    <p className="text-sm font-semibold">{formatCurrency(customer.totalSpent)}</p>
-                                </div>
+
+                                {/* Last Order */}
+                                {customer.lastOrderDate && (
+                                    <div className="text-xs text-muted-foreground pt-2 border-t">
+                                        הזמנה אחרונה: {format(new Date(customer.lastOrderDate), 'dd/MM/yyyy', { locale: he })}
+                                    </div>
+                                )}
+
+                                {/* Notes */}
+                                {customer.notes && (
+                                    <div className="text-xs text-muted-foreground italic pt-2 border-t line-clamp-2">
+                                        {customer.notes}
+                                    </div>
+                                )}
                             </div>
                         </CardContent>
                     </Card>

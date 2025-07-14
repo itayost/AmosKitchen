@@ -16,8 +16,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/lib/hooks/use-toast'
-import type { Customer } from '@/lib/types/database'
+import { PreferenceInput } from './preference-input'
+import { normalizePhoneNumber } from '@/lib/validators/customer'
+import type { Customer, CustomerPreference } from '@/lib/types/database'
 
 interface CustomerDialogProps {
     open: boolean
@@ -32,12 +35,14 @@ interface FormData {
     email: string
     address: string
     notes: string
+    preferences: Partial<CustomerPreference>[]
 }
 
 interface FormErrors {
     name?: string
     phone?: string
     email?: string
+    preferences?: string
 }
 
 export function CustomerDialog({
@@ -55,7 +60,8 @@ export function CustomerDialog({
         phone: '',
         email: '',
         address: '',
-        notes: ''
+        notes: '',
+        preferences: []
     })
     const [errors, setErrors] = useState<FormErrors>({})
 
@@ -66,7 +72,8 @@ export function CustomerDialog({
                 phone: customer.phone || '',
                 email: customer.email || '',
                 address: customer.address || '',
-                notes: customer.notes || ''
+                notes: customer.notes || '',
+                preferences: customer.preferences || []
             })
         } else {
             setFormData({
@@ -74,7 +81,8 @@ export function CustomerDialog({
                 phone: '',
                 email: '',
                 address: '',
-                notes: ''
+                notes: '',
+                preferences: []
             })
         }
         setSavedCustomerId(null)
@@ -98,6 +106,17 @@ export function CustomerDialog({
             newErrors.email = 'כתובת אימייל לא תקינה'
         }
 
+        // Validate preferences
+        const seenPreferences = new Set<string>()
+        for (const pref of formData.preferences) {
+            const key = `${pref.type}-${pref.value?.toLowerCase()}`
+            if (seenPreferences.has(key)) {
+                newErrors.preferences = 'קיימות העדפות כפולות'
+                break
+            }
+            seenPreferences.add(key)
+        }
+
         setErrors(newErrors)
         return Object.keys(newErrors).length === 0
     }
@@ -114,10 +133,15 @@ export function CustomerDialog({
 
             const dataToSubmit = {
                 name: formData.name.trim(),
-                phone: formData.phone.trim(),
+                phone: normalizePhoneNumber(formData.phone.trim()),
                 email: formData.email.trim() || null,
                 address: formData.address.trim() || null,
-                notes: formData.notes.trim() || null
+                notes: formData.notes.trim() || null,
+                preferences: formData.preferences.map(pref => ({
+                    type: pref.type,
+                    value: pref.value,
+                    notes: pref.notes
+                }))
             }
 
             await onSave(dataToSubmit)
@@ -152,7 +176,7 @@ export function CustomerDialog({
         }
     }
 
-    const handleInputChange = (field: keyof FormData, value: string) => {
+    const handleInputChange = (field: keyof FormData, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }))
         if (errors[field as keyof FormErrors]) {
             setErrors(prev => ({ ...prev, [field]: undefined }))
@@ -168,7 +192,7 @@ export function CustomerDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
                         <DialogTitle>
@@ -180,73 +204,85 @@ export function CustomerDialog({
                     </DialogHeader>
 
                     <div className="grid gap-4 py-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="name">שם הלקוח *</Label>
-                            <Input
-                                id="name"
-                                value={formData.name}
-                                onChange={(e) => handleInputChange('name', e.target.value)}
-                                className={errors.name ? 'border-destructive' : ''}
-                                disabled={saving}
-                            />
-                            {errors.name && (
-                                <p className="text-sm text-destructive">{errors.name}</p>
-                            )}
+                        {/* Basic Information */}
+                        <div className="space-y-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="name">שם הלקוח *</Label>
+                                <Input
+                                    id="name"
+                                    value={formData.name}
+                                    onChange={(e) => handleInputChange('name', e.target.value)}
+                                    className={errors.name ? 'border-destructive' : ''}
+                                    disabled={saving}
+                                />
+                                {errors.name && (
+                                    <p className="text-sm text-destructive">{errors.name}</p>
+                                )}
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="phone">טלפון *</Label>
+                                <Input
+                                    id="phone"
+                                    type="tel"
+                                    value={formData.phone}
+                                    onChange={(e) => handleInputChange('phone', e.target.value)}
+                                    className={errors.phone ? 'border-destructive' : ''}
+                                    disabled={saving}
+                                    dir="ltr"
+                                />
+                                {errors.phone && (
+                                    <p className="text-sm text-destructive">{errors.phone}</p>
+                                )}
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="email">אימייל</Label>
+                                <Input
+                                    id="email"
+                                    type="email"
+                                    value={formData.email}
+                                    onChange={(e) => handleInputChange('email', e.target.value)}
+                                    className={errors.email ? 'border-destructive' : ''}
+                                    disabled={saving}
+                                    dir="ltr"
+                                />
+                                {errors.email && (
+                                    <p className="text-sm text-destructive">{errors.email}</p>
+                                )}
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="address">כתובת</Label>
+                                <Input
+                                    id="address"
+                                    value={formData.address}
+                                    onChange={(e) => handleInputChange('address', e.target.value)}
+                                    disabled={saving}
+                                />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="notes">הערות</Label>
+                                <Textarea
+                                    id="notes"
+                                    value={formData.notes}
+                                    onChange={(e) => handleInputChange('notes', e.target.value)}
+                                    placeholder="הערות כלליות על הלקוח..."
+                                    disabled={saving}
+                                    rows={3}
+                                />
+                            </div>
                         </div>
 
-                        <div className="grid gap-2">
-                            <Label htmlFor="phone">טלפון *</Label>
-                            <Input
-                                id="phone"
-                                type="tel"
-                                value={formData.phone}
-                                onChange={(e) => handleInputChange('phone', e.target.value)}
-                                className={errors.phone ? 'border-destructive' : ''}
-                                disabled={saving}
-                                dir="ltr"
-                            />
-                            {errors.phone && (
-                                <p className="text-sm text-destructive">{errors.phone}</p>
-                            )}
-                        </div>
+                        <Separator />
 
-                        <div className="grid gap-2">
-                            <Label htmlFor="email">אימייל</Label>
-                            <Input
-                                id="email"
-                                type="email"
-                                value={formData.email}
-                                onChange={(e) => handleInputChange('email', e.target.value)}
-                                className={errors.email ? 'border-destructive' : ''}
-                                disabled={saving}
-                                dir="ltr"
-                            />
-                            {errors.email && (
-                                <p className="text-sm text-destructive">{errors.email}</p>
-                            )}
-                        </div>
-
-                        <div className="grid gap-2">
-                            <Label htmlFor="address">כתובת</Label>
-                            <Input
-                                id="address"
-                                value={formData.address}
-                                onChange={(e) => handleInputChange('address', e.target.value)}
-                                disabled={saving}
-                            />
-                        </div>
-
-                        <div className="grid gap-2">
-                            <Label htmlFor="notes">הערות</Label>
-                            <Textarea
-                                id="notes"
-                                value={formData.notes}
-                                onChange={(e) => handleInputChange('notes', e.target.value)}
-                                placeholder="הערות מיוחדות, העדפות תזונתיות..."
-                                disabled={saving}
-                                rows={3}
-                            />
-                        </div>
+                        {/* Preferences Section */}
+                        <PreferenceInput
+                            preferences={formData.preferences}
+                            onChange={(preferences) => handleInputChange('preferences', preferences)}
+                            errors={errors}
+                        />
                     </div>
 
                     <DialogFooter>

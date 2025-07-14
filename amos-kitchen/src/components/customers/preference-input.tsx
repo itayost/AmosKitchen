@@ -1,7 +1,7 @@
 // components/customers/preference-input.tsx
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,18 +14,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select'
-import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-} from '@/components/ui/command'
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from '@/components/ui/popover'
 import { Badge } from '@/components/ui/badge'
 import { PreferenceType, CustomerPreference } from '@/lib/types/database'
 import { PREFERENCE_CONFIGS, COMMON_PREFERENCES } from '@/lib/utils/preferences'
@@ -49,17 +37,109 @@ export function PreferenceInput({ preferences, onChange, errors }: PreferenceInp
         notes: ''
     })
     const [showSuggestions, setShowSuggestions] = useState(false)
+    const [highlightedIndex, setHighlightedIndex] = useState(-1)
+    const [justSelected, setJustSelected] = useState(false)
+
+    const inputRef = useRef<HTMLInputElement>(null)
+    const dropdownRef = useRef<HTMLDivElement>(null)
+    const suggestionsRef = useRef<HTMLButtonElement[]>([])
+
+    // Get suggestions for current type
+    const getSuggestionsForType = (type: PreferenceType): string[] => {
+        return COMMON_PREFERENCES[type] || []
+    }
+
+    const filteredSuggestions = newPreference.type
+        ? getSuggestionsForType(newPreference.type as PreferenceType)
+            .filter(suggestion =>
+                suggestion.toLowerCase().includes(newPreference.value.toLowerCase())
+            )
+        : []
+
+    // Handle clicks outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (
+                inputRef.current &&
+                !inputRef.current.contains(event.target as Node) &&
+                dropdownRef.current &&
+                !dropdownRef.current.contains(event.target as Node)
+            ) {
+                setShowSuggestions(false)
+                setHighlightedIndex(-1)
+                setJustSelected(false)
+            }
+        }
+
+        document.addEventListener('mousedown', handleClickOutside)
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside)
+        }
+    }, [])
+
+    // Handle keyboard navigation
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (!showSuggestions || filteredSuggestions.length === 0) return
+
+        switch (e.key) {
+            case 'ArrowDown':
+                e.preventDefault()
+                setHighlightedIndex(prev =>
+                    prev < filteredSuggestions.length - 1 ? prev + 1 : 0
+                )
+                break
+            case 'ArrowUp':
+                e.preventDefault()
+                setHighlightedIndex(prev =>
+                    prev > 0 ? prev - 1 : filteredSuggestions.length - 1
+                )
+                break
+            case 'Enter':
+                e.preventDefault()
+                if (highlightedIndex >= 0) {
+                    selectSuggestion(filteredSuggestions[highlightedIndex])
+                } else if (newPreference.value.trim()) {
+                    handleAddPreference()
+                }
+                break
+            case 'Escape':
+                e.preventDefault()
+                setShowSuggestions(false)
+                setHighlightedIndex(-1)
+                break
+        }
+    }
+
+    // Scroll highlighted item into view
+    useEffect(() => {
+        if (highlightedIndex >= 0 && suggestionsRef.current[highlightedIndex]) {
+            suggestionsRef.current[highlightedIndex].scrollIntoView({
+                block: 'nearest',
+                behavior: 'smooth'
+            })
+        }
+    }, [highlightedIndex])
+
+    const selectSuggestion = (suggestion: string) => {
+        setNewPreference(prev => ({ ...prev, value: suggestion }))
+        setShowSuggestions(false)
+        setHighlightedIndex(-1)
+        setJustSelected(true)
+        // Reset the flag after a short delay
+        setTimeout(() => setJustSelected(false), 100)
+    }
 
     const handleAddPreference = () => {
         if (!newPreference.type || !newPreference.value.trim()) return
 
         const isDuplicate = preferences.some(
-            p => p.type === newPreference.type && 
-            p.value?.toLowerCase() === newPreference.value.toLowerCase()
+            p => p.type === newPreference.type &&
+                p.value?.toLowerCase() === newPreference.value.toLowerCase()
         )
 
         if (isDuplicate) {
-            return // Could show error message
+            // Could show error message here
+            return
         }
 
         onChange([
@@ -73,54 +153,44 @@ export function PreferenceInput({ preferences, onChange, errors }: PreferenceInp
 
         // Reset form
         setNewPreference({ type: '', value: '', notes: '' })
+        setShowSuggestions(false)
+        setHighlightedIndex(-1)
+        setJustSelected(false)
     }
 
     const handleRemovePreference = (index: number) => {
         onChange(preferences.filter((_, i) => i !== index))
     }
 
-    const getSuggestionsForType = (type: PreferenceType): string[] => {
-        return COMMON_PREFERENCES[type] || []
-    }
-
-    const filteredSuggestions = newPreference.type
-        ? getSuggestionsForType(newPreference.type as PreferenceType).filter(
-            suggestion => 
-                suggestion.toLowerCase().includes(newPreference.value.toLowerCase()) &&
-                !preferences.some(p => 
-                    p.type === newPreference.type && 
-                    p.value?.toLowerCase() === suggestion.toLowerCase()
-                )
-        )
-        : []
-
     return (
         <div className="space-y-4">
-            <div>
-                <Label>העדפות והגבלות תזונתיות</Label>
-                <p className="text-sm text-muted-foreground">
-                    הוסף מידע על אלרגיות, הגבלות תזונתיות, העדפות אישיות או מצבים רפואיים
-                </p>
+            <div className="flex items-center justify-between">
+                <Label>העדפות תזונתיות</Label>
+                {preferences.length > 0 && (
+                    <span className="text-sm text-muted-foreground">
+                        {preferences.length} העדפות
+                    </span>
+                )}
             </div>
 
             {/* Existing preferences */}
             {preferences.length > 0 && (
                 <div className="space-y-2">
                     {preferences.map((pref, index) => (
-                        <div 
-                            key={index} 
-                            className="flex items-start gap-2 p-3 bg-muted/50 rounded-md"
+                        <div
+                            key={index}
+                            className="flex items-start gap-2 p-3 border rounded-md bg-muted/30"
                         >
-                            <div className="flex-1 space-y-2">
-                                <div className="flex items-center gap-2">
-                                    <PreferenceBadge 
-                                        preference={pref as CustomerPreference}
-                                        showIcon={true}
-                                    />
-                                    <span className="text-sm font-medium">{pref.value}</span>
-                                </div>
+                            <div className="flex-1 space-y-1">
+                                <PreferenceBadge
+                                    preference={{
+                                        type: pref.type as PreferenceType,
+                                        value: pref.value!,
+                                        notes: pref.notes
+                                    }}
+                                />
                                 {pref.notes && (
-                                    <p className="text-sm text-muted-foreground">
+                                    <p className="text-sm text-muted-foreground mr-6">
                                         {pref.notes}
                                     </p>
                                 )}
@@ -143,13 +213,19 @@ export function PreferenceInput({ preferences, onChange, errors }: PreferenceInp
             <div className="space-y-3 border rounded-md p-4">
                 <div className="grid gap-3">
                     <div className="grid grid-cols-2 gap-3">
+                        {/* Type selection */}
                         <div>
                             <Label htmlFor="preference-type">סוג</Label>
                             <Select
                                 value={newPreference.type}
-                                onValueChange={(value) => 
+                                onValueChange={(value) => {
                                     setNewPreference(prev => ({ ...prev, type: value as PreferenceType }))
-                                }
+                                    // Clear value when type changes
+                                    setNewPreference(prev => ({ ...prev, value: '' }))
+                                    setShowSuggestions(false)
+                                    setHighlightedIndex(-1)
+                                    setJustSelected(false)
+                                }}
                             >
                                 <SelectTrigger id="preference-type">
                                     <SelectValue placeholder="בחר סוג" />
@@ -167,55 +243,77 @@ export function PreferenceInput({ preferences, onChange, errors }: PreferenceInp
                             </Select>
                         </div>
 
-                        <div>
+                        {/* Value input with suggestions */}
+                        <div className="relative">
                             <Label htmlFor="preference-value">ערך</Label>
-                            <Popover open={showSuggestions && filteredSuggestions.length > 0}>
-                                <PopoverTrigger asChild>
-                                    <Input
-                                        id="preference-value"
-                                        value={newPreference.value}
-                                        onChange={(e) => {
-                                            setNewPreference(prev => ({ ...prev, value: e.target.value }))
-                                            setShowSuggestions(true)
-                                        }}
-                                        onFocus={() => setShowSuggestions(true)}
-                                        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                                        placeholder="לדוגמה: בוטנים, צמחוני, ללא גלוטן"
-                                        disabled={!newPreference.type}
-                                    />
-                                </PopoverTrigger>
-                                <PopoverContent className="p-0" align="start">
-                                    <Command>
-                                        <CommandEmpty>אין הצעות</CommandEmpty>
-                                        <CommandGroup>
-                                            {filteredSuggestions.map((suggestion) => (
-                                                <CommandItem
-                                                    key={suggestion}
-                                                    value={suggestion}
-                                                    onSelect={() => {
-                                                        setNewPreference(prev => ({ 
-                                                            ...prev, 
-                                                            value: suggestion 
-                                                        }))
-                                                        setShowSuggestions(false)
-                                                    }}
-                                                >
-                                                    {suggestion}
-                                                </CommandItem>
-                                            ))}
-                                        </CommandGroup>
-                                    </Command>
-                                </PopoverContent>
-                            </Popover>
+                            <Input
+                                ref={inputRef}
+                                id="preference-value"
+                                value={newPreference.value}
+                                onChange={(e) => {
+                                    setNewPreference(prev => ({ ...prev, value: e.target.value }))
+                                    if (!justSelected) {
+                                        setShowSuggestions(true)
+                                        setHighlightedIndex(-1)
+                                    }
+                                }}
+                                onFocus={() => {
+                                    if (!justSelected && newPreference.type && filteredSuggestions.length > 0) {
+                                        setShowSuggestions(true)
+                                    }
+                                }}
+                                onKeyDown={handleKeyDown}
+                                placeholder={
+                                    newPreference.type
+                                        ? `הזן ${PREFERENCE_CONFIGS[newPreference.type as PreferenceType].hebrewLabel}`
+                                        : 'בחר סוג קודם'
+                                }
+                                disabled={!newPreference.type}
+                                autoComplete="off"
+                                className={cn(
+                                    showSuggestions && filteredSuggestions.length > 0 && "rounded-b-none"
+                                )}
+                            />
+
+                            {/* Suggestions dropdown */}
+                            {showSuggestions && filteredSuggestions.length > 0 && (
+                                <div
+                                    ref={dropdownRef}
+                                    className="absolute z-50 w-full -mt-[1px] bg-background border border-t-0 rounded-b-md shadow-lg max-h-[200px] overflow-y-auto"
+                                >
+                                    {filteredSuggestions.map((suggestion, index) => (
+                                        <button
+                                            key={suggestion}
+                                            ref={el => suggestionsRef.current[index] = el!}
+                                            type="button"
+                                            className={cn(
+                                                "w-full px-3 py-2 text-right transition-colors focus:outline-none",
+                                                highlightedIndex === index
+                                                    ? "bg-accent text-accent-foreground"
+                                                    : "hover:bg-accent/50"
+                                            )}
+                                            onClick={() => selectSuggestion(suggestion)}
+                                            onMouseDown={(e) => {
+                                                // Prevent input from losing focus
+                                                e.preventDefault()
+                                            }}
+                                            onMouseEnter={() => setHighlightedIndex(index)}
+                                        >
+                                            {suggestion}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
 
+                    {/* Notes */}
                     <div>
                         <Label htmlFor="preference-notes">הערות (אופציונלי)</Label>
                         <Textarea
                             id="preference-notes"
                             value={newPreference.notes}
-                            onChange={(e) => 
+                            onChange={(e) =>
                                 setNewPreference(prev => ({ ...prev, notes: e.target.value }))
                             }
                             placeholder="הערות נוספות או הסברים"
@@ -224,6 +322,7 @@ export function PreferenceInput({ preferences, onChange, errors }: PreferenceInp
                         />
                     </div>
 
+                    {/* Add button */}
                     <Button
                         type="button"
                         variant="outline"

@@ -1,4 +1,4 @@
-// src/components/orders/order-form.tsx
+// src/components/orders/order-form.tsx - Updated version with Friday-only selection and RTL fixes
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -8,7 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { format } from 'date-fns'
 import { he } from 'date-fns/locale'
-import { Plus, Trash2, AlertTriangle, Info, User } from 'lucide-react'
+import { Plus, Trash2, AlertTriangle, Info, User, Calendar as CalendarIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -32,11 +32,78 @@ import { CriticalPreferenceAlert, PreferenceBadgeGroup } from '@/components/cust
 import { CustomerPreferenceCard } from '@/components/customers/customer-preference-card'
 import type { Customer, Dish, CustomerPreference } from '@/lib/types/database'
 
-// Form validation schema
+// Helper functions for Friday-only delivery
+const getNextAvailableFriday = (): Date => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const currentDay = today.getDay()
+    let daysUntilFriday = (5 - currentDay + 7) % 7
+
+    // If today is Thursday after cutoff (6 PM), skip to next Friday
+    if (currentDay === 4) { // Thursday
+        const now = new Date()
+        const cutoffTime = new Date(today)
+        cutoffTime.setHours(18, 0, 0, 0) // 6 PM cutoff
+
+        if (now >= cutoffTime) {
+            daysUntilFriday = 8 // Next Friday (skip this week)
+        } else {
+            daysUntilFriday = 1 // Tomorrow (Friday)
+        }
+    }
+
+    // If today is Friday, check if before delivery cutoff
+    if (currentDay === 5) { // Friday
+        const now = new Date()
+        const cutoffTime = new Date(today)
+        cutoffTime.setHours(12, 0, 0, 0) // Noon cutoff on Friday
+
+        if (now >= cutoffTime) {
+            daysUntilFriday = 7 // Next Friday
+        } else {
+            daysUntilFriday = 0 // Today
+        }
+    }
+
+    // If it's Saturday or Sunday, calculate days to next Friday
+    if (currentDay === 6 || currentDay === 0) {
+        daysUntilFriday = currentDay === 6 ? 6 : 5
+    }
+
+    const nextFriday = new Date(today)
+    nextFriday.setDate(today.getDate() + daysUntilFriday)
+    return nextFriday
+}
+
+// Get all available Fridays for the next 4 weeks
+const getAvailableFridays = (): Date[] => {
+    const fridays: Date[] = []
+    const firstFriday = getNextAvailableFriday()
+
+    for (let i = 0; i < 4; i++) {
+        const friday = new Date(firstFriday)
+        friday.setDate(firstFriday.getDate() + (i * 7))
+        fridays.push(friday)
+    }
+
+    return fridays
+}
+
+// Format date for Hebrew display
+const formatDeliveryDate = (date: Date): string => {
+    return format(date, 'EEEE, dd בMMMM yyyy', { locale: he })
+}
+
+// Form validation schema with Friday validation
 const orderFormSchema = z.object({
     customerId: z.string().min(1, 'יש לבחור לקוח'),
     deliveryDate: z.date({
         required_error: "יש לבחור תאריך משלוח",
+    }).refine((date) => {
+        return date.getDay() === 5 // Must be Friday
+    }, {
+        message: "ניתן לבחור רק ימי שישי למשלוח"
     }),
     deliveryAddress: z.string().optional(),
     notes: z.string().optional(),
@@ -71,7 +138,7 @@ export function OrderForm({ customers = [], dishes = [] }: OrderFormProps) {
         resolver: zodResolver(orderFormSchema),
         defaultValues: {
             customerId: '',
-            deliveryDate: new Date(),
+            deliveryDate: getNextAvailableFriday(),
             deliveryAddress: '',
             notes: '',
             items: [{ dishId: '', quantity: 1, notes: '' }]
@@ -186,7 +253,8 @@ export function OrderForm({ customers = [], dishes = [] }: OrderFormProps) {
             })
 
             if (!response.ok) {
-                throw new Error('שגיאה ביצירת ההזמנה')
+                const error = await response.json()
+                throw new Error(error.message || 'שגיאה ביצירת ההזמנה')
             }
 
             const order = await response.json()
@@ -210,7 +278,7 @@ export function OrderForm({ customers = [], dishes = [] }: OrderFormProps) {
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6" dir="rtl">
                 {/* Warning if no customers */}
                 {customers.length === 0 && (
                     <Card className="border-yellow-200 bg-yellow-50">
@@ -354,15 +422,43 @@ export function OrderForm({ customers = [], dishes = [] }: OrderFormProps) {
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>תאריך משלוח *</FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                type="date"
-                                                value={field.value ? format(field.value, 'yyyy-MM-dd') : ''}
-                                                onChange={(e) => field.onChange(new Date(e.target.value))}
-                                            />
-                                        </FormControl>
+                                        <Select
+                                            onValueChange={(value) => field.onChange(new Date(value))}
+                                            value={field.value?.toISOString()}
+                                        >
+                                            <FormControl>
+                                                <SelectTrigger className="text-right">
+                                                    <SelectValue placeholder="בחר יום שישי למשלוח">
+                                                        {field.value && (
+                                                            <div className="flex items-center gap-2">
+                                                                <CalendarIcon className="h-4 w-4 opacity-50" />
+                                                                <span>{formatDeliveryDate(field.value)}</span>
+                                                            </div>
+                                                        )}
+                                                    </SelectValue>
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {getAvailableFridays().map((friday, index) => (
+                                                    <SelectItem
+                                                        key={friday.toISOString()}
+                                                        value={friday.toISOString()}
+                                                        className="text-right"
+                                                    >
+                                                        <div className="flex flex-col items-start">
+                                                            <span>{formatDeliveryDate(friday)}</span>
+                                                            {index === 0 && (
+                                                                <span className="text-xs text-muted-foreground">
+                                                                    (הקרוב ביותר)
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                         <FormDescription>
-                                            ההזמנות נסגרות ביום חמישי
+                                            משלוחים בימי שישי בלבד. הזמנות נסגרות ביום חמישי ב-18:00
                                         </FormDescription>
                                         <FormMessage />
                                     </FormItem>
@@ -376,7 +472,7 @@ export function OrderForm({ customers = [], dishes = [] }: OrderFormProps) {
                                     <FormItem>
                                         <FormLabel>כתובת למשלוח</FormLabel>
                                         <FormControl>
-                                            <Input {...field} placeholder="אם שונה מכתובת הלקוח" />
+                                            <Input {...field} placeholder="אם שונה מכתובת הלקוח" className="text-right" />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -405,15 +501,15 @@ export function OrderForm({ customers = [], dishes = [] }: OrderFormProps) {
                                                 form.setValue('items', newItems)
                                             }}
                                         >
-                                            <SelectTrigger>
+                                            <SelectTrigger className="text-right">
                                                 <SelectValue placeholder="בחר מנה" />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {dishes.map((dish) => (
-                                                    <SelectItem key={dish.id} value={dish.id}>
+                                                    <SelectItem key={dish.id} value={dish.id} className="text-right">
                                                         <div className="flex items-center justify-between w-full">
                                                             <span>{dish.name}</span>
-                                                            <span className="text-muted-foreground mr-2">
+                                                            <span className="text-muted-foreground ml-2">
                                                                 ₪{dish.price}
                                                             </span>
                                                         </div>
@@ -434,6 +530,7 @@ export function OrderForm({ customers = [], dishes = [] }: OrderFormProps) {
                                                 newItems[index].quantity = parseInt(e.target.value) || 1
                                                 form.setValue('items', newItems)
                                             }}
+                                            className="text-center"
                                         />
                                     </div>
 
@@ -447,6 +544,7 @@ export function OrderForm({ customers = [], dishes = [] }: OrderFormProps) {
                                                 newItems[index].notes = e.target.value
                                                 form.setValue('items', newItems)
                                             }}
+                                            className="text-right"
                                         />
                                     </div>
 
@@ -465,7 +563,7 @@ export function OrderForm({ customers = [], dishes = [] }: OrderFormProps) {
 
                                 {/* Dish subtotal */}
                                 {item.dishId && (
-                                    <div className="text-sm text-muted-foreground text-left">
+                                    <div className="text-sm text-muted-foreground text-right">
                                         סה״כ למנה: ₪{(dishes.find(d => d.id === item.dishId)?.price || 0) * item.quantity}
                                     </div>
                                 )}
@@ -501,6 +599,8 @@ export function OrderForm({ customers = [], dishes = [] }: OrderFormProps) {
                                             {...field}
                                             placeholder="הערות מיוחדות להזמנה..."
                                             rows={3}
+                                            className="text-right"
+                                            dir="rtl"
                                         />
                                     </FormControl>
                                     <FormDescription>

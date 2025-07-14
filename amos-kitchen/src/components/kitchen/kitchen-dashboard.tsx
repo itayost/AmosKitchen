@@ -29,7 +29,13 @@ interface KitchenDashboardProps {
 }
 
 export function KitchenDashboard({ initialOrders = [] }: KitchenDashboardProps) {
-  const [orders, setOrders] = useState<KitchenOrder[]>(initialOrders)
+  // Normalize initial orders to ensure uppercase status
+  const normalizedInitialOrders = initialOrders.map(order => ({
+    ...order,
+    status: (order.status?.toUpperCase() || 'NEW') as OrderStatus
+  }))
+
+  const [orders, setOrders] = useState<KitchenOrder[]>(normalizedInitialOrders)
   const [view, setView] = useState<'all' | 'preparing' | 'ready'>('all')
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
@@ -48,10 +54,18 @@ export function KitchenDashboard({ initialOrders = [] }: KitchenDashboardProps) 
     try {
       const response = await fetch('/api/orders/today')
       if (!response.ok) {
-        throw new Error('Failed to fetch orders')
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to fetch orders')
       }
       const data = await response.json()
-      setOrders(data)
+
+      // Ensure status format consistency
+      const normalizedOrders = data.map((order: any) => ({
+        ...order,
+        status: order.status.toUpperCase() // Ensure uppercase for display
+      }))
+
+      setOrders(normalizedOrders)
       toast({
         title: "רוענן",
         description: "ההזמנות עודכנו בהצלחה",
@@ -60,7 +74,7 @@ export function KitchenDashboard({ initialOrders = [] }: KitchenDashboardProps) 
       console.error('Refresh error:', error)
       toast({
         title: "שגיאה",
-        description: "נכשל רענון ההזמנות",
+        description: error instanceof Error ? error.message : "נכשל רענון ההזמנות",
         variant: "destructive",
       })
     } finally {
@@ -70,28 +84,53 @@ export function KitchenDashboard({ initialOrders = [] }: KitchenDashboardProps) 
 
   const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
     try {
+      // Map the status to lowercase as expected by the API
+      const statusMap: Record<string, string> = {
+        'NEW': 'new',
+        'CONFIRMED': 'confirmed',
+        'PREPARING': 'preparing',
+        'READY': 'ready',
+        'DELIVERED': 'delivered',
+        'CANCELLED': 'cancelled'
+      }
+
+      const mappedStatus = statusMap[newStatus] || newStatus.toLowerCase()
+
       const response = await fetch(`/api/orders/${orderId}`, {
-        method: 'PUT',
+        method: 'PATCH',  // Changed from PUT to PATCH
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify({ status: mappedStatus })  // Send lowercase status
       })
 
       if (!response.ok) {
-        throw new Error('Failed to update status')
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to update status')
       }
 
+      // Update local state
       setOrders(orders.map(order =>
         order.id === orderId ? { ...order, status: newStatus } : order
       ))
 
+      // Get Hebrew status text for the toast
+      const statusTextMap: Record<OrderStatus, string> = {
+        'NEW': 'חדש',
+        'CONFIRMED': 'מאושר',
+        'PREPARING': 'בהכנה',
+        'READY': 'מוכן',
+        'DELIVERED': 'נמסר',
+        'CANCELLED': 'בוטל'
+      }
+
       toast({
         title: "הסטטוס עודכן",
-        description: `סטטוס ההזמנה שונה בהצלחה`,
+        description: `סטטוס ההזמנה שונה ל-${statusTextMap[newStatus] || newStatus}`,
       })
     } catch (error) {
+      console.error('Status update error:', error)
       toast({
         title: "שגיאה",
-        description: "נכשל עדכון סטטוס ההזמנה",
+        description: error instanceof Error ? error.message : "נכשל עדכון סטטוס ההזמנה",
         variant: "destructive",
       })
     }

@@ -8,7 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { format } from 'date-fns'
 import { he } from 'date-fns/locale'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, AlertTriangle, Info, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -24,8 +24,13 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/lib/hooks/use-toast'
-import type { Customer, Dish } from '@/lib/types/database'
+import { CriticalPreferenceAlert, PreferenceBadgeGroup } from '@/components/customers/preference-badge'
+import { CustomerPreferenceCard } from '@/components/customers/customer-preference-card'
+import type { Customer, Dish, CustomerPreference } from '@/lib/types/database'
 
 // Form validation schema
 const orderFormSchema = z.object({
@@ -44,8 +49,12 @@ const orderFormSchema = z.object({
 
 type OrderFormValues = z.infer<typeof orderFormSchema>
 
+interface CustomerWithPreferences extends Customer {
+    preferences?: CustomerPreference[]
+}
+
 interface OrderFormProps {
-    customers?: Customer[]
+    customers?: CustomerWithPreferences[]
     dishes?: Dish[]
 }
 
@@ -53,47 +62,42 @@ export function OrderForm({ customers = [], dishes = [] }: OrderFormProps) {
     const router = useRouter()
     const { toast } = useToast()
     const [isLoading, setIsLoading] = useState(false)
+    const [selectedCustomer, setSelectedCustomer] = useState<CustomerWithPreferences | null>(null)
     const [customerSearch, setCustomerSearch] = useState('')
-    const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false)
-    const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
     const [orderTotal, setOrderTotal] = useState(0)
+    const [showPreferenceDetails, setShowPreferenceDetails] = useState(false)
 
     const form = useForm<OrderFormValues>({
         resolver: zodResolver(orderFormSchema),
         defaultValues: {
             customerId: '',
-            deliveryDate: undefined,
+            deliveryDate: new Date(),
             deliveryAddress: '',
             notes: '',
             items: [{ dishId: '', quantity: 1, notes: '' }]
         }
     })
 
-    const { watch, setValue } = form
+    const watchCustomerId = form.watch('customerId')
+    const watchItems = form.watch('items')
 
-    // Get the next N Fridays
-    const getNextFridays = (count: number = 8) => {
-        const fridays = []
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
+    // Update selected customer when customerId changes
+    useEffect(() => {
+        const customer = customers.find(c => c.id === watchCustomerId)
+        setSelectedCustomer(customer || null)
 
-        // Start from today
-        const current = new Date(today)  // Changed from 'let' to 'const'
-
-        while (fridays.length < count) {
-            // If current day is Friday and it's in the future or today
-            if (current.getDay() === 5 && current >= today) {
-                fridays.push(new Date(current))
-            }
-            // Move to next day
-            current.setDate(current.getDate() + 1)
+        // Auto-fill delivery address if available
+        if (customer?.address) {
+            form.setValue('deliveryAddress', customer.address)
         }
 
-        return fridays
-    }
+        // If customer has critical preferences, show details by default
+        if (customer?.preferences?.some(p => p.type === 'ALLERGY' || p.type === 'MEDICAL')) {
+            setShowPreferenceDetails(true)
+        }
+    }, [watchCustomerId, customers, form])
 
-    // Watch for changes in order items to calculate total
-    const watchItems = watch('items')
+    // Calculate order total
     useEffect(() => {
         const total = watchItems.reduce((sum, item) => {
             const dish = dishes.find(d => d.id === item.dishId)
@@ -112,6 +116,35 @@ export function OrderForm({ customers = [], dishes = [] }: OrderFormProps) {
             customer.email?.toLowerCase().includes(searchLower)
         )
     })
+
+    // Check if customer has critical preferences
+    const hasCriticalPreferences = (customer: CustomerWithPreferences | null) => {
+        if (!customer?.preferences) return false
+        return customer.preferences.some(p => p.type === 'ALLERGY' || p.type === 'MEDICAL')
+    }
+
+    // Get preference summary for notes
+    const getPreferenceSummaryForNotes = (preferences?: CustomerPreference[]) => {
+        if (!preferences || preferences.length === 0) return ''
+
+        const critical = preferences.filter(p => p.type === 'ALLERGY' || p.type === 'MEDICAL')
+        if (critical.length === 0) return ''
+
+        return `⚠️ שים לב: ${critical.map(p => `${p.type === 'ALLERGY' ? 'אלרגיה' : 'רפואי'} - ${p.value}`).join(', ')}`
+    }
+
+    // Add preference summary to notes when customer is selected
+    useEffect(() => {
+        if (selectedCustomer?.preferences) {
+            const summary = getPreferenceSummaryForNotes(selectedCustomer.preferences)
+            if (summary) {
+                const currentNotes = form.getValues('notes') || ''
+                if (!currentNotes.includes(summary)) {
+                    form.setValue('notes', currentNotes ? `${summary}\n${currentNotes}` : summary)
+                }
+            }
+        }
+    }, [selectedCustomer, form])
 
     // Add new item to order
     const addItem = () => {
@@ -189,7 +222,7 @@ export function OrderForm({ customers = [], dishes = [] }: OrderFormProps) {
                     </Card>
                 )}
 
-                {/* Customer Selection */}
+                {/* Customer Selection Card */}
                 <Card>
                     <CardHeader>
                         <CardTitle>פרטי לקוח</CardTitle>
@@ -200,200 +233,249 @@ export function OrderForm({ customers = [], dishes = [] }: OrderFormProps) {
                             name="customerId"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>בחר לקוח</FormLabel>
-                                    <FormControl>
-                                        <div className="relative">
-                                            <Input
-                                                placeholder="חפש לפי שם, טלפון או אימייל..."
-                                                value={customerSearch}
-                                                onChange={(e) => {
-                                                    setCustomerSearch(e.target.value)
-                                                    setCustomerDropdownOpen(true)
-                                                }}
-                                                onFocus={() => setCustomerDropdownOpen(true)}
-                                            />
-                                            {customerDropdownOpen && filteredCustomers.length > 0 && (
-                                                <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
-                                                    {filteredCustomers.map(customer => (
-                                                        <div
-                                                            key={customer.id}
-                                                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                                                            onClick={() => {
-                                                                field.onChange(customer.id)
-                                                                setSelectedCustomer(customer)
-                                                                setCustomerSearch(customer.name)
-                                                                setCustomerDropdownOpen(false)
-                                                                if (customer.address) {
-                                                                    form.setValue('deliveryAddress', customer.address)
-                                                                }
-                                                            }}
-                                                        >
-                                                            <div className="font-medium">{customer.name}</div>
-                                                            <div className="text-sm text-gray-600">{customer.phone}</div>
-                                                            {customer.address && (
-                                                                <div className="text-sm text-gray-500">{customer.address}</div>
+                                    <FormLabel>בחר לקוח *</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="בחר לקוח מהרשימה">
+                                                    {field.value && selectedCustomer && (
+                                                        <div className="flex items-center gap-2">
+                                                            <User className="h-4 w-4" />
+                                                            <span>{selectedCustomer.name}</span>
+                                                            {hasCriticalPreferences(selectedCustomer) && (
+                                                                <Badge variant="destructive" className="h-5 px-1">
+                                                                    <AlertTriangle className="h-3 w-3" />
+                                                                </Badge>
                                                             )}
                                                         </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-
-                        <FormField
-                            control={form.control}
-                            name="deliveryDate"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>תאריך משלוח (ימי שישי בלבד)</FormLabel>
-                                    <FormControl>
-                                        <select
-                                            className="w-full h-10 px-3 rounded-md border"
-                                            value={field.value ? field.value.toISOString() : ''}
-                                            onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : undefined)}
-                                        >
-                                            <option value="">בחר תאריך משלוח</option>
-                                            {getNextFridays().map(friday => (
-                                                <option key={friday.toISOString()} value={friday.toISOString()}>
-                                                    {format(friday, 'EEEE, dd בMMMM yyyy', { locale: he })}
-                                                </option>
+                                                    )}
+                                                </SelectValue>
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            <div className="p-2">
+                                                <Input
+                                                    placeholder="חיפוש לקוח..."
+                                                    value={customerSearch}
+                                                    onChange={(e) => setCustomerSearch(e.target.value)}
+                                                    className="mb-2"
+                                                />
+                                            </div>
+                                            {filteredCustomers.map((customer) => (
+                                                <SelectItem key={customer.id} value={customer.id}>
+                                                    <div className="flex items-center gap-2 w-full">
+                                                        <span>{customer.name}</span>
+                                                        {hasCriticalPreferences(customer) && (
+                                                            <Badge variant="destructive" className="h-4 px-1 ml-auto">
+                                                                !
+                                                            </Badge>
+                                                        )}
+                                                        {customer.preferences && customer.preferences.length > 0 && (
+                                                            <span className="text-xs text-muted-foreground">
+                                                                ({customer.preferences.length} העדפות)
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </SelectItem>
                                             ))}
-                                        </select>
-                                    </FormControl>
-                                    <FormDescription>
-                                        המשלוחים מתבצעים בימי שישי בלבד
-                                    </FormDescription>
+                                        </SelectContent>
+                                    </Select>
                                     <FormMessage />
                                 </FormItem>
                             )}
                         />
 
-                        <FormField
-                            control={form.control}
-                            name="deliveryAddress"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>כתובת למשלוח</FormLabel>
-                                    <FormControl>
-                                        <Input {...field} placeholder="הכנס כתובת למשלוח" />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                        {/* Customer Preferences Display */}
+                        {selectedCustomer && selectedCustomer.preferences && selectedCustomer.preferences.length > 0 && (
+                            <div className="space-y-3 animate-in slide-in-from-top-2">
+                                {/* Critical Preferences Alert */}
+                                {hasCriticalPreferences(selectedCustomer) && (
+                                    <CriticalPreferenceAlert
+                                        preferences={selectedCustomer.preferences}
+                                        className="shadow-sm"
+                                    />
+                                )}
+
+                                {/* All Preferences */}
+                                <div className="border rounded-lg p-4 bg-muted/30">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h4 className="text-sm font-semibold flex items-center gap-2">
+                                            <Info className="h-4 w-4" />
+                                            העדפות הלקוח
+                                        </h4>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setShowPreferenceDetails(!showPreferenceDetails)}
+                                        >
+                                            {showPreferenceDetails ? 'הסתר' : 'הצג'} פרטים
+                                        </Button>
+                                    </div>
+
+                                    {showPreferenceDetails ? (
+                                        <CustomerPreferenceCard
+                                            customer={selectedCustomer}
+                                            variant="compact"
+                                            showTitle={false}
+                                        />
+                                    ) : (
+                                        <PreferenceBadgeGroup
+                                            preferences={selectedCustomer.preferences}
+                                            maxVisible={10}
+                                            showIcon={true}
+                                        />
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Customer Contact Info */}
+                        {selectedCustomer && (
+                            <div className="grid gap-2 text-sm text-muted-foreground">
+                                <div>טלפון: {selectedCustomer.phone}</div>
+                                {selectedCustomer.email && <div>אימייל: {selectedCustomer.email}</div>}
+                                {selectedCustomer.address && <div>כתובת: {selectedCustomer.address}</div>}
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 
-                {/* Order Items */}
+                {/* Delivery Details Card */}
                 <Card>
                     <CardHeader>
-                        <CardTitle>פרטי הזמנה</CardTitle>
+                        <CardTitle>פרטי משלוח</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        {form.watch('items').map((item, index) => (
-                            <Card key={index} className="p-4">
-                                <div className="grid grid-cols-12 gap-4">
-                                    {/* Dish Selection */}
-                                    <div className="col-span-5">
-                                        <FormField
-                                            control={form.control}
-                                            name={`items.${index}.dishId`}
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>מנה</FormLabel>
-                                                    <FormControl>
-                                                        <select
-                                                            className="w-full h-10 px-3 rounded-md border"
-                                                            {...field}
-                                                        >
-                                                            <option value="">בחר מנה</option>
-                                                            {dishes.filter(d => d.isAvailable).map(dish => (
-                                                                <option key={dish.id} value={dish.id}>
-                                                                    {dish.name} - ₪{dish.price}
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                    </FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <FormField
+                                control={form.control}
+                                name="deliveryDate"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>תאריך משלוח *</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                type="date"
+                                                value={field.value ? format(field.value, 'yyyy-MM-dd') : ''}
+                                                onChange={(e) => field.onChange(new Date(e.target.value))}
+                                            />
+                                        </FormControl>
+                                        <FormDescription>
+                                            ההזמנות נסגרות ביום חמישי
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={form.control}
+                                name="deliveryAddress"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>כתובת למשלוח</FormLabel>
+                                        <FormControl>
+                                            <Input {...field} placeholder="אם שונה מכתובת הלקוח" />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Order Items Card */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>פריטי הזמנה</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {watchItems.map((item, index) => (
+                            <div key={index} className="space-y-3 p-4 border rounded-lg">
+                                <div className="grid gap-4 md:grid-cols-12">
+                                    <div className="md:col-span-6">
+                                        <Label>מנה</Label>
+                                        <Select
+                                            value={item.dishId}
+                                            onValueChange={(value) => {
+                                                const newItems = [...form.getValues('items')]
+                                                newItems[index].dishId = value
+                                                form.setValue('items', newItems)
+                                            }}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="בחר מנה" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {dishes.map((dish) => (
+                                                    <SelectItem key={dish.id} value={dish.id}>
+                                                        <div className="flex items-center justify-between w-full">
+                                                            <span>{dish.name}</span>
+                                                            <span className="text-muted-foreground mr-2">
+                                                                ₪{dish.price}
+                                                            </span>
+                                                        </div>
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="md:col-span-2">
+                                        <Label>כמות</Label>
+                                        <Input
+                                            type="number"
+                                            min="1"
+                                            value={item.quantity}
+                                            onChange={(e) => {
+                                                const newItems = [...form.getValues('items')]
+                                                newItems[index].quantity = parseInt(e.target.value) || 1
+                                                form.setValue('items', newItems)
+                                            }}
                                         />
                                     </div>
 
-                                    {/* Quantity */}
-                                    <div className="col-span-2">
-                                        <FormField
-                                            control={form.control}
-                                            name={`items.${index}.quantity`}
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>כמות</FormLabel>
-                                                    <FormControl>
-                                                        <Input
-                                                            type="number"
-                                                            min="1"
-                                                            {...field}
-                                                            onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
-                                                        />
-                                                    </FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
+                                    <div className="md:col-span-3">
+                                        <Label>הערות</Label>
+                                        <Input
+                                            placeholder="הערות למנה"
+                                            value={item.notes || ''}
+                                            onChange={(e) => {
+                                                const newItems = [...form.getValues('items')]
+                                                newItems[index].notes = e.target.value
+                                                form.setValue('items', newItems)
+                                            }}
                                         />
                                     </div>
 
-                                    {/* Price Display */}
-                                    <div className="col-span-3 flex items-end">
-                                        <div className="w-full">
-                                            <Label>מחיר</Label>
-                                            <div className="flex h-10 items-center rounded-md border bg-muted px-3 text-sm">
-                                                ₪{(() => {
-                                                    const dish = dishes.find(d => d.id === item.dishId)
-                                                    return dish ? (dish.price * item.quantity).toFixed(2) : '0.00'
-                                                })()}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Delete Button */}
-                                    <div className="col-span-2 flex items-end">
+                                    <div className="md:col-span-1 flex items-end">
                                         <Button
                                             type="button"
-                                            variant="outline"
+                                            variant="ghost"
                                             size="icon"
                                             onClick={() => removeItem(index)}
-                                            disabled={form.watch('items').length === 1}
+                                            disabled={watchItems.length === 1}
                                         >
                                             <Trash2 className="h-4 w-4" />
                                         </Button>
                                     </div>
                                 </div>
 
-                                {/* Item Notes */}
-                                <div className="mt-3">
-                                    <FormField
-                                        control={form.control}
-                                        name={`items.${index}.notes`}
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>הערות למנה</FormLabel>
-                                                <FormControl>
-                                                    <Input {...field} placeholder="הערות מיוחדות למנה זו" />
-                                                </FormControl>
-                                            </FormItem>
-                                        )}
-                                    />
-                                </div>
-                            </Card>
+                                {/* Dish subtotal */}
+                                {item.dishId && (
+                                    <div className="text-sm text-muted-foreground text-left">
+                                        סה״כ למנה: ₪{(dishes.find(d => d.id === item.dishId)?.price || 0) * item.quantity}
+                                    </div>
+                                )}
+                            </div>
                         ))}
 
                         <Button
                             type="button"
                             variant="outline"
+                            size="sm"
                             onClick={addItem}
                             className="w-full"
                         >
@@ -403,10 +485,10 @@ export function OrderForm({ customers = [], dishes = [] }: OrderFormProps) {
                     </CardContent>
                 </Card>
 
-                {/* Order Notes */}
+                {/* Notes Card */}
                 <Card>
                     <CardHeader>
-                        <CardTitle>הערות להזמנה</CardTitle>
+                        <CardTitle>הערות</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <FormField
@@ -417,10 +499,13 @@ export function OrderForm({ customers = [], dishes = [] }: OrderFormProps) {
                                     <FormControl>
                                         <Textarea
                                             {...field}
-                                            placeholder="הערות כלליות להזמנה..."
+                                            placeholder="הערות מיוחדות להזמנה..."
                                             rows={3}
                                         />
                                     </FormControl>
+                                    <FormDescription>
+                                        ההערות יועברו למטבח ולמשלוח
+                                    </FormDescription>
                                     <FormMessage />
                                 </FormItem>
                             )}
@@ -430,30 +515,23 @@ export function OrderForm({ customers = [], dishes = [] }: OrderFormProps) {
 
                 {/* Order Summary */}
                 <Card>
-                    <CardHeader>
-                        <CardTitle>סיכום הזמנה</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-lg font-semibold">
-                            סה&quot;כ להזמנה:
-                        </div>
-                        <div className="text-2xl font-bold">
-                            ₪{orderTotal.toFixed(2)}
+                    <CardContent className="pt-6">
+                        <div className="flex items-center justify-between text-lg font-semibold">
+                            <span>סה״כ להזמנה:</span>
+                            <span>₪{orderTotal.toFixed(2)}</span>
                         </div>
                     </CardContent>
-                    <CardFooter className="flex justify-between">
+                    <CardFooter className="flex gap-2">
                         <Button
                             type="button"
                             variant="outline"
                             onClick={() => router.push('/orders')}
+                            disabled={isLoading}
                         >
                             ביטול
                         </Button>
-                        <Button
-                            type="submit"
-                            disabled={isLoading || customers.length === 0}
-                        >
-                            {isLoading ? 'שומר...' : 'צור הזמנה'}
+                        <Button type="submit" disabled={isLoading} className="flex-1">
+                            {isLoading ? 'יוצר הזמנה...' : 'צור הזמנה'}
                         </Button>
                     </CardFooter>
                 </Card>

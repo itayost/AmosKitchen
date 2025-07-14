@@ -3,16 +3,20 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowRight, Save, Loader2 } from 'lucide-react'
+import { ArrowRight, Save, Loader2, Trash2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Separator } from '@/components/ui/separator'
 import { LoadingSpinner } from '@/components/shared/loading-spinner'
 import { useToast } from '@/lib/hooks/use-toast'
+import { PreferenceInput } from '@/components/customers/preference-input'
+import { CriticalPreferenceAlert } from '@/components/customers/preference-badge'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
-import type { Customer } from '@/lib/types/database'
+import { normalizePhoneNumber } from '@/lib/validators/customer'
+import type { Customer, CustomerPreference } from '@/lib/types/database'
 
 interface FormData {
     name: string
@@ -20,15 +24,17 @@ interface FormData {
     email: string
     address: string
     notes: string
+    preferences: Partial<CustomerPreference>[]
 }
 
 interface FormErrors {
     name?: string
     phone?: string
     email?: string
+    preferences?: string
 }
 
-export default function CustomerEditPage() {
+export default function EditCustomerPage() {
     const params = useParams()
     const router = useRouter()
     const { toast } = useToast()
@@ -37,21 +43,24 @@ export default function CustomerEditPage() {
     const [customer, setCustomer] = useState<Customer | null>(null)
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
+    const [deleting, setDeleting] = useState(false)
     const [formData, setFormData] = useState<FormData>({
         name: '',
         phone: '',
         email: '',
         address: '',
-        notes: ''
+        notes: '',
+        preferences: []
     })
     const [errors, setErrors] = useState<FormErrors>({})
     const [hasChanges, setHasChanges] = useState(false)
 
+    // Fetch customer details
     useEffect(() => {
-        fetchCustomer()
+        fetchCustomerDetails()
     }, [customerId])
 
-    const fetchCustomer = async () => {
+    const fetchCustomerDetails = async () => {
         try {
             setLoading(true)
             const response = await fetch(`/api/customers/${customerId}`)
@@ -62,17 +71,20 @@ export default function CustomerEditPage() {
 
             const data = await response.json()
             setCustomer(data)
+
+            // Initialize form data
             setFormData({
                 name: data.name || '',
                 phone: data.phone || '',
                 email: data.email || '',
                 address: data.address || '',
-                notes: data.notes || ''
+                notes: data.notes || '',
+                preferences: data.preferences || []
             })
         } catch (error) {
             toast({
                 title: 'שגיאה',
-                description: 'לא ניתן לטעון את פרטי הלקוח',
+                description: 'אירעה שגיאה בטעינת פרטי הלקוח',
                 variant: 'destructive'
             })
             router.push('/customers')
@@ -86,31 +98,36 @@ export default function CustomerEditPage() {
 
         if (!formData.name.trim()) {
             newErrors.name = 'שם הלקוח הוא שדה חובה'
-        } else if (formData.name.trim().length < 2) {
-            newErrors.name = 'שם הלקוח חייב להכיל לפחות 2 תווים'
         }
 
         if (!formData.phone.trim()) {
             newErrors.phone = 'מספר טלפון הוא שדה חובה'
         } else if (!/^[\d-+\s()]+$/.test(formData.phone)) {
             newErrors.phone = 'מספר טלפון לא תקין'
-        } else if (formData.phone.replace(/\D/g, '').length < 9) {
-            newErrors.phone = 'מספר טלפון חייב להכיל לפחות 9 ספרות'
         }
 
         if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
             newErrors.email = 'כתובת אימייל לא תקינה'
         }
 
+        // Validate preferences
+        const seenPreferences = new Set<string>()
+        for (const pref of formData.preferences) {
+            const key = `${pref.type}-${pref.value?.toLowerCase()}`
+            if (seenPreferences.has(key)) {
+                newErrors.preferences = 'קיימות העדפות כפולות'
+                break
+            }
+            seenPreferences.add(key)
+        }
+
         setErrors(newErrors)
         return Object.keys(newErrors).length === 0
     }
 
-    const handleInputChange = (field: keyof FormData, value: string) => {
+    const handleInputChange = (field: keyof FormData, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }))
         setHasChanges(true)
-
-        // Clear error for this field when user starts typing
         if (errors[field as keyof FormErrors]) {
             setErrors(prev => ({ ...prev, [field]: undefined }))
         }
@@ -126,32 +143,33 @@ export default function CustomerEditPage() {
         try {
             setSaving(true)
 
-            // Prepare data for submission
-            const dataToSubmit = {
-                name: formData.name.trim(),
-                phone: formData.phone.trim(),
-                email: formData.email.trim() || null,
-                address: formData.address.trim() || null,
-                notes: formData.notes.trim() || null
-            }
-
             const response = await fetch(`/api/customers/${customerId}`, {
                 method: 'PUT',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(dataToSubmit)
+                body: JSON.stringify({
+                    name: formData.name.trim(),
+                    phone: normalizePhoneNumber(formData.phone.trim()),
+                    email: formData.email.trim() || null,
+                    address: formData.address.trim() || null,
+                    notes: formData.notes.trim() || null,
+                    preferences: formData.preferences.map(pref => ({
+                        type: pref.type,
+                        value: pref.value,
+                        notes: pref.notes
+                    }))
+                })
             })
 
-            const result = await response.json()
-
             if (!response.ok) {
-                throw new Error(result.error || 'Failed to update customer')
+                const error = await response.json()
+                throw new Error(error.error || 'Failed to update customer')
             }
 
             toast({
-                title: 'נשמר בהצלחה',
-                description: 'פרטי הלקוח עודכנו בהצלחה'
+                title: 'הלקוח עודכן בהצלחה',
+                description: 'השינויים נשמרו במערכת'
             })
 
             router.push(`/customers/${customerId}`)
@@ -166,184 +184,236 @@ export default function CustomerEditPage() {
         }
     }
 
+    const handleDelete = async () => {
+        try {
+            setDeleting(true)
+
+            const response = await fetch(`/api/customers/${customerId}`, {
+                method: 'DELETE'
+            })
+
+            if (!response.ok) {
+                const error = await response.json()
+                throw new Error(error.error || 'Failed to delete customer')
+            }
+
+            toast({
+                title: 'הלקוח נמחק בהצלחה',
+                description: 'הלקוח הוסר מהמערכת'
+            })
+
+            router.push('/customers')
+        } catch (error) {
+            toast({
+                title: 'שגיאה',
+                description: error instanceof Error ? error.message : 'אירעה שגיאה במחיקת הלקוח',
+                variant: 'destructive'
+            })
+        } finally {
+            setDeleting(false)
+        }
+    }
+
     const handleCancel = () => {
         if (hasChanges) {
-            // Show confirmation dialog if there are unsaved changes
-            return
+            if (confirm('יש שינויים שלא נשמרו. האם אתה בטוח שברצונך לצאת?')) {
+                router.push(`/customers/${customerId}`)
+            }
+        } else {
+            router.push(`/customers/${customerId}`)
         }
-        router.push(`/customers/${customerId}`)
     }
 
-    if (loading) {
-        return (
-            <div className="flex justify-center items-center min-h-[400px]">
-                <LoadingSpinner />
-            </div>
-        )
-    }
+    if (loading) return <LoadingSpinner />
+    if (!customer) return <div className="text-center">לקוח לא נמצא</div>
 
-    if (!customer) {
-        return null
-    }
+    const hasCriticalPreferences = formData.preferences.some(
+        p => p.type === 'ALLERGY' || p.type === 'MEDICAL'
+    )
 
     return (
-        <div className="space-y-6">
+        <div className="max-w-4xl mx-auto space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => router.push(`/customers/${customerId}`)}
+                        onClick={handleCancel}
                     >
                         <ArrowRight className="h-4 w-4" />
                     </Button>
                     <div>
                         <h1 className="text-3xl font-bold">עריכת לקוח</h1>
-                        <p className="text-muted-foreground">עדכון פרטי לקוח קיים</p>
+                        <p className="text-muted-foreground">{customer.name}</p>
                     </div>
+                </div>
+                <div className="flex gap-2">
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="destructive" disabled={deleting}>
+                                <Trash2 className="h-4 w-4 ml-2" />
+                                מחק לקוח
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>האם אתה בטוח?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    פעולה זו תמחק את הלקוח לצמיתות. לא ניתן לבטל פעולה זו.
+                                    {customer.orders && customer.orders.length > 0 && (
+                                        <span className="block mt-2 text-red-600">
+                                            שים לב: ללקוח זה יש {customer.orders.length} הזמנות במערכת.
+                                        </span>
+                                    )}
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>ביטול</AlertDialogCancel>
+                                <AlertDialogAction
+                                    onClick={handleDelete}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                    מחק
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                 </div>
             </div>
 
-            {/* Edit Form */}
+            {/* Critical Preferences Alert */}
+            {hasCriticalPreferences && (
+                <CriticalPreferenceAlert
+                    preferences={formData.preferences as CustomerPreference[]}
+                />
+            )}
+
+            {/* Form */}
             <form onSubmit={handleSubmit}>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>פרטי לקוח</CardTitle>
-                        <CardDescription>
-                            עדכן את פרטי הלקוח. שדות המסומנים ב-* הם שדות חובה.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Name Field */}
-                            <div className="space-y-2">
-                                <Label htmlFor="name">
-                                    שם הלקוח <span className="text-destructive">*</span>
-                                </Label>
-                                <Input
-                                    id="name"
-                                    type="text"
-                                    value={formData.name}
-                                    onChange={(e) => handleInputChange('name', e.target.value)}
-                                    placeholder="לדוגמה: ישראל ישראלי"
-                                    className={errors.name ? 'border-destructive' : ''}
-                                />
-                                {errors.name && (
-                                    <p className="text-sm text-destructive">{errors.name}</p>
-                                )}
+                <div className="space-y-6">
+                    {/* Basic Information Card */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>פרטים בסיסיים</CardTitle>
+                            <CardDescription>
+                                עדכן את פרטי הלקוח הבסיסיים
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <div className="space-y-2">
+                                    <Label htmlFor="name">שם הלקוח *</Label>
+                                    <Input
+                                        id="name"
+                                        value={formData.name}
+                                        onChange={(e) => handleInputChange('name', e.target.value)}
+                                        className={errors.name ? 'border-destructive' : ''}
+                                        disabled={saving}
+                                    />
+                                    {errors.name && (
+                                        <p className="text-sm text-destructive">{errors.name}</p>
+                                    )}
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="phone">טלפון *</Label>
+                                    <Input
+                                        id="phone"
+                                        type="tel"
+                                        value={formData.phone}
+                                        onChange={(e) => handleInputChange('phone', e.target.value)}
+                                        className={errors.phone ? 'border-destructive' : ''}
+                                        disabled={saving}
+                                        dir="ltr"
+                                    />
+                                    {errors.phone && (
+                                        <p className="text-sm text-destructive">{errors.phone}</p>
+                                    )}
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="email">אימייל</Label>
+                                    <Input
+                                        id="email"
+                                        type="email"
+                                        value={formData.email}
+                                        onChange={(e) => handleInputChange('email', e.target.value)}
+                                        className={errors.email ? 'border-destructive' : ''}
+                                        disabled={saving}
+                                        dir="ltr"
+                                    />
+                                    {errors.email && (
+                                        <p className="text-sm text-destructive">{errors.email}</p>
+                                    )}
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="address">כתובת</Label>
+                                    <Input
+                                        id="address"
+                                        value={formData.address}
+                                        onChange={(e) => handleInputChange('address', e.target.value)}
+                                        disabled={saving}
+                                    />
+                                </div>
                             </div>
 
-                            {/* Phone Field */}
                             <div className="space-y-2">
-                                <Label htmlFor="phone">
-                                    טלפון <span className="text-destructive">*</span>
-                                </Label>
-                                <Input
-                                    id="phone"
-                                    type="tel"
-                                    value={formData.phone}
-                                    onChange={(e) => handleInputChange('phone', e.target.value)}
-                                    placeholder="050-1234567"
-                                    dir="ltr"
-                                    className={errors.phone ? 'border-destructive' : ''}
-                                />
-                                {errors.phone && (
-                                    <p className="text-sm text-destructive">{errors.phone}</p>
-                                )}
-                            </div>
-
-                            {/* Email Field */}
-                            <div className="space-y-2">
-                                <Label htmlFor="email">אימייל</Label>
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    value={formData.email}
-                                    onChange={(e) => handleInputChange('email', e.target.value)}
-                                    placeholder="example@email.com"
-                                    dir="ltr"
-                                    className={errors.email ? 'border-destructive' : ''}
-                                />
-                                {errors.email && (
-                                    <p className="text-sm text-destructive">{errors.email}</p>
-                                )}
-                            </div>
-
-                            {/* Address Field */}
-                            <div className="space-y-2">
-                                <Label htmlFor="address">כתובת</Label>
-                                <Input
-                                    id="address"
-                                    type="text"
-                                    value={formData.address}
-                                    onChange={(e) => handleInputChange('address', e.target.value)}
-                                    placeholder="רחוב הרצל 1, תל אביב"
+                                <Label htmlFor="notes">הערות</Label>
+                                <Textarea
+                                    id="notes"
+                                    value={formData.notes}
+                                    onChange={(e) => handleInputChange('notes', e.target.value)}
+                                    placeholder="הערות כלליות על הלקוח..."
+                                    disabled={saving}
+                                    rows={3}
                                 />
                             </div>
-                        </div>
+                        </CardContent>
+                    </Card>
 
-                        {/* Notes Field */}
-                        <div className="space-y-2">
-                            <Label htmlFor="notes">הערות והעדפות תזונתיות</Label>
-                            <Textarea
-                                id="notes"
-                                value={formData.notes}
-                                onChange={(e) => handleInputChange('notes', e.target.value)}
-                                placeholder="לדוגמה: צמחוני, אלרגיה לאגוזים, מעדיף משלוחים בשעות הצהריים..."
-                                rows={4}
-                                className="resize-none"
+                    {/* Preferences Card */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>העדפות והגבלות תזונתיות</CardTitle>
+                            <CardDescription>
+                                נהל את ההעדפות וההגבלות התזונתיות של הלקוח
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <PreferenceInput
+                                preferences={formData.preferences}
+                                onChange={(preferences) => handleInputChange('preferences', preferences)}
+                                errors={errors}
                             />
-                            <p className="text-sm text-muted-foreground">
-                                הוסף כאן הערות מיוחדות, העדפות תזונתיות, אלרגיות או כל מידע רלוונטי אחר
-                            </p>
-                        </div>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
 
-                {/* Action Buttons */}
-                <div className="flex justify-end gap-3 mt-6">
-                    {hasChanges ? (
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button type="button" variant="outline">
-                                    ביטול
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>האם אתה בטוח?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        יש שינויים שלא נשמרו. האם אתה בטוח שברצונך לצאת ללא שמירה?
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>המשך עריכה</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => router.push(`/customers/${customerId}`)}>
-                                        צא ללא שמירה
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                    ) : (
-                        <Button type="button" variant="outline" onClick={handleCancel}>
+                    {/* Form Actions */}
+                    <div className="flex justify-end gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleCancel}
+                            disabled={saving}
+                        >
                             ביטול
                         </Button>
-                    )}
-
-                    <Button type="submit" disabled={saving || !hasChanges}>
-                        {saving ? (
-                            <>
-                                <Loader2 className="h-4 w-4 ml-2 animate-spin" />
-                                שומר...
-                            </>
-                        ) : (
-                            <>
-                                <Save className="h-4 w-4 ml-2" />
-                                שמור שינויים
-                            </>
-                        )}
-                    </Button>
+                        <Button type="submit" disabled={saving}>
+                            {saving ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 ml-2 animate-spin" />
+                                    שומר...
+                                </>
+                            ) : (
+                                <>
+                                    <Save className="h-4 w-4 ml-2" />
+                                    שמור שינויים
+                                </>
+                            )}
+                        </Button>
+                    </div>
                 </div>
             </form>
         </div>

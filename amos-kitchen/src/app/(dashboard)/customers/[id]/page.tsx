@@ -15,7 +15,11 @@ import {
     TrendingUp,
     FileText,
     Heart,
-    AlertCircle
+    AlertCircle,
+    AlertTriangle,
+    Utensils,
+    Stethoscope,
+    Plus
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -26,7 +30,9 @@ import { LoadingSpinner } from '@/components/shared/loading-spinner'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { format } from 'date-fns'
 import { he } from 'date-fns/locale'
-import type { Customer, Order, OrderItem, Dish } from '@/lib/types/database'
+import { PreferenceBadge, CriticalPreferenceAlert } from '@/components/customers/preference-badge'
+import { PREFERENCE_CONFIGS, groupPreferencesByType, getPreferenceSummary } from '@/lib/utils/preferences'
+import type { Customer, Order, OrderItem, Dish, CustomerPreference } from '@/lib/types/database'
 
 interface CustomerDetails extends Customer {
     orders: (Order & {
@@ -34,6 +40,7 @@ interface CustomerDetails extends Customer {
             dish: Dish
         })[]
     })[]
+    preferences?: CustomerPreference[]
 }
 
 interface DishStats {
@@ -65,7 +72,7 @@ export default function CustomerProfilePage() {
             const data = await response.json()
             setCustomer(data)
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'An error occurred')
+            setError(err instanceof Error ? err.message : 'אירעה שגיאה')
         } finally {
             setLoading(false)
         }
@@ -75,46 +82,19 @@ export default function CustomerProfilePage() {
         fetchCustomerDetails()
     }, [fetchCustomerDetails])
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <LoadingSpinner />
-            </div>
-        )
-    }
+    if (loading) return <LoadingSpinner />
+    if (error) return <div className="text-center text-red-600">שגיאה: {error}</div>
+    if (!customer) return <div className="text-center">לקוח לא נמצא</div>
 
-    if (error || !customer) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-                <AlertCircle className="h-12 w-12 text-red-500" />
-                <p className="text-xl font-semibold">שגיאה בטעינת פרטי הלקוח</p>
-                <p className="text-muted-foreground">{error}</p>
-                <Button onClick={() => router.push('/customers')}>
-                    חזרה לרשימת לקוחות
-                </Button>
-            </div>
-        )
-    }
-
-    // Calculate statistics
-    const stats = {
-        totalOrders: customer.orders.length,
-        totalSpent: customer.orders.reduce((sum, order) => sum + Number(order.totalAmount), 0),
-        lastOrder: customer.orders.length > 0
-            ? customer.orders.reduce((latest, order) =>
-                new Date(order.createdAt) > new Date(latest.createdAt) ? order : latest
-            )
-            : null,
-        avgOrderValue: customer.orders.length > 0
-            ? customer.orders.reduce((sum, order) => sum + Number(order.totalAmount), 0) / customer.orders.length
-            : 0
-    }
+    const orderCount = customer.orders.length
+    const totalSpent = customer.orders.reduce((sum, order) => sum + Number(order.totalAmount), 0)
+    const lastOrder = customer.orders[0]
 
     // Calculate favorite dishes
-    const dishStatsMap = new Map<string, DishStats>()
+    const dishStats = new Map<string, DishStats>()
     customer.orders.forEach(order => {
         order.orderItems.forEach(item => {
-            const existing = dishStatsMap.get(item.dishId) || {
+            const existing = dishStats.get(item.dishId) || {
                 dishId: item.dishId,
                 dishName: item.dish.name,
                 orderCount: 0,
@@ -123,37 +103,26 @@ export default function CustomerProfilePage() {
             }
             existing.orderCount++
             existing.totalQuantity += item.quantity
-            existing.totalRevenue += item.quantity * item.price
-            dishStatsMap.set(item.dishId, existing)
+            existing.totalRevenue += item.quantity * Number(item.price)
+            dishStats.set(item.dishId, existing)
         })
     })
-    const favoriteDishes = Array.from(dishStatsMap.values())
+
+    const favoriteDishes = Array.from(dishStats.values())
         .sort((a, b) => b.totalQuantity - a.totalQuantity)
         .slice(0, 5)
 
-    const getStatusColor = (status: string) => {
-        const colors = {
-            new: 'bg-blue-100 text-blue-800',
-            confirmed: 'bg-green-100 text-green-800',
-            preparing: 'bg-yellow-100 text-yellow-800',
-            ready: 'bg-purple-100 text-purple-800',
-            delivered: 'bg-gray-100 text-gray-800',
-            cancelled: 'bg-red-100 text-red-800'
-        }
-        return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800'
+    const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat('he-IL', {
+            style: 'currency',
+            currency: 'ILS'
+        }).format(amount)
     }
 
-    const getStatusText = (status: string) => {
-        const texts = {
-            new: 'חדשה',
-            confirmed: 'אושרה',
-            preparing: 'בהכנה',
-            ready: 'מוכנה',
-            delivered: 'נמסרה',
-            cancelled: 'בוטלה'
-        }
-        return texts[status as keyof typeof texts] || status
-    }
+    const groupedPreferences = customer.preferences ? groupPreferencesByType(customer.preferences) : null
+    const hasCriticalPreferences = customer.preferences?.some(
+        p => p.type === 'ALLERGY' || p.type === 'MEDICAL'
+    ) || false
 
     return (
         <div className="space-y-6">
@@ -168,7 +137,15 @@ export default function CustomerProfilePage() {
                         <ArrowRight className="h-4 w-4" />
                     </Button>
                     <div>
-                        <h1 className="text-3xl font-bold">{customer.name}</h1>
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-3xl font-bold">{customer.name}</h1>
+                            {hasCriticalPreferences && (
+                                <Badge variant="destructive" className="gap-1">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    הגבלות קריטיות
+                                </Badge>
+                            )}
+                        </div>
                         <p className="text-muted-foreground">
                             לקוח מאז {format(new Date(customer.createdAt), 'dd/MM/yyyy', { locale: he })}
                         </p>
@@ -180,125 +157,176 @@ export default function CustomerProfilePage() {
                 </Button>
             </div>
 
-            {/* Contact Info Card */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>פרטי התקשרות</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="flex items-center gap-3">
-                        <Phone className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">טלפון:</span>
-                        <a href={`tel:${customer.phone}`} className="text-primary hover:underline">
-                            {customer.phone}
-                        </a>
-                    </div>
-                    {customer.email && (
+            {/* Critical Preferences Alert */}
+            {hasCriticalPreferences && customer.preferences && (
+                <CriticalPreferenceAlert preferences={customer.preferences} />
+            )}
+
+            {/* Main Content Grid */}
+            <div className="grid gap-6 md:grid-cols-2">
+                {/* Contact Info Card */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>פרטי התקשרות</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
                         <div className="flex items-center gap-3">
-                            <Mail className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-medium">אימייל:</span>
-                            <a href={`mailto:${customer.email}`} className="text-primary hover:underline">
-                                {customer.email}
+                            <Phone className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">טלפון:</span>
+                            <a href={`tel:${customer.phone}`} className="text-primary hover:underline">
+                                {customer.phone}
                             </a>
                         </div>
-                    )}
-                    {customer.address && (
-                        <div className="flex items-start gap-3">
-                            <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                            <span className="font-medium">כתובת:</span>
-                            <span>{customer.address}</span>
-                        </div>
-                    )}
-                    {customer.notes && (
-                        <div className="flex items-start gap-3">
-                            <FileText className="h-4 w-4 text-muted-foreground mt-0.5" />
-                            <span className="font-medium">הערות:</span>
-                            <span className="text-muted-foreground">{customer.notes}</span>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-
-            {/* Statistics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            סה&quot;כ הזמנות
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex items-center gap-2">
-                            <ShoppingCart className="h-4 w-4 text-primary" />
-                            <span className="text-2xl font-bold">{stats.totalOrders}</span>
-                        </div>
+                        {customer.email && (
+                            <div className="flex items-center gap-3">
+                                <Mail className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium">אימייל:</span>
+                                <a href={`mailto:${customer.email}`} className="text-primary hover:underline">
+                                    {customer.email}
+                                </a>
+                            </div>
+                        )}
+                        {customer.address && (
+                            <div className="flex items-center gap-3">
+                                <MapPin className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium">כתובת:</span>
+                                <span>{customer.address}</span>
+                            </div>
+                        )}
+                        {customer.notes && (
+                            <div className="pt-3 border-t">
+                                <p className="text-sm text-muted-foreground">
+                                    <span className="font-medium">הערות:</span> {customer.notes}
+                                </p>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 
+                {/* Statistics Card */}
                 <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            סה&quot;כ הוצאות
-                        </CardTitle>
+                    <CardHeader>
+                        <CardTitle>סטטיסטיקות</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="flex items-center gap-2">
-                            <DollarSign className="h-4 w-4 text-primary" />
-                            <span className="text-2xl font-bold">₪{stats.totalSpent.toFixed(2)}</span>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            ממוצע הזמנה
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex items-center gap-2">
-                            <TrendingUp className="h-4 w-4 text-primary" />
-                            <span className="text-2xl font-bold">₪{stats.avgOrderValue.toFixed(2)}</span>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            הזמנה אחרונה
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-primary" />
-                            <span className="text-2xl font-bold">
-                                {stats.lastOrder
-                                    ? format(new Date(stats.lastOrder.createdAt), 'dd/MM', { locale: he })
-                                    : 'אין'
-                                }
-                            </span>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                    <ShoppingCart className="h-4 w-4" />
+                                    <span className="text-sm">הזמנות</span>
+                                </div>
+                                <p className="text-2xl font-bold">{orderCount}</p>
+                            </div>
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                    <DollarSign className="h-4 w-4" />
+                                    <span className="text-sm">סה&quot;כ הוצאות</span>
+                                </div>
+                                <p className="text-2xl font-bold text-green-600">
+                                    {formatCurrency(totalSpent)}
+                                </p>
+                            </div>
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                    <TrendingUp className="h-4 w-4" />
+                                    <span className="text-sm">ממוצע להזמנה</span>
+                                </div>
+                                <p className="text-xl font-semibold">
+                                    {orderCount > 0 ? formatCurrency(totalSpent / orderCount) : '-'}
+                                </p>
+                            </div>
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                    <Calendar className="h-4 w-4" />
+                                    <span className="text-sm">הזמנה אחרונה</span>
+                                </div>
+                                <p className="text-sm font-medium">
+                                    {lastOrder
+                                        ? format(new Date(lastOrder.createdAt), 'dd/MM/yyyy', { locale: he })
+                                        : '-'
+                                    }
+                                </p>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
             </div>
 
-            {/* Tabs */}
-            <Tabs defaultValue="orders" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="orders">היסטוריית הזמנות</TabsTrigger>
+            {/* Preferences Section */}
+            {customer.preferences && customer.preferences.length > 0 && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            העדפות והגבלות תזונתיות
+                            <Badge>{customer.preferences.length}</Badge>
+                        </CardTitle>
+                        <CardDescription>
+                            מידע חשוב על הגבלות תזונתיות, אלרגיות והעדפות אישיות
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-6">
+                            {groupedPreferences && Object.entries(PREFERENCE_CONFIGS).map(([type, config]) => {
+                                const preferences = groupedPreferences[type as keyof typeof groupedPreferences]
+                                if (!preferences || preferences.length === 0) return null
+
+                                const Icon = config.icon
+
+                                return (
+                                    <div key={type} className="space-y-3">
+                                        <div className="flex items-center gap-2">
+                                            <Icon className="h-4 w-4" />
+                                            <h4 className="font-semibold">{config.hebrewLabel}</h4>
+                                        </div>
+                                        <div className="grid gap-2 md:grid-cols-2">
+                                            {preferences.map((pref) => (
+                                                <div
+                                                    key={pref.id}
+                                                    className="flex items-start gap-3 p-3 rounded-lg bg-muted/50"
+                                                >
+                                                    <PreferenceBadge
+                                                        preference={pref}
+                                                        showIcon={false}
+                                                        className="mt-0.5"
+                                                    />
+                                                    <div className="flex-1">
+                                                        <p className="font-medium">{pref.value}</p>
+                                                        {pref.notes && (
+                                                            <p className="text-sm text-muted-foreground mt-1">
+                                                                {pref.notes}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Tabs Section */}
+            <Tabs defaultValue="orders" className="space-y-4">
+                <TabsList>
+                    <TabsTrigger value="orders">הזמנות ({orderCount})</TabsTrigger>
                     <TabsTrigger value="favorites">מנות מועדפות</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="orders" className="space-y-4">
                     {customer.orders.length === 0 ? (
                         <Card>
-                            <CardContent className="py-8 text-center">
-                                <p className="text-muted-foreground">אין הזמנות קודמות</p>
+                            <CardContent className="text-center py-8">
+                                <ShoppingCart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                                <p className="text-muted-foreground">אין הזמנות עדיין</p>
                                 <Button
+                                    variant="outline"
                                     className="mt-4"
                                     onClick={() => router.push('/orders/new')}
                                 >
+                                    <Plus className="h-4 w-4 ml-2" />
                                     צור הזמנה חדשה
                                 </Button>
                             </CardContent>
@@ -311,8 +339,7 @@ export default function CustomerProfilePage() {
                                         <TableHead>מספר הזמנה</TableHead>
                                         <TableHead>תאריך</TableHead>
                                         <TableHead>סטטוס</TableHead>
-                                        <TableHead>מנות</TableHead>
-                                        <TableHead>סכום</TableHead>
+                                        <TableHead className="text-right">סכום</TableHead>
                                         <TableHead></TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -326,21 +353,24 @@ export default function CustomerProfilePage() {
                                                 {format(new Date(order.deliveryDate), 'dd/MM/yyyy', { locale: he })}
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className={getStatusColor(order.status)}>
-                                                    {getStatusText(order.status)}
+                                                <Badge variant={
+                                                    order.status === 'delivered' ? 'default' :
+                                                        order.status === 'cancelled' ? 'destructive' :
+                                                            'secondary'
+                                                }>
+                                                    {order.status}
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell>
-                                                {order.orderItems.reduce((sum, item) => sum + item.quantity, 0)}
+                                            <TableCell className="text-right">
+                                                {formatCurrency(Number(order.totalAmount))}
                                             </TableCell>
-                                            <TableCell>₪{Number(order.totalAmount).toFixed(2)}</TableCell>
                                             <TableCell>
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
                                                     onClick={() => router.push(`/orders/${order.id}`)}
                                                 >
-                                                    צפה
+                                                    <FileText className="h-4 w-4" />
                                                 </Button>
                                             </TableCell>
                                         </TableRow>
@@ -352,49 +382,50 @@ export default function CustomerProfilePage() {
                 </TabsContent>
 
                 <TabsContent value="favorites" className="space-y-4">
-                    {favoriteDishes.length === 0 ? (
-                        <Card>
-                            <CardContent className="py-8 text-center">
-                                <p className="text-muted-foreground">אין מנות מועדפות עדיין</p>
-                            </CardContent>
-                        </Card>
-                    ) : (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Heart className="h-5 w-5 text-red-500" />
-                                    מנות מועדפות
-                                </CardTitle>
-                                <CardDescription>
-                                    המנות שהלקוח הזמין הכי הרבה פעמים
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>מנה</TableHead>
-                                            <TableHead>מספר הזמנות</TableHead>
-                                            <TableHead>כמות כוללת</TableHead>
-                                            <TableHead>סה&quot;כ הוצאות</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {favoriteDishes.map((dish) => (
-                                            <TableRow key={dish.dishId}>
-                                                <TableCell className="font-medium">
-                                                    {dish.dishName}
-                                                </TableCell>
-                                                <TableCell>{dish.orderCount}</TableCell>
-                                                <TableCell>{dish.totalQuantity}</TableCell>
-                                                <TableCell>₪{dish.totalRevenue.toFixed(2)}</TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </CardContent>
-                        </Card>
-                    )}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>מנות מועדפות</CardTitle>
+                            <CardDescription>
+                                המנות שהלקוח הזמין הכי הרבה פעמים
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {favoriteDishes.length === 0 ? (
+                                <p className="text-center text-muted-foreground py-4">
+                                    אין מספיק נתונים להצגת מנות מועדפות
+                                </p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {favoriteDishes.map((dish, index) => (
+                                        <div
+                                            key={dish.dishId}
+                                            className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground font-bold text-sm">
+                                                    {index + 1}
+                                                </div>
+                                                <div>
+                                                    <p className="font-medium">{dish.dishName}</p>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        הוזמן {dish.orderCount} פעמים • {dish.totalQuantity} מנות
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="font-semibold text-green-600">
+                                                    {formatCurrency(dish.totalRevenue)}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    סה&quot;כ הכנסות
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
                 </TabsContent>
             </Tabs>
         </div>

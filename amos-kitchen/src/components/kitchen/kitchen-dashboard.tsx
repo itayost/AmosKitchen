@@ -2,13 +2,14 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Check, Clock, Package, AlertTriangle, RefreshCw, Info } from 'lucide-react'
+import { Check, Clock, Package, AlertTriangle, RefreshCw, Info, CheckSquare, Square } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+import { Checkbox } from '@/components/ui/checkbox'
 import { useToast } from '@/lib/hooks/use-toast'
 import { CriticalPreferenceAlert, PreferenceBadgeGroup } from '@/components/customers/preference-badge'
 import { cn } from '@/lib/utils'
@@ -28,6 +29,13 @@ interface KitchenDashboardProps {
   initialOrders?: KitchenOrder[]
 }
 
+// Track completed dishes for preparing orders (UI state only)
+interface PreparationProgress {
+  [orderId: string]: {
+    [itemId: string]: boolean
+  }
+}
+
 export function KitchenDashboard({ initialOrders = [] }: KitchenDashboardProps) {
   // Normalize initial orders to ensure uppercase status
   const normalizedInitialOrders = initialOrders.map(order => ({
@@ -39,6 +47,7 @@ export function KitchenDashboard({ initialOrders = [] }: KitchenDashboardProps) 
   const [view, setView] = useState<'all' | 'preparing' | 'ready'>('all')
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
+  const [preparationProgress, setPreparationProgress] = useState<PreparationProgress>({})
   const { toast } = useToast()
 
   // Auto-refresh every 30 seconds
@@ -112,6 +121,15 @@ export function KitchenDashboard({ initialOrders = [] }: KitchenDashboardProps) 
         order.id === orderId ? { ...order, status: newStatus } : order
       ))
 
+      // Clear preparation progress when moving to READY
+      if (newStatus === 'READY') {
+        setPreparationProgress(prev => {
+          const newProgress = { ...prev }
+          delete newProgress[orderId]
+          return newProgress
+        })
+      }
+
       // Get Hebrew status text for the toast
       const statusTextMap: Record<OrderStatus, string> = {
         'NEW': 'חדש',
@@ -134,6 +152,23 @@ export function KitchenDashboard({ initialOrders = [] }: KitchenDashboardProps) 
         variant: "destructive",
       })
     }
+  }
+
+  // Handle dish preparation checkbox
+  const handleDishCheck = (orderId: string, itemId: string, checked: boolean) => {
+    setPreparationProgress(prev => ({
+      ...prev,
+      [orderId]: {
+        ...prev[orderId],
+        [itemId]: checked
+      }
+    }))
+  }
+
+  // Check if all dishes are prepared for an order
+  const areAllDishesPrepared = (order: KitchenOrder): boolean => {
+    const orderProgress = preparationProgress[order.id] || {}
+    return order.orderItems.every(item => orderProgress[item.id] === true)
   }
 
   // Filter orders based on view
@@ -328,17 +363,61 @@ export function KitchenDashboard({ initialOrders = [] }: KitchenDashboardProps) 
 
                           <Separator />
 
-                          {/* Order Items */}
+                          {/* Order Items - Show as checklist for PREPARING orders */}
                           <div className="space-y-2">
                             <h4 className="text-sm font-semibold">פריטים:</h4>
-                            {order.orderItems.map((item, idx) => (
-                              <div key={idx} className="flex justify-between items-center text-sm">
-                                <span className="font-medium">{item.dish.name}</span>
-                                <Badge variant="secondary" className="h-6">
-                                  x{item.quantity}
-                                </Badge>
+                            {order.status === 'PREPARING' ? (
+                              // Checklist view for preparing orders
+                              <div className="space-y-2">
+                                {order.orderItems.map((item) => {
+                                  const isChecked = preparationProgress[order.id]?.[item.id] || false
+                                  return (
+                                    <div
+                                      key={item.id}
+                                      className={cn(
+                                        "flex items-center gap-2 p-2 rounded transition-colors",
+                                        isChecked && "bg-green-50"
+                                      )}
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <Checkbox
+                                        id={`${order.id}-${item.id}`}
+                                        checked={isChecked}
+                                        onCheckedChange={(checked) =>
+                                          handleDishCheck(order.id, item.id, checked as boolean)
+                                        }
+                                      />
+                                      <label
+                                        htmlFor={`${order.id}-${item.id}`}
+                                        className={cn(
+                                          "flex-1 flex justify-between items-center cursor-pointer text-sm",
+                                          isChecked && "line-through text-muted-foreground"
+                                        )}
+                                      >
+                                        <span className="font-medium">{item.dish.name}</span>
+                                        <Badge variant="secondary" className="h-5">
+                                          x{item.quantity}
+                                        </Badge>
+                                      </label>
+                                    </div>
+                                  )
+                                })}
+                                {/* Progress indicator */}
+                                <div className="mt-2 text-xs text-muted-foreground text-center">
+                                  {Object.values(preparationProgress[order.id] || {}).filter(Boolean).length} מתוך {order.orderItems.length} מנות הוכנו
+                                </div>
                               </div>
-                            ))}
+                            ) : (
+                              // Regular view for other statuses
+                              order.orderItems.map((item, idx) => (
+                                <div key={idx} className="flex justify-between items-center text-sm">
+                                  <span className="font-medium">{item.dish.name}</span>
+                                  <Badge variant="secondary" className="h-6">
+                                    x{item.quantity}
+                                  </Badge>
+                                </div>
+                              ))
+                            )}
                           </div>
 
                           {/* Order Notes */}
@@ -354,15 +433,10 @@ export function KitchenDashboard({ initialOrders = [] }: KitchenDashboardProps) 
                             </>
                           )}
 
-                          {/* Time Info */}
-                          <div className="flex items-center justify-between text-xs text-muted-foreground">
-                            <span>
-                              <Clock className="h-3 w-3 inline ml-1" />
-                              {format(new Date(order.createdAt), 'HH:mm')}
-                            </span>
-                            <span>
-                              משלוח: {format(new Date(order.deliveryDate), 'dd/MM')}
-                            </span>
+                          {/* Time Info - Only show order time, not delivery */}
+                          <div className="flex items-center text-xs text-muted-foreground">
+                            <Clock className="h-3 w-3 ml-1" />
+                            <span>הוזמן ב-{format(new Date(order.createdAt), 'HH:mm')}</span>
                           </div>
                         </CardContent>
 
@@ -375,11 +449,31 @@ export function KitchenDashboard({ initialOrders = [] }: KitchenDashboardProps) 
                                 e.stopPropagation()
                                 const nextStatus = getNextStatus(order.status)
                                 if (nextStatus) {
+                                  // For PREPARING orders, only allow marking as READY if all dishes are checked
+                                  if (order.status === 'PREPARING' && !areAllDishesPrepared(order)) {
+                                    toast({
+                                      title: "לא ניתן לסמן כמוכן",
+                                      description: "יש לסמן את כל המנות כמוכנות לפני סימון ההזמנה כמוכנה",
+                                      variant: "destructive",
+                                    })
+                                    return
+                                  }
                                   handleStatusChange(order.id, nextStatus)
                                 }
                               }}
+                              disabled={order.status === 'PREPARING' && !areAllDishesPrepared(order)}
                             >
-                              {getStatusActionLabel(order.status)}
+                              {order.status === 'PREPARING' && !areAllDishesPrepared(order) ? (
+                                <span className="flex items-center gap-2">
+                                  <Square className="h-4 w-4" />
+                                  יש להשלים את כל המנות
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-2">
+                                  {order.status === 'PREPARING' && <CheckSquare className="h-4 w-4" />}
+                                  {getStatusActionLabel(order.status)}
+                                </span>
+                              )}
                             </Button>
                           )}
                         </CardFooter>

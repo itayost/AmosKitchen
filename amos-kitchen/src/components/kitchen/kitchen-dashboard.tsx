@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/lib/hooks/use-toast'
 import { CriticalPreferenceAlert, PreferenceBadgeGroup } from '@/components/customers/preference-badge'
 import { cn } from '@/lib/utils'
+import { format } from 'date-fns'
 import type { Order, OrderStatus, Customer, CustomerPreference, OrderItem, Dish } from '@/lib/types/database'
 
 interface KitchenOrder extends Order {

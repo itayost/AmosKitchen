@@ -36,6 +36,7 @@ import { Badge } from '@/components/ui/badge'
 import { OrderStatusBadge } from './order-status-badge'
 import { PreferenceBadgeGroup } from '@/components/customers/preference-badge'
 import { useRouter } from 'next/navigation'
+import { cn } from '@/lib/utils'
 import type { Order, OrderStatus, Customer, CustomerPreference } from '@/lib/types/database'
 
 interface OrderListProps {

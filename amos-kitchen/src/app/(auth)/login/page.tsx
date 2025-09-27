@@ -9,8 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
-import { auth } from "@/lib/firebase/config";
-import { signInWithEmailAndPassword } from "firebase/auth";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -28,26 +26,22 @@ export default function LoginPage() {
         setError(null);
 
         try {
-            // Sign in with Firebase
-            const userCredential = await signInWithEmailAndPassword(auth, email, password);
-            const user = userCredential.user;
-
-            // Get ID token
-            const idToken = await user.getIdToken();
-
-            // Send token to backend to create session
+            // Send credentials to backend API
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ idToken }),
+                body: JSON.stringify({ email, password }),
             });
 
+            const data = await response.json();
+
             if (!response.ok) {
-                throw new Error('Failed to create session');
+                throw new Error(data.error || 'Failed to create session');
             }
 
+            // Redirect on successful login
             router.push(redirectedFrom);
         } catch (error: any) {
             setError(error.message || "שגיאה בהתחברות");

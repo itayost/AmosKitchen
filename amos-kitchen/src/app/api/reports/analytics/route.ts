@@ -5,6 +5,8 @@ import { query, where, getDocs, orderBy } from 'firebase/firestore'
 import { ordersCollection, customersCollection, dateToTimestamp } from '@/lib/firebase/firestore'
 import { getDishesByIds } from '@/lib/firebase/dao/dishes'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
     try {
         const searchParams = request.nextUrl.searchParams

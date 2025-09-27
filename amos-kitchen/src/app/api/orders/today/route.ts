@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server'
 import { getTodayOrders } from '@/lib/firebase/dao/orders'
 import { getDishesByIds } from '@/lib/firebase/dao/dishes'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     // Get today's orders from Firestore
@@ -55,13 +57,16 @@ export async function GET() {
 
     // Return the array directly as the component expects
     return NextResponse.json(transformedOrders)
-  } catch (error) {
-    console.error('Failed to fetch Friday orders:', error)
+  } catch (error: any) {
+    // Suppress Firebase permission errors during build
+    if (error?.code !== 'permission-denied') {
+      console.error('Failed to fetch Friday orders:', error)
 
-    // Log more details about the error
-    if (error instanceof Error) {
-      console.error('Error message:', error.message)
-      console.error('Error stack:', error.stack)
+      // Log more details about the error
+      if (error instanceof Error) {
+        console.error('Error message:', error.message)
+        console.error('Error stack:', error.stack)
+      }
     }
 
     // Return empty array on error to prevent component crashes

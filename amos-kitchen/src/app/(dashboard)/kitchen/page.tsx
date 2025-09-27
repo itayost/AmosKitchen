@@ -5,6 +5,8 @@ import { getOrdersForToday } from '@/lib/actions/orders';
 import { Loader2 } from 'lucide-react';
 import type { Order } from '@/lib/types/database'
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: 'מטבח - הזמנות להיום',
   description: 'ניהול הזמנות להיום לבישול ומשלוח',

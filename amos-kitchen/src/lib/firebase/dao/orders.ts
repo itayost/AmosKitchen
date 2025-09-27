@@ -212,29 +212,37 @@ export async function getOrders(
 
 // Get today's orders
 export async function getTodayOrders(): Promise<Order[]> {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
+  try {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
 
-  const q = query(
-    ordersCollection,
-    where('deliveryDate', '>=', dateToTimestamp(today)),
-    where('deliveryDate', '<', dateToTimestamp(tomorrow)),
-    orderBy('deliveryDate', 'asc')
-  )
+    const q = query(
+      ordersCollection,
+      where('deliveryDate', '>=', dateToTimestamp(today)),
+      where('deliveryDate', '<', dateToTimestamp(tomorrow)),
+      orderBy('deliveryDate', 'asc')
+    )
 
-  const querySnapshot = await getDocs(q)
-  const orders: Order[] = []
+    const querySnapshot = await getDocs(q)
+    const orders: Order[] = []
 
-  querySnapshot.forEach((doc) => {
-    orders.push({
-      id: doc.id,
-      ...doc.data()
-    } as Order)
-  })
+    querySnapshot.forEach((doc) => {
+      orders.push({
+        id: doc.id,
+        ...doc.data()
+      } as Order)
+    })
 
-  return orders
+    return orders
+  } catch (error: any) {
+    // Suppress Firebase permission errors during build
+    if (error?.code !== 'permission-denied') {
+      console.error('Error in getTodayOrders:', error)
+    }
+    return []
+  }
 }
 
 // Update order

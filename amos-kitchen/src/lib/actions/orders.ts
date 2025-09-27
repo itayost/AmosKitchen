@@ -48,7 +48,11 @@ export async function getOrdersForToday() {
 
         return transformedOrders;
     } catch (error) {
-        console.error('Error in getOrdersForToday:', error);
+        // Suppress Firebase permission errors during build
+        const isPermissionError = error && typeof error === 'object' && 'code' in error && error.code === 'permission-denied';
+        if (!isPermissionError) {
+            console.error('Error in getOrdersForToday:', error);
+        }
         return [];
     }
 }

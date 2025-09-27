@@ -1,7 +1,6 @@
 // middleware.ts
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { verifyIdToken } from '@/lib/firebase/admin'
 
 export async function middleware(req: NextRequest) {
     // Get the Firebase auth token from cookies
@@ -22,6 +21,13 @@ export async function middleware(req: NextRequest) {
         req.nextUrl.pathname.startsWith(path)
     )
 
+    // Skip API routes and static files
+    if (req.nextUrl.pathname.startsWith('/api/') ||
+        req.nextUrl.pathname.startsWith('/_next/') ||
+        req.nextUrl.pathname.startsWith('/static/')) {
+        return NextResponse.next()
+    }
+
     // Check authentication for protected routes
     if (isProtectedPath) {
         if (!token) {
@@ -31,37 +37,19 @@ export async function middleware(req: NextRequest) {
             return NextResponse.redirect(redirectUrl)
         }
 
-        // Verify the token with Firebase Admin SDK
-        const decodedToken = await verifyIdToken(token)
-
-        if (!decodedToken) {
-            const redirectUrl = req.nextUrl.clone()
-            redirectUrl.pathname = '/login'
-            redirectUrl.searchParams.set('redirectedFrom', req.nextUrl.pathname)
-
-            // Clear invalid cookie
-            const response = NextResponse.redirect(redirectUrl)
-            response.cookies.set('firebase-auth-token', '', {
-                maxAge: 0
-            })
-            return response
-        }
+        // For now, we'll just check if token exists
+        // The actual verification will happen in the page/API route
+        // This avoids Edge Runtime issues with Firebase Admin SDK
     }
 
     // Redirect authenticated users from root to dashboard
     if (req.nextUrl.pathname === '/' && token) {
-        const decodedToken = await verifyIdToken(token)
-        if (decodedToken) {
-            return NextResponse.redirect(new URL('/dashboard', req.url))
-        }
+        return NextResponse.redirect(new URL('/dashboard', req.url))
     }
 
     // Redirect authenticated users away from login/register pages
     if ((req.nextUrl.pathname === '/login' || req.nextUrl.pathname === '/register') && token) {
-        const decodedToken = await verifyIdToken(token)
-        if (decodedToken) {
-            return NextResponse.redirect(new URL('/dashboard', req.url))
-        }
+        return NextResponse.redirect(new URL('/dashboard', req.url))
     }
 
     return NextResponse.next()

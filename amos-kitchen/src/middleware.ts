@@ -42,9 +42,15 @@ export async function middleware(req: NextRequest) {
         // This avoids Edge Runtime issues with Firebase Admin SDK
     }
 
-    // Redirect authenticated users from root to dashboard
-    if (req.nextUrl.pathname === '/' && token) {
-        return NextResponse.redirect(new URL('/dashboard', req.url))
+    // Handle root path
+    if (req.nextUrl.pathname === '/') {
+        if (token) {
+            // Redirect authenticated users to dashboard
+            return NextResponse.redirect(new URL('/dashboard', req.url))
+        } else {
+            // Redirect unauthenticated users to login
+            return NextResponse.redirect(new URL('/login', req.url))
+        }
     }
 
     // Redirect authenticated users away from login/register pages

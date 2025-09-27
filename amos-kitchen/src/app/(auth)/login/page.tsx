@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { signIn } from "@/lib/firebase/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,7 +27,14 @@ export default function LoginPage() {
         setError(null);
 
         try {
-            // Send credentials to backend API
+            // Sign in with Firebase client-side to sync auth state
+            const { user: firebaseUser, error: firebaseError } = await signIn(email, password);
+
+            if (firebaseError || !firebaseUser) {
+                throw new Error(firebaseError || 'שגיאה בהתחברות');
+            }
+
+            // Also send credentials to backend API to set cookie
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: {
@@ -35,10 +43,8 @@ export default function LoginPage() {
                 body: JSON.stringify({ email, password }),
             });
 
-            const data = await response.json();
-
             if (!response.ok) {
-                throw new Error(data.error || 'Failed to create session');
+                console.warn('Backend login failed, but Firebase auth succeeded');
             }
 
             // Redirect on successful login

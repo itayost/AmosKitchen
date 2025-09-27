@@ -259,10 +259,6 @@ export function DashboardContent() {
             </Card>
           </div>
 
-          {/* Alerts */}
-          {data.lowStock.length > 0 && (
-          )}
-
           {/* Order Status */}
           <DashboardStats weekStats={data.week} />
         </TabsContent>

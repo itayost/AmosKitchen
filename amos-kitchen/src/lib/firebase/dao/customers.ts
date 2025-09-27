@@ -14,7 +14,8 @@ import {
   QueryConstraint,
   writeBatch,
   collection,
-  doc
+  doc,
+  Timestamp
 } from 'firebase/firestore'
 import {
   customersCollection,
@@ -63,8 +64,8 @@ export async function getCustomerById(id: string): Promise<Customer | null> {
     id: docSnap.id,
     ...data,
     // Convert Firestore Timestamps to Dates
-    createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
-    updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date()
+    createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
+    updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date()
   } as Customer
 }
 
@@ -109,8 +110,8 @@ export async function getCustomers(
       id: doc.id,
       ...data,
       // Convert Firestore Timestamps to Dates
-      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
-      updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date()
+      createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
+      updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date()
     } as Customer
 
     // Client-side search filter

@@ -9,7 +9,8 @@ import {
   where,
   orderBy,
   limit,
-  QueryConstraint
+  QueryConstraint,
+  Timestamp
 } from 'firebase/firestore'
 import {
   dishesCollection,
@@ -47,8 +48,8 @@ export async function getDishById(id: string): Promise<Dish | null> {
       id: docSnap.id,
       ...data,
       // Convert Firestore Timestamps to Dates
-      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
-      updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date()
+      createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
+      updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date()
     } as Dish
 
     console.log('Dish data retrieved:', dishData)
@@ -88,8 +89,8 @@ export async function getDishes(
       id: doc.id,
       ...data,
       // Convert Firestore Timestamps to Dates
-      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
-      updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date()
+      createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
+      updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date()
     } as Dish
 
     // Client-side search filter (Firestore doesn't support text search natively)
@@ -120,8 +121,8 @@ export async function getAvailableDishes(): Promise<Dish[]> {
       id: doc.id,
       ...data,
       // Convert Firestore Timestamps to Dates
-      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
-      updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date()
+      createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
+      updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date()
     } as Dish)
   })
 

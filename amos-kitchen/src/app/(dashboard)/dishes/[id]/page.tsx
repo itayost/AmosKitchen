@@ -66,15 +66,21 @@ export default function DishDetailsPage() {
     const fetchDishDetails = async () => {
         try {
             setLoading(true)
+            console.log('Fetching dish details for ID:', dishId)
             const response = await fetch(`/api/dishes/${dishId}`)
+            console.log('Response status:', response.status)
 
             if (!response.ok) {
-                throw new Error('Failed to fetch dish details')
+                const errorData = await response.json()
+                console.error('Failed to fetch dish. Response:', errorData)
+                throw new Error(errorData.error || 'Failed to fetch dish details')
             }
 
             const data = await response.json()
+            console.log('Dish data received:', data)
             setDish(data)
         } catch (err) {
+            console.error('Error fetching dish:', err)
             setError(err instanceof Error ? err.message : 'An error occurred')
         } finally {
             setLoading(false)

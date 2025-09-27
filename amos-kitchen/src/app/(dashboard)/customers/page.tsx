@@ -107,6 +107,7 @@ export default function CustomersPage() {
 
     const handleSaveCustomer = async (customerData: Partial<Customer>) => {
         try {
+            console.log('Saving customer:', customerData)
             const url = selectedCustomer
                 ? `/api/customers/${selectedCustomer.id}`
                 : '/api/customers'
@@ -117,12 +118,20 @@ export default function CustomersPage() {
                 body: JSON.stringify(customerData)
             })
 
-            if (!response.ok) throw new Error('Failed to save customer')
+            const responseData = await response.json()
+            console.log('Response status:', response.status)
+            console.log('Response data:', responseData)
+
+            if (!response.ok) {
+                console.error('Failed to save customer. Response:', responseData)
+                throw new Error(responseData.error || 'Failed to save customer')
+            }
 
             setIsDialogOpen(false)
             await fetchCustomers()
         } catch (error) {
             console.error('Error saving customer:', error)
+            alert(`Error: ${error instanceof Error ? error.message : 'Failed to save customer'}`)
         }
     }
 

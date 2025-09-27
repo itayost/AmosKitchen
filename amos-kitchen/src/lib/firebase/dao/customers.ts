@@ -29,14 +29,24 @@ import type { Customer, CustomerPreference } from '@/lib/types/firestore'
 
 // Create a new customer
 export async function createCustomer(data: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
-  const customerData: Customer = {
-    ...data,
-    createdAt: getServerTimestamp(),
-    updatedAt: getServerTimestamp()
-  }
+  try {
+    console.log('Creating customer in Firestore with data:', data)
 
-  const docRef = await addDoc(customersCollection, customerData)
-  return docRef.id
+    const customerData: Customer = {
+      ...data,
+      createdAt: getServerTimestamp(),
+      updatedAt: getServerTimestamp()
+    }
+
+    console.log('Customer data with timestamps:', customerData)
+    const docRef = await addDoc(customersCollection, customerData)
+    console.log('Customer document created:', docRef.id)
+
+    return docRef.id
+  } catch (error) {
+    console.error('Error creating customer in Firestore:', error)
+    throw error
+  }
 }
 
 // Get customer by ID

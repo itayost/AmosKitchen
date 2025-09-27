@@ -32,17 +32,27 @@ export async function createDish(data: Omit<Dish, 'id' | 'createdAt' | 'updatedA
 
 // Get dish by ID
 export async function getDishById(id: string): Promise<Dish | null> {
-  const docRef = getDishDoc(id)
-  const docSnap = await getDoc(docRef)
+  try {
+    console.log('Getting dish by ID from Firestore:', id)
+    const docRef = getDishDoc(id)
+    const docSnap = await getDoc(docRef)
 
-  if (!docSnap.exists()) {
-    return null
+    if (!docSnap.exists()) {
+      console.log('Dish document does not exist in Firestore:', id)
+      return null
+    }
+
+    const dishData = {
+      id: docSnap.id,
+      ...docSnap.data()
+    } as Dish
+
+    console.log('Dish data retrieved:', dishData)
+    return dishData
+  } catch (error) {
+    console.error('Error getting dish from Firestore:', error)
+    throw error
   }
-
-  return {
-    id: docSnap.id,
-    ...docSnap.data()
-  } as Dish
 }
 
 // Get all dishes with filters

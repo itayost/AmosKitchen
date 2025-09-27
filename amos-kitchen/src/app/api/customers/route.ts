@@ -71,10 +71,13 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
+        console.log('POST /api/customers - Starting customer creation')
         const body = await request.json()
+        console.log('Request body:', body)
 
         // Validate input using the imported schema
         const validatedData = createCustomerSchema.parse(body)
+        console.log('Validated data:', validatedData)
 
         // Normalize phone number
         const normalizedPhone = normalizePhoneNumber(validatedData.phone)
@@ -90,6 +93,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Create customer
+        console.log('Creating customer in Firestore...')
         const customerId = await createCustomer({
             name: validatedData.name.trim(),
             phone: normalizedPhone,
@@ -97,6 +101,7 @@ export async function POST(request: NextRequest) {
             address: validatedData.address?.trim() || null,
             notes: validatedData.notes?.trim() || null
         })
+        console.log('Customer created with ID:', customerId)
 
         // Add preferences if provided
         const preferences = []

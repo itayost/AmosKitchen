@@ -24,9 +24,12 @@ export async function GET(
     { params }: { params: { id: string } }
 ) {
     try {
+        console.log('GET /api/dishes/[id] - Fetching dish with ID:', params.id)
         const dish = await getDishById(params.id)
+        console.log('Dish fetched:', dish)
 
         if (!dish) {
+            console.log('Dish not found with ID:', params.id)
             return NextResponse.json(
                 { error: 'Dish not found' },
                 { status: 404 }

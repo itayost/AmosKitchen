@@ -42,9 +42,13 @@ export async function getDishById(id: string): Promise<Dish | null> {
       return null
     }
 
+    const data = docSnap.data()
     const dishData = {
       id: docSnap.id,
-      ...docSnap.data()
+      ...data,
+      // Convert Firestore Timestamps to Dates
+      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
+      updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date()
     } as Dish
 
     console.log('Dish data retrieved:', dishData)
@@ -79,9 +83,13 @@ export async function getDishes(
 
   const dishes: Dish[] = []
   querySnapshot.forEach((doc) => {
+    const data = doc.data()
     const dish = {
       id: doc.id,
-      ...doc.data()
+      ...data,
+      // Convert Firestore Timestamps to Dates
+      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
+      updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date()
     } as Dish
 
     // Client-side search filter (Firestore doesn't support text search natively)
@@ -107,9 +115,13 @@ export async function getAvailableDishes(): Promise<Dish[]> {
 
   const dishes: Dish[] = []
   querySnapshot.forEach((doc) => {
+    const data = doc.data()
     dishes.push({
       id: doc.id,
-      ...doc.data()
+      ...data,
+      // Convert Firestore Timestamps to Dates
+      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
+      updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date()
     } as Dish)
   })
 

@@ -58,9 +58,13 @@ export async function getCustomerById(id: string): Promise<Customer | null> {
     return null
   }
 
+  const data = docSnap.data()
   return {
     id: docSnap.id,
-    ...docSnap.data()
+    ...data,
+    // Convert Firestore Timestamps to Dates
+    createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
+    updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date()
   } as Customer
 }
 
@@ -100,9 +104,13 @@ export async function getCustomers(
 
   const customers: Customer[] = []
   querySnapshot.forEach((doc) => {
+    const data = doc.data()
     const customer = {
       id: doc.id,
-      ...doc.data()
+      ...data,
+      // Convert Firestore Timestamps to Dates
+      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
+      updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date()
     } as Customer
 
     // Client-side search filter

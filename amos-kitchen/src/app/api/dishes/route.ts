@@ -32,6 +32,9 @@ export async function GET(request: NextRequest) {
             category: dish.category?.toLowerCase() || 'main',
             price: Number(dish.price), // Ensure price is a number
             orderCount: 0, // We'll implement this later with aggregation
+            // Convert timestamps to ISO strings for JSON serialization
+            createdAt: dish.createdAt instanceof Date ? dish.createdAt.toISOString() : new Date().toISOString(),
+            updatedAt: dish.updatedAt instanceof Date ? dish.updatedAt.toISOString() : new Date().toISOString()
         }))
 
         return NextResponse.json(dishesWithStats)

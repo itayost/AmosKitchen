@@ -50,11 +50,16 @@ export async function GET(request: NextRequest) {
                     address: customer.address,
                     notes: customer.notes,
                     preferences,
-                    createdAt: customer.createdAt,
-                    updatedAt: customer.updatedAt,
+                    // Convert Firestore Timestamps to ISO strings for JSON serialization
+                    createdAt: customer.createdAt instanceof Date
+                        ? customer.createdAt.toISOString()
+                        : new Date().toISOString(),
+                    updatedAt: customer.updatedAt instanceof Date
+                        ? customer.updatedAt.toISOString()
+                        : new Date().toISOString(),
                     orderCount,
                     totalSpent,
-                    lastOrderDate
+                    lastOrderDate: lastOrderDate ? (lastOrderDate instanceof Date ? lastOrderDate.toISOString() : lastOrderDate) : null
                 }
             })
         )

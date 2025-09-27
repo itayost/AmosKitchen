@@ -66,12 +66,3 @@ export function toPreferenceType(value: string): PreferenceType | null {
     return null
 }
 
-// Prisma type conversion helpers
-export function preferenceTypeToPrisma(type: PreferenceType): string {
-    // In this case, they're the same, but this function helps with consistency
-    return type
-}
-
-export function preferenceTypeFromPrisma(type: string): PreferenceType | null {
-    return toPreferenceType(type)
-}

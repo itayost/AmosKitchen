@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createDish, getDishes } from '@/lib/firebase/dao/dishes'
+import { verifyIdToken } from '@/lib/firebase/admin'
 
 // Validation schema for dish creation
 const dishSchema = z.object({
@@ -15,6 +16,23 @@ const dishSchema = z.object({
 // GET /api/dishes - Get all dishes with filters
 export async function GET(request: NextRequest) {
     try {
+        // Verify authentication
+        const token = request.cookies.get('firebase-auth-token')?.value
+        if (!token) {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            )
+        }
+
+        const decodedToken = await verifyIdToken(token)
+        if (!decodedToken) {
+            return NextResponse.json(
+                { error: 'Invalid token' },
+                { status: 401 }
+            )
+        }
+
         const searchParams = request.nextUrl.searchParams
         const search = searchParams.get('search') || ''
         const category = searchParams.get('category')

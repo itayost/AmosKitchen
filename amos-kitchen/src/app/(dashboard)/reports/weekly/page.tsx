@@ -12,7 +12,6 @@ import { WeeklySummaryStats } from '@/components/reports/weekly-summary-stats'
 import { TopDishesChart } from '@/components/reports/top-dishes-chart'
 import { DailyOrdersChart } from '@/components/reports/daily-orders-chart'
 import { CustomerAnalysis } from '@/components/reports/customer-analysis'
-import { IngredientRequirements } from '@/components/reports/ingredient-requirements'
 import { LoadingSpinner } from '@/components/shared/loading-spinner'
 import { DatePicker } from '@/components/shared/date-picker'
 import { useToast } from '@/lib/hooks/use-toast'
@@ -219,7 +218,7 @@ export default function WeeklyReportPage() {
                 </TabsContent>
 
                 <TabsContent value="ingredients" className="space-y-6">
-                    <IngredientRequirements data={report.ingredientRequirements} />
+                    {/* Ingredients feature removed */}
                 </TabsContent>
 
                 <TabsContent value="details" className="space-y-6">

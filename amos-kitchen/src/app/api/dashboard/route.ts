@@ -157,12 +157,12 @@ export async function GET(request: NextRequest) {
     const thirtyDaysAgo = subDays(today, 30)
     const activeCustomerIds = new Set<string>()
 
-    const recentOrdersQuery = query(
+    const activeOrdersQuery = query(
       ordersCollection,
       where('createdAt', '>=', dateToTimestamp(thirtyDaysAgo))
     )
-    const recentOrdersSnapshot = await getDocs(recentOrdersQuery)
-    recentOrdersSnapshot.forEach(doc => {
+    const activeOrdersSnapshot = await getDocs(activeOrdersQuery)
+    activeOrdersSnapshot.forEach(doc => {
       const order = doc.data()
       if (order.customerId) {
         activeCustomerIds.add(order.customerId)

@@ -12,32 +12,32 @@ const statusConfig: Record<OrderStatus, {
     color: string
     icon: React.ElementType
 }> = {
-    new: {
+    NEW: {
         label: 'חדש',
         color: 'bg-blue-500 hover:bg-blue-600',
         icon: Clock
     },
-    confirmed: {
+    CONFIRMED: {
         label: 'אושר',
         color: 'bg-green-500 hover:bg-green-600',
         icon: CheckCircle
     },
-    preparing: {
+    PREPARING: {
         label: 'בהכנה',
         color: 'bg-yellow-500 hover:bg-yellow-600',
         icon: Package
     },
-    ready: {
+    READY: {
         label: 'מוכן',
         color: 'bg-purple-500 hover:bg-purple-600',
         icon: Package
     },
-    delivered: {
+    DELIVERED: {
         label: 'נמסר',
         color: 'bg-gray-500 hover:bg-gray-600',
         icon: Truck
     },
-    cancelled: {
+    CANCELLED: {
         label: 'בוטל',
         color: 'bg-red-500 hover:bg-red-600',
         icon: XCircle

@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
         const dishMap = new Map(dishes.map(d => [d.id, d]))
 
         const customerMap = new Map()
-        for (const customerId of customerIds) {
+        for (const customerId of Array.from(customerIds)) {
             const customer = await getCustomerById(customerId)
             if (customer) {
                 customerMap.set(customerId, customer)
@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
             acc[day].revenue += Number(order.totalAmount)
 
             // Count dishes per day
-            order.orderItems.forEach(item => {
+            order.orderItems.forEach((item: any) => {
                 const dishName = item.dish.name
                 acc[day].dishes[dishName] = (acc[day].dishes[dishName] || 0) + item.quantity
             })
@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
         }>()
 
         orders.forEach(order => {
-            order.orderItems.forEach(item => {
+            order.orderItems.forEach((item: any) => {
                 const dishId = item.dishId
                 const existing = dishStats.get(dishId) || {
                     dish: item.dish,
@@ -155,7 +155,7 @@ export async function GET(request: NextRequest) {
             existing.orderCount++
             existing.totalSpent += order.totalAmount || 0
 
-            order.orderItems.forEach(item => {
+            order.orderItems.forEach((item: any) => {
                 const count = existing.dishes.get(item.dish.name) || 0
                 existing.dishes.set(item.dish.name, count + item.quantity)
             })

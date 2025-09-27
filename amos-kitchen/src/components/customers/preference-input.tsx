@@ -187,7 +187,7 @@ export function PreferenceInput({ preferences, onChange, errors }: PreferenceInp
                                         type: pref.type as PreferenceType,
                                         value: pref.value!,
                                         notes: pref.notes
-                                    }}
+                                    } as CustomerPreference}
                                 />
                                 {pref.notes && (
                                     <p className="text-sm text-muted-foreground mr-6">
@@ -284,7 +284,9 @@ export function PreferenceInput({ preferences, onChange, errors }: PreferenceInp
                                     {filteredSuggestions.map((suggestion, index) => (
                                         <button
                                             key={suggestion}
-                                            ref={el => suggestionsRef.current[index] = el!}
+                                            ref={el => {
+                                                if (el) suggestionsRef.current[index] = el
+                                            }}
                                             type="button"
                                             className={cn(
                                                 "w-full px-3 py-2 text-right transition-colors focus:outline-none",

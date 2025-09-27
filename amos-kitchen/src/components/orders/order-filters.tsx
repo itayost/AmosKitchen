@@ -19,12 +19,12 @@ interface OrderFiltersProps {
 
 const statusOptions: { value: OrderStatus | 'all'; label: string }[] = [
     { value: 'all', label: 'כל הסטטוסים' },
-    { value: 'new', label: 'חדש' },
-    { value: 'confirmed', label: 'אושר' },
-    { value: 'preparing', label: 'בהכנה' },
-    { value: 'ready', label: 'מוכן' },
-    { value: 'delivered', label: 'נמסר' },
-    { value: 'cancelled', label: 'בוטל' },
+    { value: 'NEW', label: 'חדש' },
+    { value: 'CONFIRMED', label: 'אושר' },
+    { value: 'PREPARING', label: 'בהכנה' },
+    { value: 'READY', label: 'מוכן' },
+    { value: 'DELIVERED', label: 'נמסר' },
+    { value: 'CANCELLED', label: 'בוטל' },
 ]
 
 const dateRangeOptions = [

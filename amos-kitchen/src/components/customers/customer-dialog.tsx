@@ -144,7 +144,7 @@ export function CustomerDialog({
                 }))
             }
 
-            await onSave(dataToSubmit)
+            await onSave(dataToSubmit as Partial<Customer>)
 
             // If it's a new customer, we'll need to get the ID from the response
             // For now, we'll assume the onSave callback handles navigation
@@ -281,7 +281,7 @@ export function CustomerDialog({
                         <PreferenceInput
                             preferences={formData.preferences}
                             onChange={(preferences) => handleInputChange('preferences', preferences)}
-                            errors={errors}
+                            errors={errors as Record<string, string>}
                         />
                     </div>
 

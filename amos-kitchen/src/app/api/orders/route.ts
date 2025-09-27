@@ -8,6 +8,7 @@ import {
 } from '@/lib/firebase/dao/orders'
 import { getCustomerById } from '@/lib/firebase/dao/customers'
 import { getDishesByIds } from '@/lib/firebase/dao/dishes'
+import { dateToTimestamp } from '@/lib/firebase/firestore'
 
 // Validation schema for order creation
 const createOrderSchema = z.object({
@@ -65,7 +66,7 @@ export async function GET(request: NextRequest) {
         })
 
         const customerMap = new Map()
-        for (const customerId of customersToFetch) {
+        for (const customerId of Array.from(customersToFetch)) {
             const customer = await getCustomerById(customerId)
             if (customer) {
                 customerMap.set(customerId, customer)
@@ -134,8 +135,8 @@ export async function POST(request: NextRequest) {
         // Create order with Firestore
         const orderId = await createOrder({
             customerId: validatedData.customerId,
-            orderDate: new Date(),
-            deliveryDate: new Date(validatedData.deliveryDate),
+            orderDate: dateToTimestamp(new Date()),
+            deliveryDate: dateToTimestamp(new Date(validatedData.deliveryDate)),
             deliveryAddress: validatedData.deliveryAddress || customer.address || '',
             items: validatedData.items.map(item => ({
                 dishId: item.dishId,
@@ -146,7 +147,6 @@ export async function POST(request: NextRequest) {
             })),
             totalAmount,
             status: 'NEW',
-            paymentStatus: 'PENDING',
             notes: validatedData.notes || ''
         })
 

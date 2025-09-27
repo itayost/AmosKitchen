@@ -37,7 +37,7 @@ export default async function KitchenPage() {
             </Card>
           }
         >
-          <KitchenDashboard orders={todayOrders} />
+          <KitchenDashboard initialOrders={todayOrders as any} />
         </Suspense>
       </div>
     </div>

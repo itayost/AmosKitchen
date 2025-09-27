@@ -3,6 +3,7 @@ import { Suspense } from 'react'
 import { OrderForm } from '@/components/orders/order-form'
 import { getCustomers } from '@/lib/firebase/dao/customers'
 import { getAvailableDishes } from '@/lib/firebase/dao/dishes'
+import { timestampToDate } from '@/lib/firebase/firestore'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -18,27 +19,33 @@ async function getFormData() {
         ])
 
         // Serialize the data to ensure proper client-side handling
-        const customers = customersResult.customers.map(customer => ({
-            id: customer.id,
-            name: customer.name,
-            phone: customer.phone,
-            email: customer.email || '',
-            address: customer.address || '',
-            notes: customer.notes || '',
-            createdAt: customer.createdAt,
-            updatedAt: customer.updatedAt
-        })).sort((a, b) => a.name.localeCompare(b.name))
+        const customers = customersResult.customers
+            .filter(customer => customer.id) // Filter out customers without IDs
+            .map(customer => ({
+                id: customer.id!,
+                name: customer.name,
+                phone: customer.phone,
+                email: customer.email || '',
+                address: customer.address || '',
+                notes: customer.notes || '',
+                createdAt: timestampToDate(customer.createdAt),
+                updatedAt: timestampToDate(customer.updatedAt)
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name))
 
-        const dishes = dishesData.map(dish => ({
-            id: dish.id,
-            name: dish.name,
-            description: dish.description || '',
-            price: Number(dish.price),
-            category: dish.category?.toLowerCase() || 'main',
-            isAvailable: dish.isAvailable,
-            createdAt: dish.createdAt,
-            updatedAt: dish.updatedAt
-        })).sort((a, b) => a.name.localeCompare(b.name))
+        const dishes = dishesData
+            .filter(dish => dish.id) // Filter out dishes without IDs
+            .map(dish => ({
+                id: dish.id!,
+                name: dish.name,
+                description: dish.description || '',
+                price: Number(dish.price),
+                category: dish.category?.toLowerCase() || 'main',
+                isAvailable: dish.isAvailable,
+                createdAt: timestampToDate(dish.createdAt),
+                updatedAt: timestampToDate(dish.updatedAt)
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name))
 
         return { customers, dishes }
     } catch (error) {

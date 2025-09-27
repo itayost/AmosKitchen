@@ -5,8 +5,8 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-// Define types locally instead of importing from Prisma
-type OrderStatus = 'NEW' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED';
+import type { OrderStatus } from '@/lib/types/database';
+
 type Order = {
   id: string;
   orderNumber: string;

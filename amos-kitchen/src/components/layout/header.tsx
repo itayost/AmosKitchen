@@ -13,10 +13,9 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Menu, LogOut, User, Settings } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
-import { User as SupabaseUser } from "@supabase/supabase-js";
 
 interface HeaderProps {
-    user: SupabaseUser;
+    user: any;
     onMenuClick: () => void;
 }
 

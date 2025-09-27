@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
         const dishMap = new Map(dishes.map(d => [d.id, d]))
 
         const customerMap = new Map()
-        for (const customerId of customerIds) {
+        for (const customerId of Array.from(customerIds)) {
             const customer = await getCustomerById(customerId)
             if (customer) {
                 customerMap.set(customerId, customer)

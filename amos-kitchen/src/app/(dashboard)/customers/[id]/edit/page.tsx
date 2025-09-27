@@ -261,11 +261,6 @@ export default function EditCustomerPage() {
                                 <AlertDialogTitle>האם אתה בטוח?</AlertDialogTitle>
                                 <AlertDialogDescription>
                                     פעולה זו תמחק את הלקוח לצמיתות. לא ניתן לבטל פעולה זו.
-                                    {customer.orders && customer.orders.length > 0 && (
-                                        <span className="block mt-2 text-red-600">
-                                            שים לב: ללקוח זה יש {customer.orders.length} הזמנות במערכת.
-                                        </span>
-                                    )}
                                 </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -385,7 +380,7 @@ export default function EditCustomerPage() {
                             <PreferenceInput
                                 preferences={formData.preferences}
                                 onChange={(preferences) => handleInputChange('preferences', preferences)}
-                                errors={errors}
+                                errors={errors as Record<string, string>}
                             />
                         </CardContent>
                     </Card>

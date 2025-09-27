@@ -40,12 +40,12 @@ export default function OrdersPage() {
 
     const stats = {
         total: totalCount || 0,
-        new: orders?.filter(o => o.status === 'new').length || 0,
-        preparing: orders?.filter(o => o.status === 'preparing').length || 0,
+        new: orders?.filter(o => o.status === 'NEW').length || 0,
+        preparing: orders?.filter(o => o.status === 'PREPARING').length || 0,
         delivered: orders?.filter(o => {
             const today = new Date()
             const orderDate = new Date(o.deliveryDate)
-            return o.status === 'delivered' &&
+            return o.status === 'DELIVERED' &&
                 orderDate.toDateString() === today.toDateString()
         }).length || 0
     }

@@ -3,8 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getTodayOrders, updateOrderStatus as updateOrderFirestore, addOrderHistory } from '@/lib/firebase/dao/orders';
 import { getDishesByIds } from '@/lib/firebase/dao/dishes';
-
-type OrderStatus = 'NEW' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED';
+import type { OrderStatus } from '@/lib/types/database';
 
 export async function getOrdersForToday() {
     try {

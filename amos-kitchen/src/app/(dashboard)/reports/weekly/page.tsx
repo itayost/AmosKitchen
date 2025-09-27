@@ -146,7 +146,7 @@ export default function WeeklyReportPage() {
             </div>
 
             {/* Summary Stats */}
-            <WeeklySummaryStats data={report.summary} />
+            <WeeklySummaryStats summary={report.summary} />
 
             {/* Main Content Tabs */}
             <Tabs defaultValue="overview" className="space-y-4">
@@ -210,11 +210,11 @@ export default function WeeklyReportPage() {
                 </TabsContent>
 
                 <TabsContent value="dishes" className="space-y-6">
-                    <TopDishesChart data={report.topDishes} />
+                    <TopDishesChart dishes={report.topDishes} />
                 </TabsContent>
 
                 <TabsContent value="customers" className="space-y-6">
-                    <CustomerAnalysis data={report.topCustomers} />
+                    <CustomerAnalysis customers={report.topCustomers} />
                 </TabsContent>
 
                 <TabsContent value="ingredients" className="space-y-6">

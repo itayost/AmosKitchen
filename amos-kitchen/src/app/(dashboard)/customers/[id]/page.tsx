@@ -354,8 +354,8 @@ export default function CustomerProfilePage() {
                                             </TableCell>
                                             <TableCell>
                                                 <Badge variant={
-                                                    order.status === 'delivered' ? 'default' :
-                                                        order.status === 'cancelled' ? 'destructive' :
+                                                    order.status === 'DELIVERED' ? 'default' :
+                                                        order.status === 'CANCELLED' ? 'destructive' :
                                                             'secondary'
                                                 }>
                                                     {order.status}

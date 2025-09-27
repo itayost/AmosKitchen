@@ -4,8 +4,8 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Clock, Package, CheckCircle2, AlertCircle, Timer, Calendar } from 'lucide-react';
-// Define types locally instead of importing from Prisma
-type OrderStatus = 'NEW' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED';
+import type { OrderStatus } from '@/lib/types/database';
+
 type Order = {
   id: string;
   orderNumber: string;

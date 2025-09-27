@@ -153,7 +153,7 @@ export async function GET(request: NextRequest) {
         const dishStats = new Map<string, { name: string; quantity: number; revenue: number; category: string }>()
 
         orders.forEach(order => {
-            order.orderItems.forEach(item => {
+            order.orderItems.forEach((item: any) => {
                 const dishId = item.dishId
                 const existing = dishStats.get(dishId) || {
                     name: item.dish.name,

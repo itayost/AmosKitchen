@@ -126,7 +126,7 @@ export async function getOrders(
   pageSize: number = 10,
   lastDoc?: DocumentSnapshot
 ): Promise<{ orders: Order[], lastDoc: DocumentSnapshot | null, total: number }> {
-  let constraints: QueryConstraint[] = [orderBy('createdAt', 'desc')]
+  const constraints: QueryConstraint[] = [orderBy('createdAt', 'desc')]
 
   // Add filters
   if (filters?.status && filters.status !== 'all') {
@@ -183,7 +183,7 @@ export async function getOrders(
   const q = query(ordersCollection, ...constraints)
   const querySnapshot = await getDocs(q)
 
-  let orders: Order[] = []
+  const orders: Order[] = []
   for (const doc of querySnapshot.docs) {
     const order = {
       id: doc.id,

@@ -76,7 +76,7 @@ export async function getCustomers(
   pageSize: number = 10,
   lastDoc?: DocumentSnapshot
 ): Promise<{ customers: Customer[], lastDoc: DocumentSnapshot | null, total: number }> {
-  let constraints: QueryConstraint[] = [orderBy('createdAt', 'desc'), limit(pageSize)]
+  const constraints: QueryConstraint[] = [orderBy('createdAt', 'desc'), limit(pageSize)]
 
   if (lastDoc) {
     constraints.push(startAfter(lastDoc))
@@ -88,7 +88,7 @@ export async function getCustomers(
   const q = query(customersCollection, ...constraints)
   const querySnapshot = await getDocs(q)
 
-  let customers: Customer[] = []
+  const customers: Customer[] = []
   querySnapshot.forEach((doc) => {
     const customer = {
       id: doc.id,

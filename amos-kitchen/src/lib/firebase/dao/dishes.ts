@@ -53,7 +53,7 @@ export async function getDishes(
     available?: boolean
   }
 ): Promise<Dish[]> {
-  let constraints: QueryConstraint[] = [orderBy('name', 'asc')]
+  const constraints: QueryConstraint[] = [orderBy('name', 'asc')]
 
   // Add filters
   if (filters?.category && filters.category !== 'all') {

@@ -3,7 +3,6 @@ import { Suspense } from 'react'
 import { OrderForm } from '@/components/orders/order-form'
 import { getCustomers } from '@/lib/firebase/dao/customers'
 import { getAvailableDishes } from '@/lib/firebase/dao/dishes'
-import { timestampToDate } from '@/lib/firebase/firestore'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -28,8 +27,8 @@ async function getFormData() {
                 email: customer.email || '',
                 address: customer.address || '',
                 notes: customer.notes || '',
-                createdAt: timestampToDate(customer.createdAt),
-                updatedAt: timestampToDate(customer.updatedAt)
+                createdAt: customer.createdAt,
+                updatedAt: customer.updatedAt
             }))
             .sort((a, b) => a.name.localeCompare(b.name))
 
@@ -42,8 +41,8 @@ async function getFormData() {
                 price: Number(dish.price),
                 category: dish.category?.toLowerCase() || 'main',
                 isAvailable: dish.isAvailable,
-                createdAt: timestampToDate(dish.createdAt),
-                updatedAt: timestampToDate(dish.updatedAt)
+                createdAt: dish.createdAt,
+                updatedAt: dish.updatedAt
             }))
             .sort((a, b) => a.name.localeCompare(b.name))
 

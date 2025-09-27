@@ -31,7 +31,7 @@ import {
 } from '../firestore'
 import { db } from '../config'
 import { getCustomerById } from './customers'
-import type { Order, OrderHistory, OrderItem, OrderFilters } from '@/lib/types/firestore'
+import type { Order, OrderHistory, OrderItem, OrderFilters, OrderDoc, OrderHistoryDoc } from '@/lib/types/firestore'
 
 // Generate order number
 export async function generateOrderNumber(): Promise<string> {
@@ -65,7 +65,7 @@ export async function createOrder(
     throw new Error('Customer not found')
   }
 
-  const orderData: Order = {
+  const orderData: OrderDoc = {
     ...data,
     orderNumber,
     customerData: {
@@ -73,8 +73,8 @@ export async function createOrder(
       phone: customer.phone,
       email: customer.email || undefined
     },
-    orderDate: data.orderDate instanceof Timestamp ? data.orderDate : dateToTimestamp(data.orderDate as any),
-    deliveryDate: data.deliveryDate instanceof Timestamp ? data.deliveryDate : dateToTimestamp(data.deliveryDate as any),
+    orderDate: data.orderDate instanceof Date ? dateToTimestamp(data.orderDate) : data.orderDate,
+    deliveryDate: data.deliveryDate instanceof Date ? dateToTimestamp(data.deliveryDate) : data.deliveryDate,
     createdAt: getServerTimestamp(),
     updatedAt: getServerTimestamp()
   }
@@ -100,10 +100,15 @@ export async function getOrderById(id: string): Promise<Order | null> {
     return null
   }
 
-  const order = {
+  const data = docSnap.data()
+  const order: Order = {
     id: docSnap.id,
-    ...docSnap.data()
-  } as Order
+    ...data,
+    orderDate: data.orderDate instanceof Timestamp ? data.orderDate.toDate() : new Date(),
+    deliveryDate: data.deliveryDate instanceof Timestamp ? data.deliveryDate.toDate() : new Date(),
+    createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
+    updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date()
+  }
 
   // Get customer if not denormalized
   if (!order.customerData && order.customerId) {
@@ -185,10 +190,15 @@ export async function getOrders(
 
   const orders: Order[] = []
   for (const doc of querySnapshot.docs) {
-    const order = {
+    const data = doc.data()
+    const order: Order = {
       id: doc.id,
-      ...doc.data()
-    } as Order
+      ...data,
+      orderDate: data.orderDate instanceof Timestamp ? data.orderDate.toDate() : new Date(),
+      deliveryDate: data.deliveryDate instanceof Timestamp ? data.deliveryDate.toDate() : new Date(),
+      createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
+      updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date()
+    }
 
     // Client-side search filter
     if (!filters?.search ||
@@ -229,10 +239,15 @@ export async function getTodayOrders(): Promise<Order[]> {
     const orders: Order[] = []
 
     querySnapshot.forEach((doc) => {
+      const data = doc.data()
       orders.push({
         id: doc.id,
-        ...doc.data()
-      } as Order)
+        ...data,
+        orderDate: data.orderDate instanceof Timestamp ? data.orderDate.toDate() : new Date(),
+        deliveryDate: data.deliveryDate instanceof Timestamp ? data.deliveryDate.toDate() : new Date(),
+        createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
+        updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date()
+      })
     })
 
     return orders
@@ -312,7 +327,7 @@ export async function addOrderHistory(
   orderId: string,
   data: Omit<OrderHistory, 'id' | 'orderId' | 'createdAt'>
 ): Promise<void> {
-  const historyData: OrderHistory = {
+  const historyData: OrderHistoryDoc = {
     ...data,
     orderId,
     createdAt: getServerTimestamp()
@@ -328,10 +343,12 @@ export async function getOrderHistory(orderId: string): Promise<OrderHistory[]> 
 
   const history: OrderHistory[] = []
   querySnapshot.forEach((doc) => {
+    const data = doc.data()
     history.push({
       id: doc.id,
-      ...doc.data()
-    } as OrderHistory)
+      ...data,
+      createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date()
+    })
   })
 
   return history
@@ -349,10 +366,15 @@ export async function getOrdersByCustomer(customerId: string): Promise<Order[]> 
   const orders: Order[] = []
 
   querySnapshot.forEach((doc) => {
+    const data = doc.data()
     orders.push({
       id: doc.id,
-      ...doc.data()
-    } as Order)
+      ...data,
+      orderDate: data.orderDate instanceof Timestamp ? data.orderDate.toDate() : new Date(),
+      deliveryDate: data.deliveryDate instanceof Timestamp ? data.deliveryDate.toDate() : new Date(),
+      createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
+      updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date()
+    })
   })
 
   return orders
@@ -380,9 +402,9 @@ export async function getOrderStats(startDate?: Date, endDate?: Date): Promise<{
   const statusCounts: Record<string, number> = {}
 
   querySnapshot.forEach((doc) => {
-    const order = doc.data() as Order
-    totalRevenue += order.totalAmount
-    statusCounts[order.status] = (statusCounts[order.status] || 0) + 1
+    const data = doc.data()
+    totalRevenue += data.totalAmount
+    statusCounts[data.status] = (statusCounts[data.status] || 0) + 1
   })
 
   const totalOrders = querySnapshot.size

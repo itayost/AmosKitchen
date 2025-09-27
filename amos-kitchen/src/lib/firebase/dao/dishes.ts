@@ -17,11 +17,11 @@ import {
   getDishDoc,
   getServerTimestamp
 } from '../firestore'
-import type { Dish } from '@/lib/types/firestore'
+import type { Dish, DishDoc } from '@/lib/types/firestore'
 
 // Create a new dish
 export async function createDish(data: Omit<Dish, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
-  const dishData: Dish = {
+  const dishData: DishDoc = {
     ...data,
     createdAt: getServerTimestamp(),
     updatedAt: getServerTimestamp()
@@ -44,13 +44,13 @@ export async function getDishById(id: string): Promise<Dish | null> {
     }
 
     const data = docSnap.data()
-    const dishData = {
+    const dishData: Dish = {
       id: docSnap.id,
       ...data,
       // Convert Firestore Timestamps to Dates
       createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
       updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date()
-    } as Dish
+    }
 
     console.log('Dish data retrieved:', dishData)
     return dishData
@@ -85,13 +85,13 @@ export async function getDishes(
   const dishes: Dish[] = []
   querySnapshot.forEach((doc) => {
     const data = doc.data()
-    const dish = {
+    const dish: Dish = {
       id: doc.id,
       ...data,
       // Convert Firestore Timestamps to Dates
       createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
       updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date()
-    } as Dish
+    }
 
     // Client-side search filter (Firestore doesn't support text search natively)
     if (!filters?.search ||
@@ -123,7 +123,7 @@ export async function getAvailableDishes(): Promise<Dish[]> {
       // Convert Firestore Timestamps to Dates
       createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
       updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date()
-    } as Dish)
+    })
   })
 
   return dishes
@@ -141,10 +141,14 @@ export async function getDishesByCategory(category: string): Promise<Dish[]> {
 
   const dishes: Dish[] = []
   querySnapshot.forEach((doc) => {
+    const data = doc.data()
     dishes.push({
       id: doc.id,
-      ...doc.data()
-    } as Dish)
+      ...data,
+      // Convert Firestore Timestamps to Dates
+      createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
+      updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date()
+    })
   })
 
   return dishes
@@ -208,8 +212,8 @@ export async function getDishCountByCategory(): Promise<Record<string, number>> 
 
   const counts: Record<string, number> = {}
   querySnapshot.forEach((doc) => {
-    const dish = doc.data() as Dish
-    const category = dish.category || 'other'
+    const data = doc.data()
+    const category = data.category || 'other'
     counts[category] = (counts[category] || 0) + 1
   })
 

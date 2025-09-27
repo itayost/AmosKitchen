@@ -26,14 +26,14 @@ import {
   timestampToDate
 } from '../firestore'
 import { db } from '../config'
-import type { Customer, CustomerPreference } from '@/lib/types/firestore'
+import type { Customer, CustomerPreference, CustomerDoc, CustomerPreferenceDoc } from '@/lib/types/firestore'
 
 // Create a new customer
 export async function createCustomer(data: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
   try {
     console.log('Creating customer in Firestore with data:', data)
 
-    const customerData: Customer = {
+    const customerData: CustomerDoc = {
       ...data,
       createdAt: getServerTimestamp(),
       updatedAt: getServerTimestamp()
@@ -66,7 +66,7 @@ export async function getCustomerById(id: string): Promise<Customer | null> {
     // Convert Firestore Timestamps to Dates
     createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
     updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date()
-  } as Customer
+  }
 }
 
 // Get customer by phone
@@ -79,10 +79,14 @@ export async function getCustomerByPhone(phone: string): Promise<Customer | null
   }
 
   const doc = querySnapshot.docs[0]
+  const data = doc.data()
   return {
     id: doc.id,
-    ...doc.data()
-  } as Customer
+    ...data,
+    // Convert Firestore Timestamps to Dates
+    createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
+    updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date()
+  }
 }
 
 // Get all customers with filters
@@ -106,13 +110,13 @@ export async function getCustomers(
   const customers: Customer[] = []
   querySnapshot.forEach((doc) => {
     const data = doc.data()
-    const customer = {
+    const customer: Customer = {
       id: doc.id,
       ...data,
       // Convert Firestore Timestamps to Dates
       createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
       updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date()
-    } as Customer
+    }
 
     // Client-side search filter
     if (!searchTerm ||
@@ -174,7 +178,7 @@ export async function addCustomerPreference(
   customerId: string,
   preference: Omit<CustomerPreference, 'id' | 'customerId' | 'createdAt'>
 ): Promise<string> {
-  const preferenceData: CustomerPreference = {
+  const preferenceData: CustomerPreferenceDoc = {
     ...preference,
     customerId,
     createdAt: getServerTimestamp()
@@ -190,10 +194,12 @@ export async function getCustomerPreferences(customerId: string): Promise<Custom
 
   const preferences: CustomerPreference[] = []
   querySnapshot.forEach((doc) => {
+    const data = doc.data()
     preferences.push({
       id: doc.id,
-      ...doc.data()
-    } as CustomerPreference)
+      ...data,
+      createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date()
+    })
   })
 
   return preferences

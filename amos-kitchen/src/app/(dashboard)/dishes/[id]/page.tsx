@@ -22,32 +22,15 @@ import { LoadingSpinner } from '@/components/shared/loading-spinner'
 import { format } from 'date-fns'
 import { he } from 'date-fns/locale'
 import Link from 'next/link'
-import type { Dish, OrderItem, Order } from '@/lib/types/database'
+import type { Dish } from '@/lib/types/firestore'
 
 interface DishDetails extends Dish {
-    ingredients: {
-        id: string
-        quantity: number
-        notes?: string
-        ingredient: {
-            id: string
-            name: string
-            unit: string
-        }
-    }[]
-    orderItems: (OrderItem & {
-        order: Order & {
-            customer: {
-                id: string
-                name: string
-            }
-        }
-    })[]
     stats: {
         totalOrders: number
         totalQuantity: number
         totalRevenue: number
     }
+    orderItems: any[] // Recent orders that include this dish
 }
 
 export default function DishDetailsPage() {
@@ -94,16 +77,6 @@ export default function DishDetailsPage() {
         }).format(price)
     }
 
-    const getUnitLabel = (unit: string) => {
-        const units: Record<string, string> = {
-            kg: 'ק"ג',
-            gram: 'גרם',
-            liter: 'ליטר',
-            ml: 'מ"ל',
-            unit: 'יחידה'
-        }
-        return units[unit] || unit
-    }
 
     const getCategoryLabel = (category: string) => {
         const categories: Record<string, string> = {
@@ -146,7 +119,7 @@ export default function DishDetailsPage() {
                     <div>
                         <h1 className="text-3xl font-bold">{dish.name}</h1>
                         <p className="text-muted-foreground">
-                            <Badge variant="outline">{getCategoryLabel(dish.category)}</Badge>
+                            <Badge variant="outline">{getCategoryLabel(dish.category || 'main')}</Badge>
                         </p>
                     </div>
                 </div>
@@ -210,7 +183,6 @@ export default function DishDetailsPage() {
             <Tabs defaultValue="details" className="space-y-4">
                 <TabsList>
                     <TabsTrigger value="details">פרטים</TabsTrigger>
-                    <TabsTrigger value="ingredients">רכיבים</TabsTrigger>
                     <TabsTrigger value="orders">הזמנות אחרונות</TabsTrigger>
                 </TabsList>
 
@@ -244,48 +216,6 @@ export default function DishDetailsPage() {
                     </Card>
                 </TabsContent>
 
-                <TabsContent value="ingredients">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>רכיבי המנה</CardTitle>
-                            <CardDescription>
-                                רשימת הרכיבים והכמויות הנדרשות
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            {dish.ingredients.length > 0 ? (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>רכיב</TableHead>
-                                            <TableHead>כמות</TableHead>
-                                            <TableHead>הערות</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {dish.ingredients.map((item) => (
-                                            <TableRow key={item.id}>
-                                                <TableCell className="font-medium">
-                                                    {item.ingredient.name}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {item.quantity} {getUnitLabel(item.ingredient.unit)}
-                                                </TableCell>
-                                                <TableCell className="text-muted-foreground">
-                                                    {item.notes || '-'}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            ) : (
-                                <p className="text-center text-muted-foreground py-8">
-                                    אין רכיבים מוגדרים למנה זו
-                                </p>
-                            )}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
 
                 <TabsContent value="orders">
                     <Card>

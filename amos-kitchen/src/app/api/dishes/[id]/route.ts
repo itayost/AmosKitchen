@@ -8,6 +8,7 @@ import {
     isDishExists
 } from '@/lib/firebase/dao/dishes'
 import { getOrders } from '@/lib/firebase/dao/orders'
+import { verifyIdToken } from '@/lib/firebase/admin'
 
 // Validation schema for dish update
 const updateDishSchema = z.object({
@@ -24,6 +25,23 @@ export async function GET(
     { params }: { params: { id: string } }
 ) {
     try {
+        // Verify authentication
+        const token = request.cookies.get('firebase-auth-token')?.value
+        if (!token) {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            )
+        }
+
+        const decodedToken = await verifyIdToken(token)
+        if (!decodedToken) {
+            return NextResponse.json(
+                { error: 'Invalid token' },
+                { status: 401 }
+            )
+        }
+
         console.log('GET /api/dishes/[id] - Fetching dish with ID:', params.id)
         const dish = await getDishById(params.id)
         console.log('Dish fetched:', dish)
@@ -58,6 +76,9 @@ export async function GET(
             ...dish,
             category: dish.category?.toLowerCase() || 'main',
             price: Number(dish.price),
+            // Convert timestamps to ISO strings for JSON serialization
+            createdAt: dish.createdAt instanceof Date ? dish.createdAt.toISOString() : new Date().toISOString(),
+            updatedAt: dish.updatedAt instanceof Date ? dish.updatedAt.toISOString() : new Date().toISOString(),
             stats: {
                 totalOrders,
                 totalQuantity,

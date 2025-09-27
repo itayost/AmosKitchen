@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
       where('deliveryDate', '>=', dateToTimestamp(startOfDay(nextFriday))),
       where('deliveryDate', '<=', dateToTimestamp(endOfDay(nextFriday)))
     )
-    let fridayOrders: any[] = []
+    const fridayOrders: any[] = []
     try {
       const fridayOrdersSnapshot = await getDocs(fridayOrdersQuery)
       fridayOrdersSnapshot.forEach(doc => {

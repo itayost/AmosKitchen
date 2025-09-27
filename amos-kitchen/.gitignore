@@ -39,3 +39,7 @@ next-env.d.ts
 
 # prisma
 prisma/migrations/
+
+
+#Ignore vscode AI rules
+.github/instructions/codacy.instructions.md

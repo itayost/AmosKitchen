@@ -26,7 +26,6 @@ import { DashboardStats } from '@/components/dashboard/dashboard-stats'
 import { RecentOrders } from '@/components/dashboard/recent-orders'
 import { RecentActivity } from '@/components/dashboard/recent-activity'
 import { TopDishes } from '@/components/dashboard/top-dishes'
-import { LowStockAlert } from '@/components/dashboard/low-stock-alert'
 import { RevenueChart } from '@/components/dashboard/revenue-chart'
 import { QuickActions } from '@/components/dashboard/quick-actions'
 import { useToast } from '@/lib/hooks/use-toast'
@@ -52,7 +51,6 @@ interface DashboardData {
   recentOrders: any[]
   recentActivity: any[]
   topDishes: any[]
-  lowStock: any[]
   customers: {
     total: number
     active: number
@@ -263,7 +261,6 @@ export function DashboardContent() {
 
           {/* Alerts */}
           {data.lowStock.length > 0 && (
-            <LowStockAlert ingredients={data.lowStock} />
           )}
 
           {/* Order Status */}

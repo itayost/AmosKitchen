@@ -1,7 +1,8 @@
 // src/app/(dashboard)/orders/new/page.tsx
 import { Suspense } from 'react'
 import { OrderForm } from '@/components/orders/order-form'
-import { prisma } from '@/lib/db'
+import { getCustomers } from '@/lib/firebase/dao/customers'
+import { getAvailableDishes } from '@/lib/firebase/dao/dishes'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -10,52 +11,34 @@ import { ChevronRight } from 'lucide-react'
 
 async function getFormData() {
     try {
-        const [customersData, dishesData] = await Promise.all([
-            prisma.customer.findMany({
-                select: {
-                    id: true,
-                    name: true,
-                    phone: true,
-                    email: true,
-                    address: true,
-                    notes: true,
-                    createdAt: true,
-                    updatedAt: true
-                },
-                orderBy: { name: 'asc' }
-            }),
-            prisma.dish.findMany({
-                where: { isAvailable: true },
-                select: {
-                    id: true,
-                    name: true,
-                    description: true,
-                    price: true,
-                    category: true,
-                    isAvailable: true,
-                    createdAt: true,
-                    updatedAt: true
-                },
-                orderBy: { name: 'asc' }
-            })
+        // Fetch customers and dishes from Firestore
+        const [customersResult, dishesData] = await Promise.all([
+            getCustomers(undefined, 100), // Get up to 100 customers
+            getAvailableDishes()
         ])
 
         // Serialize the data to ensure proper client-side handling
-        const customers = customersData.map(customer => ({
-            ...customer,
+        const customers = customersResult.customers.map(customer => ({
+            id: customer.id,
+            name: customer.name,
+            phone: customer.phone,
             email: customer.email || '',
             address: customer.address || '',
-            notes: customer.notes || ''
-        }))
+            notes: customer.notes || '',
+            createdAt: customer.createdAt,
+            updatedAt: customer.updatedAt
+        })).sort((a, b) => a.name.localeCompare(b.name))
 
         const dishes = dishesData.map(dish => ({
-            ...dish,
+            id: dish.id,
+            name: dish.name,
+            description: dish.description || '',
             price: Number(dish.price),
             category: dish.category?.toLowerCase() || 'main',
-            description: dish.description || '',
+            isAvailable: dish.isAvailable,
             createdAt: dish.createdAt,
             updatedAt: dish.updatedAt
-        }))
+        })).sort((a, b) => a.name.localeCompare(b.name))
 
         return { customers, dishes }
     } catch (error) {

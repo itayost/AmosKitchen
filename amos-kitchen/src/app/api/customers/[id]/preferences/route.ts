@@ -1,9 +1,15 @@
 // app/api/customers/[id]/preferences/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
 import { z } from 'zod'
 import { customerPreferenceSchema } from '@/lib/validators/customer'
-import { Prisma } from '@prisma/client'
+import {
+    getCustomerById,
+    getCustomerPreferences,
+    addCustomerPreference,
+    deleteCustomerPreference
+} from '@/lib/firebase/dao/customers'
+import { doc, updateDoc } from 'firebase/firestore'
+import { customerPreferencesCollection, getServerTimestamp } from '@/lib/firebase/firestore'
 
 // Get all preferences for a customer
 export async function GET(
@@ -11,12 +17,14 @@ export async function GET(
     { params }: { params: { id: string } }
 ) {
     try {
-        const preferences = await prisma.customerPreference.findMany({
-            where: { customerId: params.id },
-            orderBy: [
-                { type: 'asc' },
-                { value: 'asc' }
-            ]
+        const preferences = await getCustomerPreferences(params.id)
+
+        // Sort preferences by type and value
+        preferences.sort((a, b) => {
+            if (a.type !== b.type) {
+                return a.type.localeCompare(b.type)
+            }
+            return a.value.localeCompare(b.value)
         })
 
         return NextResponse.json(preferences)
@@ -39,9 +47,7 @@ export async function POST(
         const validatedData = customerPreferenceSchema.parse(body)
 
         // Check if customer exists
-        const customer = await prisma.customer.findUnique({
-            where: { id: params.id }
-        })
+        const customer = await getCustomerById(params.id)
 
         if (!customer) {
             return NextResponse.json(
@@ -50,15 +56,33 @@ export async function POST(
             )
         }
 
+        // Check if preference already exists
+        const existingPreferences = await getCustomerPreferences(params.id)
+        const duplicate = existingPreferences.find(
+            p => p.type === validatedData.type && p.value === validatedData.value.trim()
+        )
+
+        if (duplicate) {
+            return NextResponse.json(
+                { error: 'העדפה זו כבר קיימת עבור הלקוח' },
+                { status: 400 }
+            )
+        }
+
         // Create preference
-        const preference = await prisma.customerPreference.create({
-            data: {
-                customerId: params.id,
-                type: validatedData.type,
-                value: validatedData.value.trim(),
-                notes: validatedData.notes?.trim() || null
-            }
+        const preferenceId = await addCustomerPreference(params.id, {
+            type: validatedData.type,
+            value: validatedData.value.trim(),
+            notes: validatedData.notes?.trim() || null
         })
+
+        const preference = {
+            id: preferenceId,
+            customerId: params.id,
+            type: validatedData.type,
+            value: validatedData.value.trim(),
+            notes: validatedData.notes?.trim() || null
+        }
 
         return NextResponse.json(preference, { status: 201 })
     } catch (error) {
@@ -69,14 +93,6 @@ export async function POST(
             )
         }
 
-        if (error instanceof Prisma.PrismaClientKnownRequestError) {
-            if (error.code === 'P2002') {
-                return NextResponse.json(
-                    { error: 'העדפה זו כבר קיימת עבור הלקוח' },
-                    { status: 400 }
-                )
-            }
-        }
 
         console.error('Error creating preference:', error)
         return NextResponse.json(
@@ -105,12 +121,8 @@ export async function PUT(
         const validatedData = customerPreferenceSchema.partial().parse(updateData)
 
         // Check if preference exists and belongs to the customer
-        const existingPreference = await prisma.customerPreference.findFirst({
-            where: {
-                id: preferenceId,
-                customerId: params.id
-            }
-        })
+        const existingPreferences = await getCustomerPreferences(params.id)
+        const existingPreference = existingPreferences.find(p => p.id === preferenceId)
 
         if (!existingPreference) {
             return NextResponse.json(
@@ -119,17 +131,25 @@ export async function PUT(
             )
         }
 
-        // Update preference
-        const preference = await prisma.customerPreference.update({
-            where: { id: preferenceId },
-            data: {
-                ...(validatedData.type && { type: validatedData.type }),
-                ...(validatedData.value && { value: validatedData.value.trim() }),
-                ...(validatedData.notes !== undefined && { notes: validatedData.notes?.trim() || null })
-            }
-        })
+        // Update preference in Firestore
+        const prefDocRef = doc(customerPreferencesCollection(params.id), preferenceId)
+        const updatePayload: any = {
+            updatedAt: getServerTimestamp()
+        }
 
-        return NextResponse.json(preference)
+        if (validatedData.type) updatePayload.type = validatedData.type
+        if (validatedData.value) updatePayload.value = validatedData.value.trim()
+        if (validatedData.notes !== undefined) updatePayload.notes = validatedData.notes?.trim() || null
+
+        await updateDoc(prefDocRef, updatePayload)
+
+        const updatedPreference = {
+            ...existingPreference,
+            ...updatePayload,
+            updatedAt: new Date()
+        }
+
+        return NextResponse.json(updatedPreference)
     } catch (error) {
         if (error instanceof z.ZodError) {
             return NextResponse.json(
@@ -138,14 +158,6 @@ export async function PUT(
             )
         }
 
-        if (error instanceof Prisma.PrismaClientKnownRequestError) {
-            if (error.code === 'P2002') {
-                return NextResponse.json(
-                    { error: 'העדפה זו כבר קיימת עבור הלקוח' },
-                    { status: 400 }
-                )
-            }
-        }
 
         console.error('Error updating preference:', error)
         return NextResponse.json(
@@ -172,12 +184,8 @@ export async function DELETE(
         }
 
         // Check if preference exists and belongs to the customer
-        const existingPreference = await prisma.customerPreference.findFirst({
-            where: {
-                id: preferenceId,
-                customerId: params.id
-            }
-        })
+        const existingPreferences = await getCustomerPreferences(params.id)
+        const existingPreference = existingPreferences.find(p => p.id === preferenceId)
 
         if (!existingPreference) {
             return NextResponse.json(
@@ -187,9 +195,7 @@ export async function DELETE(
         }
 
         // Delete preference
-        await prisma.customerPreference.delete({
-            where: { id: preferenceId }
-        })
+        await deleteCustomerPreference(params.id, preferenceId)
 
         return NextResponse.json({ message: 'Preference deleted successfully' })
     } catch (error) {

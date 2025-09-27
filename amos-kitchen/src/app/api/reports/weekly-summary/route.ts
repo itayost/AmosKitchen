@@ -1,7 +1,10 @@
 // src/app/api/reports/weekly-summary/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
 import { startOfWeek, endOfWeek, addDays } from 'date-fns'
+import { query, where, getDocs, orderBy } from 'firebase/firestore'
+import { ordersCollection, dateToTimestamp } from '@/lib/firebase/firestore'
+import { getDishesByIds } from '@/lib/firebase/dao/dishes'
+import { getCustomerById } from '@/lib/firebase/dao/customers'
 
 export async function GET(request: NextRequest) {
     try {
@@ -14,34 +17,55 @@ export async function GET(request: NextRequest) {
         const friday = addDays(weekStart, 5)
         const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 0 })
 
-        // Fetch all orders for the week
-        const orders = await prisma.order.findMany({
-            where: {
-                deliveryDate: {
-                    gte: weekStart,
-                    lte: weekEnd
-                }
-            },
-            include: {
-                customer: true,
-                orderItems: {
-                    include: {
-                        dish: {
-                            include: {
-                                ingredients: {
-                                    include: {
-                                        ingredient: true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            orderBy: [
-                { deliveryDate: 'asc' },
-                { createdAt: 'asc' }
-            ]
+        // Fetch all orders for the week from Firestore
+        const ordersQuery = query(
+            ordersCollection,
+            where('deliveryDate', '>=', dateToTimestamp(weekStart)),
+            where('deliveryDate', '<=', dateToTimestamp(weekEnd)),
+            orderBy('deliveryDate', 'asc')
+        )
+
+        const ordersSnapshot = await getDocs(ordersQuery)
+        const orders: any[] = []
+        const dishIds = new Set<string>()
+        const customerIds = new Set<string>()
+
+        ordersSnapshot.forEach(doc => {
+            const order = { id: doc.id, ...doc.data() }
+            orders.push(order)
+
+            // Collect dish IDs
+            if (order.items) {
+                order.items.forEach((item: any) => dishIds.add(item.dishId))
+            }
+
+            // Collect customer ID if no denormalized data
+            if (!order.customerData && order.customerId) {
+                customerIds.add(order.customerId)
+            }
+        })
+
+        // Fetch dish and customer details
+        const dishes = await getDishesByIds(Array.from(dishIds))
+        const dishMap = new Map(dishes.map(d => [d.id, d]))
+
+        const customerMap = new Map()
+        for (const customerId of customerIds) {
+            const customer = await getCustomerById(customerId)
+            if (customer) {
+                customerMap.set(customerId, customer)
+            }
+        }
+
+        // Transform orders with full details
+        orders.forEach(order => {
+            order.customer = order.customerData || customerMap.get(order.customerId) || { name: 'Unknown' }
+            order.orderItems = order.items?.map((item: any) => ({
+                ...item,
+                dish: dishMap.get(item.dishId) || { name: item.dishName || 'Unknown Dish' }
+            })) || []
+            // Convert totalAmount to number if needed
+            order.totalAmount = Number(order.totalAmount) || 0
         })
 
         // Calculate statistics
@@ -60,7 +84,8 @@ export async function GET(request: NextRequest) {
 
         // Orders by day
         const ordersByDay = orders.reduce((acc, order) => {
-            const day = order.deliveryDate.toISOString().split('T')[0]
+            const deliveryDate = order.deliveryDate?.toDate ? order.deliveryDate.toDate() : new Date(order.deliveryDate)
+            const day = deliveryDate.toISOString().split('T')[0]
             if (!acc[day]) {
                 acc[day] = {
                     date: day,
@@ -99,7 +124,7 @@ export async function GET(request: NextRequest) {
                     orderCount: 0
                 }
                 existing.quantity += item.quantity
-                existing.revenue += Number(item.price) * item.quantity
+                existing.revenue += (item.price || 0) * item.quantity
                 existing.orderCount += 1
                 dishStats.set(dishId, existing)
             })
@@ -109,40 +134,7 @@ export async function GET(request: NextRequest) {
             .sort((a, b) => b.quantity - a.quantity)
             .slice(0, 10)
 
-        // Calculate ingredient requirements
-        const ingredientRequirements = new Map<string, {
-            ingredient: any
-            totalQuantity: number
-            unit: string
-            dishes: Set<string>
-        }>()
-
-        orders.forEach(order => {
-            order.orderItems.forEach(item => {
-                const dish = item.dish
-                dish.ingredients.forEach(dishIngredient => {
-                    const ing = dishIngredient.ingredient
-                    const quantity = Number(dishIngredient.quantity) * item.quantity
-
-                    const existing = ingredientRequirements.get(ing.id) || {
-                        ingredient: ing,
-                        totalQuantity: 0,
-                        unit: ing.unit,
-                        dishes: new Set<string>()
-                    }
-                    existing.totalQuantity += quantity
-                    existing.dishes.add(dish.name)
-                    ingredientRequirements.set(ing.id, existing)
-                })
-            })
-        })
-
-        const ingredients = Array.from(ingredientRequirements.values())
-            .map(item => ({
-                ...item,
-                dishes: Array.from(item.dishes)
-            }))
-            .sort((a, b) => a.ingredient.name.localeCompare(b.ingredient.name))
+        // Note: Ingredient requirements removed as ingredients are no longer in the system
 
         // Customer analysis
         const customerStats = new Map<string, {
@@ -161,7 +153,7 @@ export async function GET(request: NextRequest) {
                 dishes: new Map<string, number>()
             }
             existing.orderCount++
-            existing.totalSpent += Number(order.totalAmount)
+            existing.totalSpent += order.totalAmount || 0
 
             order.orderItems.forEach(item => {
                 const count = existing.dishes.get(item.dish.name) || 0
@@ -195,10 +187,9 @@ export async function GET(request: NextRequest) {
             },
             topDishes,
             topCustomers,
-            ingredientRequirements: ingredients,
             orders: orders.map(order => ({
                 ...order,
-                totalAmount: Number(order.totalAmount)
+                totalAmount: order.totalAmount || 0
             }))
         })
     } catch (error) {

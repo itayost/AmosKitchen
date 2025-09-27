@@ -1,75 +1,59 @@
 // src/app/api/orders/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
 import { z } from 'zod'
-import { OrderStatus } from '@prisma/client'
+import {
+    getOrderById,
+    updateOrder,
+    updateOrderStatus,
+    deleteOrder,
+    getOrderHistory,
+    addOrderHistory
+} from '@/lib/firebase/dao/orders'
+import { getDishesByIds } from '@/lib/firebase/dao/dishes'
 
 // Validation schema for updating order
 const updateOrderSchema = z.object({
     status: z.enum(['new', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled']).optional(),
-    deliveryDate: z.string().datetime().optional(),
+    deliveryDate: z.string().optional(),
     notes: z.string().optional(),
     deliveryAddress: z.string().optional(),
 })
-
-// Map status for Prisma
-const mapStatusToPrisma = (status: string): string => {
-    const statusMap: Record<string, string> = {
-        'new': 'NEW',
-        'confirmed': 'CONFIRMED',
-        'preparing': 'PREPARING',
-        'ready': 'READY',
-        'delivered': 'DELIVERED',
-        'cancelled': 'CANCELLED'
-    }
-    return statusMap[status] || 'NEW'
-}
-
-// Map status for frontend
-const mapStatusFromPrisma = (status: string): string => {
-    const statusMap: Record<string, string> = {
-        'NEW': 'new',
-        'CONFIRMED': 'confirmed',
-        'PREPARING': 'preparing',
-        'READY': 'ready',
-        'DELIVERED': 'delivered',
-        'CANCELLED': 'cancelled'
-    }
-    return statusMap[status] || status.toLowerCase()
-}
 
 export async function GET(
     request: NextRequest,
     { params }: { params: { id: string } }
 ) {
     try {
-        // Fetch order with relations
-        const order = await prisma.order.findUnique({
-            where: { id: params.id },
-            include: {
-                customer: true,
-                orderItems: {
-                    include: {
-                        dish: true
-                    }
-                },
-                history: {
-                    orderBy: { createdAt: 'desc' },
-                    take: 50
-                }
-            }
-        })
+        // Fetch order
+        const order = await getOrderById(params.id)
 
         if (!order) {
             return NextResponse.json({ error: 'Order not found' }, { status: 404 })
         }
 
+        // Get order history
+        const history = await getOrderHistory(params.id)
+
+        // Get dish details
+        const dishIds = order.items.map(item => item.dishId)
+        const dishes = await getDishesByIds(dishIds)
+        const dishMap = new Map(dishes.map(d => [d.id, d]))
+
         // Transform response
         const transformedOrder = {
             ...order,
-            status: mapStatusFromPrisma(order.status),
-            totalAmount: Number(order.totalAmount),
-            items: order.orderItems
+            status: order.status.toLowerCase(),
+            totalAmount: order.totalAmount,
+            customer: order.customerData || { name: 'Unknown', phone: '' },
+            orderItems: order.items.map(item => ({
+                ...item,
+                dish: dishMap.get(item.dishId) || { name: item.dishName || 'Unknown Dish' }
+            })),
+            items: order.items.map(item => ({
+                ...item,
+                dish: dishMap.get(item.dishId) || { name: item.dishName || 'Unknown Dish' }
+            })),
+            history
         }
 
         return NextResponse.json(transformedOrder)
@@ -91,10 +75,7 @@ export async function PUT(
         const validatedData = updateOrderSchema.parse(body)
 
         // Check if order exists
-        const existingOrder = await prisma.order.findUnique({
-            where: { id: params.id },
-            include: { customer: true }
-        })
+        const existingOrder = await getOrderById(params.id)
 
         if (!existingOrder) {
             return NextResponse.json({ error: 'Order not found' }, { status: 404 })
@@ -104,7 +85,7 @@ export async function PUT(
         const updateData: any = {}
 
         if (validatedData.status) {
-            updateData.status = mapStatusToPrisma(validatedData.status)
+            updateData.status = validatedData.status.toUpperCase()
         }
 
         if (validatedData.deliveryDate) {
@@ -120,36 +101,47 @@ export async function PUT(
         }
 
         // Update order
-        const updatedOrder = await prisma.order.update({
-            where: { id: params.id },
-            data: updateData,
-            include: {
-                customer: true,
-                orderItems: {
-                    include: {
-                        dish: true
-                    }
-                }
-            }
-        })
+        await updateOrder(params.id, updateData)
 
         // Create history entry for status changes
-        if (validatedData.status && validatedData.status !== mapStatusFromPrisma(existingOrder.status)) {
-            await prisma.orderHistory.create({
-                data: {
-                    orderId: params.id,
-                    action: 'STATUS_CHANGED',
-                    details: `סטטוס שונה מ-${mapStatusFromPrisma(existingOrder.status)} ל-${validatedData.status}`
-                }
+        if (validatedData.status && validatedData.status.toUpperCase() !== existingOrder.status) {
+            await addOrderHistory(params.id, {
+                action: 'STATUS_CHANGED',
+                details: {
+                    message: `סטטוס שונה מ-${existingOrder.status.toLowerCase()} ל-${validatedData.status}`,
+                    previousStatus: existingOrder.status,
+                    newStatus: validatedData.status.toUpperCase()
+                },
+                userId: null
             })
         }
+
+        // Get updated order
+        const updatedOrder = await getOrderById(params.id)
+
+        if (!updatedOrder) {
+            return NextResponse.json({ error: 'Failed to get updated order' }, { status: 500 })
+        }
+
+        // Get dish details
+        const dishIds = updatedOrder.items.map(item => item.dishId)
+        const dishes = await getDishesByIds(dishIds)
+        const dishMap = new Map(dishes.map(d => [d.id, d]))
 
         // Transform response
         const transformedOrder = {
             ...updatedOrder,
-            status: mapStatusFromPrisma(updatedOrder.status),
-            totalAmount: Number(updatedOrder.totalAmount),
-            items: updatedOrder.orderItems
+            status: updatedOrder.status.toLowerCase(),
+            totalAmount: updatedOrder.totalAmount,
+            customer: updatedOrder.customerData || { name: 'Unknown', phone: '' },
+            orderItems: updatedOrder.items.map(item => ({
+                ...item,
+                dish: dishMap.get(item.dishId) || { name: item.dishName || 'Unknown Dish' }
+            })),
+            items: updatedOrder.items.map(item => ({
+                ...item,
+                dish: dishMap.get(item.dishId) || { name: item.dishName || 'Unknown Dish' }
+            }))
         }
 
         return NextResponse.json(transformedOrder)
@@ -175,9 +167,7 @@ export async function DELETE(
 ) {
     try {
         // Check if order exists
-        const order = await prisma.order.findUnique({
-            where: { id: params.id }
-        })
+        const order = await getOrderById(params.id)
 
         if (!order) {
             return NextResponse.json({ error: 'Order not found' }, { status: 404 })
@@ -192,9 +182,7 @@ export async function DELETE(
         }
 
         // Delete order (this will cascade delete order items and history)
-        await prisma.order.delete({
-            where: { id: params.id }
-        })
+        await deleteOrder(params.id)
 
         return NextResponse.json({ success: true })
     } catch (error) {
@@ -214,21 +202,24 @@ export async function PATCH(
         const body = await request.json()
         const { status } = body
 
-        const order = await prisma.order.update({
-            where: { id: params.id },
-            data: {
-                status: mapStatusToPrisma(status) as OrderStatus,
-                updatedAt: new Date()
-            }
-        })
+        // Get existing order first
+        const existingOrder = await getOrderById(params.id)
+        if (!existingOrder) {
+            return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+        }
+
+        // Update status
+        await updateOrderStatus(params.id, status.toUpperCase())
 
         // Add to order history
-        await prisma.orderHistory.create({
-            data: {
-                orderId: params.id,
-                action: `סטטוס שונה ל-${status}`,
-                details: { previousStatus: order.status, newStatus: status }
-            }
+        await addOrderHistory(params.id, {
+            action: 'STATUS_CHANGED',
+            details: {
+                message: `סטטוס שונה ל-${status}`,
+                previousStatus: existingOrder.status,
+                newStatus: status.toUpperCase()
+            },
+            userId: null
         })
 
         return NextResponse.json({ success: true })

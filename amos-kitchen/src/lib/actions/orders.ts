@@ -1,42 +1,53 @@
 'use server';
 
-import { prisma } from '@/lib/db';
-import { OrderStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { getTodayOrders, updateOrderStatus as updateOrderFirestore, addOrderHistory } from '@/lib/firebase/dao/orders';
+import { getDishesByIds } from '@/lib/firebase/dao/dishes';
+
+type OrderStatus = 'NEW' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED';
 
 export async function getOrdersForToday() {
     try {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        // Get today's orders from Firestore
+        const orders = await getTodayOrders();
 
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
+        // Filter out cancelled orders
+        const activeOrders = orders.filter(order => order.status !== 'CANCELLED');
 
-        const orders = await prisma.order.findMany({
-            where: {
-                deliveryDate: {
-                    gte: today,
-                    lt: tomorrow
-                },
-                status: {
-                    not: 'CANCELLED'
-                }
-            },
-            include: {
-                customer: true,
-                orderItems: {
-                    include: {
-                        dish: true
-                    }
-                }
-            },
-            orderBy: [
-                { status: 'asc' },
-                { createdAt: 'asc' }
-            ]
+        // Get all unique dish IDs
+        const dishIds = new Set<string>();
+        activeOrders.forEach(order => {
+            if (order.items) {
+                order.items.forEach(item => dishIds.add(item.dishId));
+            }
         });
 
-        return orders || [];
+        // Fetch dish details
+        const dishes = await getDishesByIds(Array.from(dishIds));
+        const dishMap = new Map(dishes.map(d => [d.id, d]));
+
+        // Transform orders to match expected format
+        const transformedOrders = activeOrders.map(order => ({
+            ...order,
+            customer: order.customerData || { name: 'Unknown', phone: '' },
+            orderItems: order.items?.map(item => ({
+                ...item,
+                dish: dishMap.get(item.dishId) || {
+                    name: item.dishName || 'Unknown Dish',
+                    category: 'MAIN'
+                }
+            })) || []
+        }));
+
+        // Sort by status and creation date
+        const statusOrder = ['NEW', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERED'];
+        transformedOrders.sort((a, b) => {
+            const statusDiff = statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status);
+            if (statusDiff !== 0) return statusDiff;
+            return a.createdAt < b.createdAt ? -1 : 1;
+        });
+
+        return transformedOrders;
     } catch (error) {
         console.error('Error in getOrdersForToday:', error);
         return [];
@@ -45,53 +56,24 @@ export async function getOrdersForToday() {
 
 export async function updateOrderStatus(orderId: string, newStatus: OrderStatus) {
     try {
-        // Get the current order to track the previous status
-        const currentOrder = await prisma.order.findUnique({
-            where: { id: orderId },
-            select: { status: true }
-        });
+        // Update order status in Firestore
+        await updateOrderFirestore(orderId, newStatus, 'kitchen-staff');
 
-        if (!currentOrder) {
-            return { success: false, error: 'Order not found' };
-        }
-
-        // Update the order status
-        const updatedOrder = await prisma.order.update({
-            where: { id: orderId },
-            data: {
-                status: newStatus,
-                updatedAt: new Date()
+        // Create history entry
+        await addOrderHistory(orderId, {
+            action: 'STATUS_CHANGED',
+            details: {
+                newStatus: newStatus,
+                changedBy: 'Kitchen Staff',
+                timestamp: new Date().toISOString()
             },
-            include: {
-                customer: true,
-                orderItems: {
-                    include: {
-                        dish: true
-                    }
-                }
-            }
-        });
-
-        // Create history entry with correct fields
-        await prisma.orderHistory.create({
-            data: {
-                orderId: orderId,
-                action: 'STATUS_CHANGED',  // Required field
-                details: {
-                    previousStatus: currentOrder.status,
-                    newStatus: newStatus,
-                    notes: `Status changed from ${currentOrder.status} to ${newStatus}`,
-                    changedBy: 'Kitchen Staff',
-                    timestamp: new Date().toISOString()
-                },
-                userId: null  // Optional - set to null or pass actual user ID
-            }
+            userId: null
         });
 
         revalidatePath('/kitchen');
         revalidatePath('/orders');
 
-        return { success: true, order: updatedOrder };
+        return { success: true };
     } catch (error) {
         console.error('Failed to update order status:', error);
         return { success: false, error: 'Failed to update order status' };
@@ -100,47 +82,27 @@ export async function updateOrderStatus(orderId: string, newStatus: OrderStatus)
 
 export async function bulkUpdateOrderStatus(orderIds: string[], newStatus: OrderStatus) {
     try {
-        // Get current statuses for history tracking
-        const currentOrders = await prisma.order.findMany({
-            where: {
-                id: { in: orderIds }
-            },
-            select: {
-                id: true,
-                status: true
-            }
+        // Update each order and create history entries
+        const updatePromises = orderIds.map(async (orderId) => {
+            // Update order status
+            await updateOrderFirestore(orderId, newStatus, 'kitchen-staff');
+
+            // Create history entry
+            await addOrderHistory(orderId, {
+                action: 'STATUS_CHANGED',
+                details: {
+                    newStatus: newStatus,
+                    notes: `Bulk status change to ${newStatus}`,
+                    changedBy: 'Kitchen Staff',
+                    bulkUpdate: true,
+                    totalOrders: orderIds.length,
+                    timestamp: new Date().toISOString()
+                },
+                userId: null
+            });
         });
 
-        // Update multiple orders at once
-        await prisma.order.updateMany({
-            where: {
-                id: { in: orderIds }
-            },
-            data: {
-                status: newStatus,
-                updatedAt: new Date()
-            }
-        });
-
-        // Create history entries for all orders with correct fields
-        const historyEntries = currentOrders.map(order => ({
-            orderId: order.id,
-            action: 'STATUS_CHANGED',  // Required field
-            details: {
-                previousStatus: order.status,
-                newStatus: newStatus,
-                notes: `Bulk status change from ${order.status} to ${newStatus}`,
-                changedBy: 'Kitchen Staff',
-                bulkUpdate: true,
-                totalOrders: orderIds.length,
-                timestamp: new Date().toISOString()
-            },
-            userId: null  // Optional - set to null or pass actual user ID
-        }));
-
-        await prisma.orderHistory.createMany({
-            data: historyEntries
-        });
+        await Promise.all(updatePromises);
 
         revalidatePath('/kitchen');
         revalidatePath('/orders');

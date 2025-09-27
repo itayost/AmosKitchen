@@ -52,11 +52,6 @@ const navigation = [
         icon: UtensilsCrossed,
     },
     {
-        name: "מרכיבים",
-        href: "/ingredients",
-        icon: Package,
-    },
-    {
         name: "דוחות",
         href: "/reports",
         icon: FileText,

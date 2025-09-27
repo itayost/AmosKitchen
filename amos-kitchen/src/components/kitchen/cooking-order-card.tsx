@@ -5,7 +5,19 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Order, OrderStatus } from '@prisma/client';
+// Define types locally instead of importing from Prisma
+type OrderStatus = 'NEW' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED';
+type Order = {
+  id: string;
+  orderNumber: string;
+  status: OrderStatus;
+  deliveryDate: Date | any;
+  deliveryAddress?: string | null;
+  notes?: string | null;
+  totalAmount: number;
+  createdAt: Date | any;
+  updatedAt: Date | any;
+};
 import { Phone, MapPin, AlertCircle, CheckCircle2, Clock, Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 

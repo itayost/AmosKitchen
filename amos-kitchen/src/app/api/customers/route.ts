@@ -1,77 +1,63 @@
 // app/api/customers/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
 import { z } from 'zod'
 import { createCustomerSchema } from '@/lib/validators/customer'
 import { normalizePhoneNumber } from '@/lib/validators/customer'
-import { Prisma } from '@prisma/client'
+import {
+    getCustomers,
+    createCustomer,
+    isPhoneNumberTaken,
+    addCustomerPreference,
+    getCustomerPreferences
+} from '@/lib/firebase/dao/customers'
+import { getOrdersByCustomer } from '@/lib/firebase/dao/orders'
 
 export async function GET(request: NextRequest) {
     try {
         const searchParams = request.nextUrl.searchParams
-        const search = searchParams.get('search')
+        const search = searchParams.get('search') || undefined
 
-        // Build where clause for search
-        const where = search ? {
-            OR: [
-                { name: { contains: search, mode: 'insensitive' as const } },
-                { phone: { contains: search, mode: 'insensitive' as const } },
-                { email: { contains: search, mode: 'insensitive' as const } },
-                { address: { contains: search, mode: 'insensitive' as const } }
-            ]
-        } : {}
+        // Fetch customers - Firestore search is limited, filtering done client-side in DAO
+        const { customers } = await getCustomers(search, 100) // Get more customers for better search
 
-        // Fetch customers with order statistics and preferences
-        const customers = await prisma.customer.findMany({
-            where,
-            include: {
-                orders: {
-                    select: {
-                        id: true,
-                        totalAmount: true,
-                        createdAt: true
-                    }
-                },
-                preferences: {
-                    orderBy: {
-                        type: 'asc' as const
-                    }
-                }
-            },
-            orderBy: {
-                createdAt: 'desc'
-            }
-        })
+        // Fetch order statistics and preferences for each customer
+        const customersWithStats = await Promise.all(
+            customers.map(async (customer) => {
+                // Get customer orders
+                const orders = await getOrdersByCustomer(customer.id!)
 
-        // Transform data to include statistics
-        const customersWithStats = customers.map(customer => {
-            const orderCount = customer.orders.length
-            const totalSpent = customer.orders.reduce(
-                (sum, order) => sum + Number(order.totalAmount),
-                0
-            )
-            const lastOrderDate = customer.orders.length > 0
-                ? customer.orders.reduce((latest, order) =>
-                    order.createdAt > latest ? order.createdAt : latest,
-                    customer.orders[0].createdAt
+                // Get customer preferences
+                const preferences = await getCustomerPreferences(customer.id!)
+
+                // Calculate statistics
+                const orderCount = orders.length
+                const totalSpent = orders.reduce(
+                    (sum, order) => sum + order.totalAmount,
+                    0
                 )
-                : null
+                const lastOrderDate = orders.length > 0
+                    ? orders.reduce((latest, order) => {
+                        const orderDate = order.createdAt
+                        return orderDate > latest ? orderDate : latest
+                    }, orders[0].createdAt)
+                    : null
 
-            return {
-                id: customer.id,
-                name: customer.name,
-                phone: customer.phone,
-                email: customer.email,
-                address: customer.address,
-                notes: customer.notes,
-                preferences: customer.preferences,
-                createdAt: customer.createdAt,
-                updatedAt: customer.updatedAt,
-                orderCount,
-                totalSpent,
-                lastOrderDate
-            }
-        })
+                return {
+                    id: customer.id,
+                    name: customer.name,
+                    phone: customer.phone,
+                    email: customer.email,
+                    address: customer.address,
+                    notes: customer.notes,
+                    preferences,
+                    createdAt: customer.createdAt,
+                    updatedAt: customer.updatedAt,
+                    orderCount,
+                    totalSpent,
+                    lastOrderDate
+                }
+            })
+        )
 
         return NextResponse.json(customersWithStats)
     } catch (error) {
@@ -94,40 +80,47 @@ export async function POST(request: NextRequest) {
         const normalizedPhone = normalizePhoneNumber(validatedData.phone)
 
         // Check if phone number already exists
-        const existingCustomer = await prisma.customer.findUnique({
-            where: { phone: normalizedPhone }
-        })
+        const phoneExists = await isPhoneNumberTaken(normalizedPhone)
 
-        if (existingCustomer) {
+        if (phoneExists) {
             return NextResponse.json(
                 { error: 'מספר טלפון זה כבר קיים במערכת' },
                 { status: 400 }
             )
         }
 
-        // Prepare preferences data if provided
-        const preferencesData = validatedData.preferences?.map(pref => ({
-            type: pref.type,
-            value: pref.value.trim(),
-            notes: pref.notes?.trim() || null
-        })) || []
-
-        // Create customer with preferences
-        const customer = await prisma.customer.create({
-            data: {
-                name: validatedData.name.trim(),
-                phone: normalizedPhone,
-                email: validatedData.email?.trim() || null,
-                address: validatedData.address?.trim() || null,
-                notes: validatedData.notes?.trim() || null,
-                preferences: {
-                    create: preferencesData
-                }
-            },
-            include: {
-                preferences: true
-            }
+        // Create customer
+        const customerId = await createCustomer({
+            name: validatedData.name.trim(),
+            phone: normalizedPhone,
+            email: validatedData.email?.trim() || null,
+            address: validatedData.address?.trim() || null,
+            notes: validatedData.notes?.trim() || null
         })
+
+        // Add preferences if provided
+        const preferences = []
+        if (validatedData.preferences && validatedData.preferences.length > 0) {
+            for (const pref of validatedData.preferences) {
+                await addCustomerPreference(customerId, {
+                    type: pref.type,
+                    value: pref.value.trim(),
+                    notes: pref.notes?.trim() || null
+                })
+                preferences.push(pref)
+            }
+        }
+
+        // Return the created customer data
+        const customer = {
+            id: customerId,
+            name: validatedData.name.trim(),
+            phone: normalizedPhone,
+            email: validatedData.email?.trim() || null,
+            address: validatedData.address?.trim() || null,
+            notes: validatedData.notes?.trim() || null,
+            preferences
+        }
 
         return NextResponse.json(customer, { status: 201 })
     } catch (error) {
@@ -138,14 +131,6 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        if (error instanceof Prisma.PrismaClientKnownRequestError) {
-            if (error.code === 'P2002') {
-                return NextResponse.json(
-                    { error: 'לקוח עם פרטים דומים כבר קיים במערכת' },
-                    { status: 400 }
-                )
-            }
-        }
 
         console.error('Error creating customer:', error)
         return NextResponse.json(

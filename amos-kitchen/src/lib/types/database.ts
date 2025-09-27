@@ -101,29 +101,6 @@ export interface OrderFilters {
     limit: number
 }
 
-// Ingredient Types
-export interface Ingredient {
-    id: string
-    name: string
-    unit: string
-    category: string  // Add this if missing
-    currentStock?: number | null
-    minStock?: number | null
-    createdAt: Date
-    updatedAt: Date
-}
-
-// Dish Ingredient Types
-export interface DishIngredient {
-    id: string
-    dishId: string
-    dish: Dish
-    ingredientId: string
-    ingredient: Ingredient
-    quantity: number
-    createdAt: Date
-    updatedAt: Date
-}
 
 // API Response Types
 export interface OrdersResponse {

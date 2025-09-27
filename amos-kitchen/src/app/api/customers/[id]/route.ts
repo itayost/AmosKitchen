@@ -1,10 +1,19 @@
 // app/api/customers/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
 import { z } from 'zod'
 import { updateCustomerSchema } from '@/lib/validators/customer'
 import { normalizePhoneNumber } from '@/lib/validators/customer'
-import { Prisma } from '@prisma/client'
+import {
+    getCustomerById,
+    updateCustomer,
+    deleteCustomer,
+    isPhoneNumberTaken,
+    getCustomerPreferences,
+    addCustomerPreference,
+    deleteCustomerPreference
+} from '@/lib/firebase/dao/customers'
+import { getOrdersByCustomer } from '@/lib/firebase/dao/orders'
+import { getDishesByIds } from '@/lib/firebase/dao/dishes'
 
 // Force this route to be dynamically rendered
 export const dynamic = 'force-dynamic'
@@ -14,28 +23,7 @@ export async function GET(
     { params }: { params: { id: string } }
 ) {
     try {
-        const customer = await prisma.customer.findUnique({
-            where: { id: params.id },
-            include: {
-                orders: {
-                    include: {
-                        orderItems: {
-                            include: {
-                                dish: true
-                            }
-                        }
-                    },
-                    orderBy: {
-                        createdAt: 'desc'
-                    }
-                },
-                preferences: {
-                    orderBy: {
-                        type: 'asc'
-                    }
-                }
-            }
-        })
+        const customer = await getCustomerById(params.id)
 
         if (!customer) {
             return NextResponse.json(
@@ -44,22 +32,52 @@ export async function GET(
             )
         }
 
+        // Get customer preferences
+        const preferences = await getCustomerPreferences(params.id)
+
+        // Get customer orders
+        const orders = await getOrdersByCustomer(params.id)
+
+        // Get all unique dish IDs from orders
+        const dishIds = new Set<string>()
+        orders.forEach(order => {
+            order.items.forEach(item => {
+                dishIds.add(item.dishId)
+            })
+        })
+
+        // Fetch dish details
+        const dishes = await getDishesByIds(Array.from(dishIds))
+        const dishMap = new Map(dishes.map(d => [d.id, d]))
+
+        // Transform orders with dish details
+        const ordersWithDishes = orders.map(order => ({
+            ...order,
+            orderItems: order.items.map(item => ({
+                ...item,
+                dish: dishMap.get(item.dishId) || { name: 'Unknown Dish' }
+            }))
+        }))
+
         // Calculate statistics for the customer
-        const orderCount = customer.orders.length
-        const totalSpent = customer.orders.reduce(
-            (sum, order) => sum + Number(order.totalAmount),
+        const orderCount = orders.length
+        const totalSpent = orders.reduce(
+            (sum, order) => sum + order.totalAmount,
             0
         )
 
         // Calculate favorite dishes
         const dishCounts = new Map<string, { count: number; name: string }>()
-        customer.orders.forEach(order => {
-            order.orderItems.forEach(item => {
-                const key = item.dishId
-                if (dishCounts.has(key)) {
-                    dishCounts.get(key)!.count += item.quantity
-                } else {
-                    dishCounts.set(key, { count: item.quantity, name: item.dish.name })
+        orders.forEach(order => {
+            order.items.forEach(item => {
+                const dish = dishMap.get(item.dishId)
+                if (dish) {
+                    const key = item.dishId
+                    if (dishCounts.has(key)) {
+                        dishCounts.get(key)!.count += item.quantity
+                    } else {
+                        dishCounts.set(key, { count: item.quantity, name: dish.name })
+                    }
                 }
             })
         })
@@ -75,6 +93,8 @@ export async function GET(
 
         const customerWithStats = {
             ...customer,
+            preferences,
+            orders: ordersWithDishes,
             orderCount,
             totalSpent,
             favoriteDishes
@@ -101,10 +121,7 @@ export async function PUT(
         const validatedData = updateCustomerSchema.parse(body)
 
         // Check if customer exists
-        const existingCustomer = await prisma.customer.findUnique({
-            where: { id: params.id },
-            include: { preferences: true }
-        })
+        const existingCustomer = await getCustomerById(params.id)
 
         if (!existingCustomer) {
             return NextResponse.json(
@@ -126,9 +143,7 @@ export async function PUT(
             const normalizedPhone = normalizePhoneNumber(validatedData.phone)
 
             if (normalizedPhone !== existingCustomer.phone) {
-                const phoneExists = await prisma.customer.findUnique({
-                    where: { phone: normalizedPhone }
-                })
+                const phoneExists = await isPhoneNumberTaken(normalizedPhone, params.id)
 
                 if (phoneExists) {
                     return NextResponse.json(
@@ -141,84 +156,71 @@ export async function PUT(
             }
         }
 
+        // Update customer
+        await updateCustomer(params.id, updateData)
+
         // Handle preferences update if provided
         if (validatedData.preferences !== undefined) {
-            // Start a transaction to update customer and preferences atomically
-            const customer = await prisma.$transaction(async (tx) => {
-                // Delete existing preferences
-                await tx.customerPreference.deleteMany({
-                    where: { customerId: params.id }
-                })
+            // Get existing preferences to delete them
+            const existingPreferences = await getCustomerPreferences(params.id)
 
-                // Create new preferences
-                const preferencesData = validatedData.preferences?.map(pref => ({
-                    customerId: params.id,
-                    type: pref.type,
-                    value: pref.value.trim(),
-                    notes: pref.notes?.trim() || null
-                })) || []
+            // Delete all existing preferences
+            for (const pref of existingPreferences) {
+                if (pref.id) {
+                    await deleteCustomerPreference(params.id, pref.id)
+                }
+            }
 
-                if (preferencesData.length > 0) {
-                    await tx.customerPreference.createMany({
-                        data: preferencesData
+            // Add new preferences
+            const preferences = []
+            if (validatedData.preferences && validatedData.preferences.length > 0) {
+                for (const pref of validatedData.preferences) {
+                    const prefId = await addCustomerPreference(params.id, {
+                        type: pref.type,
+                        value: pref.value.trim(),
+                        notes: pref.notes?.trim() || null
+                    })
+                    preferences.push({
+                        id: prefId,
+                        ...pref
                     })
                 }
-
-                // Update customer
-                return await tx.customer.update({
-                    where: { id: params.id },
-                    data: updateData,
-                    include: {
-                        preferences: {
-                            orderBy: {
-                                type: 'asc'
-                            }
-                        },
-                        orders: {
-                            include: {
-                                orderItems: {
-                                    include: {
-                                        dish: true
-                                    }
-                                }
-                            },
-                            orderBy: {
-                                createdAt: 'desc'
-                            }
-                        }
-                    }
-                })
-            })
-
-            return NextResponse.json(customer)
-        } else {
-            // Update customer without touching preferences
-            const customer = await prisma.customer.update({
-                where: { id: params.id },
-                data: updateData,
-                include: {
-                    preferences: {
-                        orderBy: {
-                            type: 'asc'
-                        }
-                    },
-                    orders: {
-                        include: {
-                            orderItems: {
-                                include: {
-                                    dish: true
-                                }
-                            }
-                        },
-                        orderBy: {
-                            createdAt: 'desc'
-                        }
-                    }
-                }
-            })
-
-            return NextResponse.json(customer)
+            }
         }
+
+        // Get updated customer with all details
+        const updatedCustomer = await getCustomerById(params.id)
+        const preferences = await getCustomerPreferences(params.id)
+        const orders = await getOrdersByCustomer(params.id)
+
+        // Get all unique dish IDs from orders
+        const dishIds = new Set<string>()
+        orders.forEach(order => {
+            order.items.forEach(item => {
+                dishIds.add(item.dishId)
+            })
+        })
+
+        // Fetch dish details
+        const dishes = await getDishesByIds(Array.from(dishIds))
+        const dishMap = new Map(dishes.map(d => [d.id, d]))
+
+        // Transform orders with dish details
+        const ordersWithDishes = orders.map(order => ({
+            ...order,
+            orderItems: order.items.map(item => ({
+                ...item,
+                dish: dishMap.get(item.dishId) || { name: 'Unknown Dish' }
+            }))
+        }))
+
+        const customerResponse = {
+            ...updatedCustomer,
+            preferences,
+            orders: ordersWithDishes
+        }
+
+        return NextResponse.json(customerResponse)
     } catch (error) {
         if (error instanceof z.ZodError) {
             return NextResponse.json(
@@ -227,14 +229,6 @@ export async function PUT(
             )
         }
 
-        if (error instanceof Prisma.PrismaClientKnownRequestError) {
-            if (error.code === 'P2002') {
-                return NextResponse.json(
-                    { error: 'העדפה כפולה - העדפה זו כבר קיימת עבור הלקוח' },
-                    { status: 400 }
-                )
-            }
-        }
 
         console.error('Error updating customer:', error)
         return NextResponse.json(
@@ -250,13 +244,7 @@ export async function DELETE(
 ) {
     try {
         // Check if customer exists
-        const existingCustomer = await prisma.customer.findUnique({
-            where: { id: params.id },
-            include: {
-                orders: true,
-                preferences: true
-            }
-        })
+        const existingCustomer = await getCustomerById(params.id)
 
         if (!existingCustomer) {
             return NextResponse.json(
@@ -266,21 +254,24 @@ export async function DELETE(
         }
 
         // Check if customer has orders
-        if (existingCustomer.orders.length > 0) {
+        const orders = await getOrdersByCustomer(params.id)
+        if (orders.length > 0) {
             return NextResponse.json(
                 { error: 'לא ניתן למחוק לקוח עם הזמנות קיימות' },
                 { status: 400 }
             )
         }
 
-        // Delete customer (preferences will be deleted automatically due to cascade)
-        await prisma.customer.delete({
-            where: { id: params.id }
-        })
+        // Get preferences count before deletion
+        const preferences = await getCustomerPreferences(params.id)
+        const preferencesCount = preferences.length
+
+        // Delete customer (preferences will be deleted by the DAO)
+        await deleteCustomer(params.id)
 
         return NextResponse.json({
             message: 'Customer deleted successfully',
-            deletedPreferences: existingCustomer.preferences.length
+            deletedPreferences: preferencesCount
         })
     } catch (error) {
         console.error('Error deleting customer:', error)

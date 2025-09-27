@@ -1,15 +1,11 @@
 // middleware.ts
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { verifyIdToken } from '@/lib/firebase/admin'
 
 export async function middleware(req: NextRequest) {
-    const res = NextResponse.next()
-    const supabase = createMiddlewareClient({ req, res })
-
-    const {
-        data: { session },
-    } = await supabase.auth.getSession()
+    // Get the Firebase auth token from cookies
+    const token = req.cookies.get('firebase-auth-token')?.value
 
     // Protected routes
     const protectedPaths = [
@@ -17,27 +13,58 @@ export async function middleware(req: NextRequest) {
         '/orders',
         '/customers',
         '/dishes',
-        '/ingredients',
         '/reports',
         '/settings',
+        '/kitchen'
     ]
 
     const isProtectedPath = protectedPaths.some(path =>
         req.nextUrl.pathname.startsWith(path)
     )
 
-    if (isProtectedPath && !session) {
-        const redirectUrl = req.nextUrl.clone()
-        redirectUrl.pathname = '/login'
-        redirectUrl.searchParams.set('redirectedFrom', req.nextUrl.pathname)
-        return NextResponse.redirect(redirectUrl)
+    // Check authentication for protected routes
+    if (isProtectedPath) {
+        if (!token) {
+            const redirectUrl = req.nextUrl.clone()
+            redirectUrl.pathname = '/login'
+            redirectUrl.searchParams.set('redirectedFrom', req.nextUrl.pathname)
+            return NextResponse.redirect(redirectUrl)
+        }
+
+        // Verify the token with Firebase Admin SDK
+        const decodedToken = await verifyIdToken(token)
+
+        if (!decodedToken) {
+            const redirectUrl = req.nextUrl.clone()
+            redirectUrl.pathname = '/login'
+            redirectUrl.searchParams.set('redirectedFrom', req.nextUrl.pathname)
+
+            // Clear invalid cookie
+            const response = NextResponse.redirect(redirectUrl)
+            response.cookies.set('firebase-auth-token', '', {
+                maxAge: 0
+            })
+            return response
+        }
     }
 
-    if (req.nextUrl.pathname === '/' && session) {
-        return NextResponse.redirect(new URL('/dashboard', req.url))
+    // Redirect authenticated users from root to dashboard
+    if (req.nextUrl.pathname === '/' && token) {
+        const decodedToken = await verifyIdToken(token)
+        if (decodedToken) {
+            return NextResponse.redirect(new URL('/dashboard', req.url))
+        }
     }
 
-    return res
+    // Redirect authenticated users away from login/register pages
+    if ((req.nextUrl.pathname === '/login' || req.nextUrl.pathname === '/register') && token) {
+        const decodedToken = await verifyIdToken(token)
+        if (decodedToken) {
+            return NextResponse.redirect(new URL('/dashboard', req.url))
+        }
+    }
+
+    return NextResponse.next()
 }
 
 export const config = {

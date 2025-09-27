@@ -1,7 +1,11 @@
 // src/app/api/dashboard/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
 import { startOfWeek, endOfWeek, startOfDay, endOfDay, subDays, addDays } from 'date-fns'
+import { getOrders, getOrderStats, getTodayOrders } from '@/lib/firebase/dao/orders'
+import { getCustomers } from '@/lib/firebase/dao/customers'
+import { getDishes } from '@/lib/firebase/dao/dishes'
+import { query, where, getDocs, orderBy, limit } from 'firebase/firestore'
+import { customersCollection, ordersCollection, dateToTimestamp } from '@/lib/firebase/firestore'
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,49 +18,46 @@ export async function GET(request: NextRequest) {
     const lastWeekStart = subDays(weekStart, 7)
 
     // Today's statistics
-    const todayOrders = await prisma.order.findMany({
-      where: {
-        createdAt: {
-          gte: todayStart,
-          lte: todayEnd
-        }
-      },
-      include: {
-        customer: true,
-        orderItems: {
-          include: {
-            dish: true
-          }
-        }
-      }
+    const todayOrdersQuery = query(
+      ordersCollection,
+      where('createdAt', '>=', dateToTimestamp(todayStart)),
+      where('createdAt', '<=', dateToTimestamp(todayEnd))
+    )
+    const todayOrdersSnapshot = await getDocs(todayOrdersQuery)
+    const todayOrders: any[] = []
+    todayOrdersSnapshot.forEach(doc => {
+      todayOrders.push({ id: doc.id, ...doc.data() })
     })
+
+    // Count new customers today
+    const newCustomersQuery = query(
+      customersCollection,
+      where('createdAt', '>=', dateToTimestamp(todayStart)),
+      where('createdAt', '<=', dateToTimestamp(todayEnd))
+    )
+    const newCustomersSnapshot = await getDocs(newCustomersQuery)
 
     const todayStats = {
       orders: todayOrders.length,
-      revenue: todayOrders.reduce((sum, order) => sum + Number(order.totalAmount), 0),
-      newCustomers: await prisma.customer.count({
-        where: {
-          createdAt: {
-            gte: todayStart,
-            lte: todayEnd
-          }
-        }
-      })
+      revenue: todayOrders.reduce((sum, order) => sum + order.totalAmount, 0),
+      newCustomers: newCustomersSnapshot.size
     }
 
     // Week statistics
-    const weekOrders = await prisma.order.findMany({
-      where: {
-        deliveryDate: {
-          gte: weekStart,
-          lte: weekEnd
-        }
-      }
+    const weekOrdersQuery = query(
+      ordersCollection,
+      where('deliveryDate', '>=', dateToTimestamp(weekStart)),
+      where('deliveryDate', '<=', dateToTimestamp(weekEnd))
+    )
+    const weekOrdersSnapshot = await getDocs(weekOrdersQuery)
+    const weekOrders: any[] = []
+    weekOrdersSnapshot.forEach(doc => {
+      weekOrders.push({ id: doc.id, ...doc.data() })
     })
 
     const weekStats = {
       orders: weekOrders.length,
-      revenue: weekOrders.reduce((sum, order) => sum + Number(order.totalAmount), 0),
+      revenue: weekOrders.reduce((sum, order) => sum + order.totalAmount, 0),
       pendingOrders: weekOrders.filter(o =>
         ['NEW', 'CONFIRMED', 'PREPARING'].includes(o.status)
       ).length,
@@ -64,122 +65,111 @@ export async function GET(request: NextRequest) {
     }
 
     // Friday orders (upcoming)
-    const fridayOrders = await prisma.order.findMany({
-      where: {
-        deliveryDate: {
-          gte: startOfDay(nextFriday),
-          lte: endOfDay(nextFriday)
-        }
-      },
-      include: {
-        customer: true,
-        orderItems: true
-      }
+    const fridayOrdersQuery = query(
+      ordersCollection,
+      where('deliveryDate', '>=', dateToTimestamp(startOfDay(nextFriday))),
+      where('deliveryDate', '<=', dateToTimestamp(endOfDay(nextFriday)))
+    )
+    const fridayOrdersSnapshot = await getDocs(fridayOrdersQuery)
+    const fridayOrders: any[] = []
+    fridayOrdersSnapshot.forEach(doc => {
+      fridayOrders.push({ id: doc.id, ...doc.data() })
     })
 
     const fridayStats = {
       orders: fridayOrders.length,
-      revenue: fridayOrders.reduce((sum, order) => sum + Number(order.totalAmount), 0),
+      revenue: fridayOrders.reduce((sum, order) => sum + order.totalAmount, 0),
       dishes: fridayOrders.reduce((sum, order) =>
-        sum + order.orderItems.reduce((itemSum, item) => itemSum + item.quantity, 0), 0
+        sum + (order.items ? order.items.reduce((itemSum: number, item: any) => itemSum + item.quantity, 0) : 0), 0
       )
     }
 
-    // Recent activity
-    const recentOrders = await prisma.order.findMany({
-      take: 10,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        customer: true,
-        orderItems: {
-          include: {
-            dish: true
+    // Recent orders
+    const recentOrdersQuery = query(
+      ordersCollection,
+      orderBy('createdAt', 'desc'),
+      limit(10)
+    )
+    const recentOrdersSnapshot = await getDocs(recentOrdersQuery)
+    const recentOrders: any[] = []
+    recentOrdersSnapshot.forEach(doc => {
+      const order = { id: doc.id, ...doc.data() }
+      // Include customer data from denormalized field
+      recentOrders.push({
+        ...order,
+        customer: order.customerData || { name: 'Unknown', phone: '' },
+        orderItems: order.items || []
+      })
+    })
+
+    // Recent activity - we'll just use recent orders for now
+    // In a real app, you might want to track activities separately
+    const recentActivity = recentOrders.map(order => ({
+      id: order.id,
+      action: 'ORDER_CREATED',
+      createdAt: order.createdAt,
+      order: {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        customer: order.customer
+      }
+    }))
+
+    // Top dishes this week - manual aggregation
+    const dishCounts = new Map<string, { dish: any, quantity: number, orderCount: number }>()
+
+    weekOrders.forEach(order => {
+      if (order.items) {
+        order.items.forEach((item: any) => {
+          const existing = dishCounts.get(item.dishId) || {
+            dish: { id: item.dishId, name: item.dishName || 'Unknown' },
+            quantity: 0,
+            orderCount: 0
           }
-        }
+          existing.quantity += item.quantity
+          existing.orderCount += 1
+          dishCounts.set(item.dishId, existing)
+        })
       }
     })
 
-    const recentActivity = await prisma.orderHistory.findMany({
-      take: 20,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        order: {
-          include: {
-            customer: true
-          }
-        }
-      }
-    })
-
-    // Top dishes this week
-    const topDishesQuery = await prisma.orderItem.groupBy({
-      by: ['dishId'],
-      where: {
-        order: {
-          deliveryDate: {
-            gte: weekStart,
-            lte: weekEnd
-          }
-        }
-      },
-      _sum: {
-        quantity: true
-      },
-      _count: {
-        dishId: true
-      },
-      orderBy: {
-        _sum: {
-          quantity: 'desc'
-        }
-      },
-      take: 5
-    })
-
-    const dishIds = topDishesQuery.map(item => item.dishId)
-    const dishes = await prisma.dish.findMany({
-      where: { id: { in: dishIds } }
-    })
-
-    const topDishes = topDishesQuery.map(item => {
-      const dish = dishes.find(d => d.id === item.dishId)
-      return {
-        dish,
-        quantity: item._sum.quantity || 0,
-        orderCount: item._count.dishId
-      }
-    })
-
-    // Low stock ingredients
-    const lowStockIngredients = await prisma.ingredient.findMany({
-      where: {
-        AND: [
-          { currentStock: { not: null } },
-          { minStock: { not: null } }
-        ]
-      },
-      orderBy: {
-        currentStock: 'asc'
-      }
-    })
-
-    const lowStock = lowStockIngredients
-      .filter(ing => ing.currentStock! < ing.minStock!)
+    // Get dish details for top dishes
+    const topDishEntries = Array.from(dishCounts.entries())
+      .sort((a, b) => b[1].quantity - a[1].quantity)
       .slice(0, 5)
 
+    const dishIds = topDishEntries.map(([id]) => id)
+    const allDishes = await getDishes()
+    const dishMap = new Map(allDishes.map(d => [d.id, d]))
+
+    const topDishes = topDishEntries.map(([dishId, stats]) => ({
+      dish: dishMap.get(dishId) || stats.dish,
+      quantity: stats.quantity,
+      orderCount: stats.orderCount
+    }))
+
+
     // Customer insights
-    const totalCustomers = await prisma.customer.count()
-    const activeCustomers = await prisma.customer.count({
-      where: {
-        orders: {
-          some: {
-            createdAt: {
-              gte: subDays(today, 30)
-            }
-          }
-        }
+    const allCustomersSnapshot = await getDocs(customersCollection)
+    const totalCustomers = allCustomersSnapshot.size
+
+    // Active customers (with orders in last 30 days)
+    const thirtyDaysAgo = subDays(today, 30)
+    const activeCustomerIds = new Set<string>()
+
+    const recentOrdersQuery = query(
+      ordersCollection,
+      where('createdAt', '>=', dateToTimestamp(thirtyDaysAgo))
+    )
+    const recentOrdersSnapshot = await getDocs(recentOrdersQuery)
+    recentOrdersSnapshot.forEach(doc => {
+      const order = doc.data()
+      if (order.customerId) {
+        activeCustomerIds.add(order.customerId)
       }
     })
+
+    const activeCustomers = activeCustomerIds.size
 
     // Chart data - last 7 days
     const chartData = []
@@ -188,34 +178,38 @@ export async function GET(request: NextRequest) {
       const dayStart = startOfDay(date)
       const dayEnd = endOfDay(date)
 
-      const dayOrders = await prisma.order.findMany({
-        where: {
-          createdAt: {
-            gte: dayStart,
-            lte: dayEnd
-          }
-        }
+      const dayOrdersQuery = query(
+        ordersCollection,
+        where('createdAt', '>=', dateToTimestamp(dayStart)),
+        where('createdAt', '<=', dateToTimestamp(dayEnd))
+      )
+      const dayOrdersSnapshot = await getDocs(dayOrdersQuery)
+      const dayOrders: any[] = []
+      dayOrdersSnapshot.forEach(doc => {
+        dayOrders.push(doc.data())
       })
 
       chartData.push({
         date: date.toISOString(),
         orders: dayOrders.length,
-        revenue: dayOrders.reduce((sum, order) => sum + Number(order.totalAmount), 0)
+        revenue: dayOrders.reduce((sum, order) => sum + order.totalAmount, 0)
       })
     }
 
     // Comparison with last week
-    const lastWeekOrders = await prisma.order.findMany({
-      where: {
-        deliveryDate: {
-          gte: lastWeekStart,
-          lt: weekStart
-        }
-      }
+    const lastWeekOrdersQuery = query(
+      ordersCollection,
+      where('deliveryDate', '>=', dateToTimestamp(lastWeekStart)),
+      where('deliveryDate', '<', dateToTimestamp(weekStart))
+    )
+    const lastWeekOrdersSnapshot = await getDocs(lastWeekOrdersQuery)
+    const lastWeekOrders: any[] = []
+    lastWeekOrdersSnapshot.forEach(doc => {
+      lastWeekOrders.push(doc.data())
     })
 
     const lastWeekRevenue = lastWeekOrders.reduce((sum, order) =>
-      sum + Number(order.totalAmount), 0
+      sum + order.totalAmount, 0
     )
 
     const comparison = {
@@ -236,7 +230,6 @@ export async function GET(request: NextRequest) {
       recentOrders,
       recentActivity,
       topDishes,
-      lowStock,
       customers: {
         total: totalCustomers,
         active: activeCustomers

@@ -1,7 +1,9 @@
 // src/app/api/reports/analytics/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
 import { startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear, startOfQuarter, endOfQuarter, format, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval } from 'date-fns'
+import { query, where, getDocs, orderBy } from 'firebase/firestore'
+import { ordersCollection, customersCollection, dateToTimestamp } from '@/lib/firebase/firestore'
+import { getDishesByIds } from '@/lib/firebase/dao/dishes'
 
 export async function GET(request: NextRequest) {
     try {
@@ -35,60 +37,79 @@ export async function GET(request: NextRequest) {
                 previousEndDate = endOfMonth(subMonths(now, 1))
         }
 
-        // Fetch current period data
-        const [orders, customers, previousOrders] = await Promise.all([
-            // Current period orders
-            prisma.order.findMany({
-                where: {
-                    orderDate: {
-                        gte: startDate,
-                        lte: endDate
-                    },
-                    status: {
-                        not: 'CANCELLED'
-                    }
-                },
-                include: {
-                    customer: true,
-                    orderItems: {
-                        include: {
-                            dish: true
-                        }
-                    }
-                }
-            }),
+        // Fetch current period orders from Firestore
+        const currentOrdersQuery = query(
+            ordersCollection,
+            where('orderDate', '>=', dateToTimestamp(startDate)),
+            where('orderDate', '<=', dateToTimestamp(endDate))
+        )
+        const currentOrdersSnapshot = await getDocs(currentOrdersQuery)
+        const orders: any[] = []
+        const dishIds = new Set<string>()
 
-            // All customers
-            prisma.customer.findMany({
-                include: {
-                    orders: {
-                        where: {
-                            orderDate: {
-                                gte: startDate,
-                                lte: endDate
-                            }
-                        }
-                    }
+        currentOrdersSnapshot.forEach(doc => {
+            const order = { id: doc.id, ...doc.data() }
+            if (order.status !== 'CANCELLED') {
+                orders.push(order)
+                // Collect dish IDs
+                if (order.items) {
+                    order.items.forEach((item: any) => dishIds.add(item.dishId))
                 }
-            }),
+            }
+        })
 
-            // Previous period orders for comparison
-            prisma.order.findMany({
-                where: {
-                    orderDate: {
-                        gte: previousStartDate,
-                        lte: previousEndDate
-                    },
-                    status: {
-                        not: 'CANCELLED'
+        // Fetch all customers
+        const customersSnapshot = await getDocs(customersCollection)
+        const customers: any[] = []
+        customersSnapshot.forEach(doc => {
+            customers.push({ id: doc.id, ...doc.data() })
+        })
+
+        // Add order data to customers
+        const customersWithOrders = customers.map(customer => ({
+            ...customer,
+            orders: orders.filter(o => o.customerId === customer.id)
+        }))
+
+        // Fetch previous period orders for comparison
+        const previousOrdersQuery = query(
+            ordersCollection,
+            where('orderDate', '>=', dateToTimestamp(previousStartDate)),
+            where('orderDate', '<=', dateToTimestamp(previousEndDate))
+        )
+        const previousOrdersSnapshot = await getDocs(previousOrdersQuery)
+        const previousOrders: any[] = []
+        previousOrdersSnapshot.forEach(doc => {
+            const order = doc.data()
+            if (order.status !== 'CANCELLED') {
+                previousOrders.push(order)
+            }
+        })
+
+        // Fetch dish details
+        const dishes = await getDishesByIds(Array.from(dishIds))
+        const dishMap = new Map(dishes.map(d => [d.id, d]))
+
+        // Add dish details to orders
+        orders.forEach(order => {
+            if (order.items) {
+                order.orderItems = order.items.map((item: any) => ({
+                    ...item,
+                    dish: dishMap.get(item.dishId) || {
+                        name: item.dishName || 'Unknown',
+                        category: 'MAIN'
                     }
-                }
-            })
-        ])
+                }))
+            } else {
+                order.orderItems = []
+            }
+            // Add customer data if denormalized
+            order.customer = order.customerData || customersWithOrders.find(c => c.id === order.customerId)
+        })
 
         // Calculate summary metrics
-        const totalRevenue = orders.reduce((sum, order) => sum + Number(order.totalAmount), 0)
-        const previousRevenue = previousOrders.reduce((sum, order) => sum + Number(order.totalAmount), 0)
+        const totalRevenue = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0)
+        const previousRevenue = previousOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0)
         const revenueGrowth = previousRevenue > 0
             ? ((totalRevenue - previousRevenue) / previousRevenue) * 100
             : 0
@@ -102,7 +123,7 @@ export async function GET(request: NextRequest) {
         const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
 
         // Customer metrics
-        const activeCustomers = customers.filter(c => c.orders.length > 0)
+        const activeCustomers = customersWithOrders.filter(c => c.orders.length > 0)
         const newCustomers = activeCustomers.filter(c => {
             const firstOrderDate = new Date(c.createdAt)
             return firstOrderDate >= startDate && firstOrderDate <= endDate
@@ -141,7 +162,7 @@ export async function GET(request: NextRequest) {
                     category: item.dish.category
                 }
                 existing.quantity += item.quantity
-                existing.revenue += Number(item.price) * item.quantity
+                existing.revenue += (item.price || 0) * item.quantity
                 dishStats.set(dishId, {
                     ...existing,
                     category: existing.category || 'uncategorized'
@@ -167,7 +188,7 @@ export async function GET(request: NextRequest) {
         // Customer analytics
         const customerStats = activeCustomers.map(customer => {
             const customerOrders = orders.filter(o => o.customerId === customer.id)
-            const totalSpent = customerOrders.reduce((sum, order) => sum + Number(order.totalAmount), 0)
+            const totalSpent = customerOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0)
             return {
                 id: customer.id,
                 name: customer.name,
@@ -255,11 +276,11 @@ function calculateRevenueByPeriod(
                 : endOfMonth(interval)
 
         const periodOrders = orders.filter(order => {
-            const orderDate = new Date(order.orderDate)
+            const orderDate = order.orderDate?.toDate ? order.orderDate.toDate() : new Date(order.orderDate)
             return orderDate >= periodStart && orderDate <= periodEnd
         })
 
-        const amount = periodOrders.reduce((sum, order) => sum + Number(order.totalAmount), 0)
+        const amount = periodOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0)
 
         return {
             date: format(interval, periodType === 'month' ? 'MMM yyyy' : 'dd/MM'),

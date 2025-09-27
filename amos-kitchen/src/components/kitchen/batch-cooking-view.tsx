@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { DishCategory } from '@prisma/client';
+// Define types locally instead of importing from Prisma
+type DishCategory = 'APPETIZER' | 'MAIN' | 'SIDE' | 'DESSERT' | 'BEVERAGE';
 import { ChefHat, Utensils, Coffee, Cookie, Salad, Info, Users, AlertCircle } from 'lucide-react';
 import {
   Collapsible,

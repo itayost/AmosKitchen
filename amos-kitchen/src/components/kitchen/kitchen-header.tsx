@@ -4,7 +4,21 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Clock, Package, CheckCircle2, AlertCircle, Timer, Calendar } from 'lucide-react';
-import { Order, OrderStatus } from '@prisma/client';
+// Define types locally instead of importing from Prisma
+type OrderStatus = 'NEW' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED';
+type Order = {
+  id: string;
+  orderNumber: string;
+  status: OrderStatus;
+  deliveryDate: Date | any;
+  totalAmount: number;
+  orderItems?: Array<{
+    quantity: number;
+    dish: {
+      name: string;
+    };
+  }>;
+};
 import { format, formatDistance } from 'date-fns';
 import { he } from 'date-fns/locale';
 

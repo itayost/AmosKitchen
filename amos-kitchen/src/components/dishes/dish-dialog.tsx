@@ -23,29 +23,14 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { IngredientsSelector, type DishIngredient } from '@/components/dishes/ingredients-selector'
 import { useToast } from '@/lib/hooks/use-toast'
 import type { Dish } from '@/lib/types/database'
 
 interface DishDialogProps {
     open: boolean
     onOpenChange: (open: boolean) => void
-    dish: DishWithIngredients | null
-    onSave: (dish: Partial<Dish> & { ingredients?: DishIngredient[] }) => Promise<void>
-}
-
-export interface DishWithIngredients extends Dish {
-    ingredients?: {
-        ingredientId: string
-        quantity: number
-        notes?: string
-        ingredient?: {
-            id: string
-            name: string
-            unit: string
-        }
-    }[]
+    dish: Dish | null
+    onSave: (dish: Partial<Dish>) => Promise<void>
 }
 
 interface FormData {
@@ -73,7 +58,6 @@ const categories = [
 export function DishDialog({ open, onOpenChange, dish, onSave }: DishDialogProps) {
     const { toast } = useToast()
     const [saving, setSaving] = useState(false)
-    const [activeTab, setActiveTab] = useState('details')
     const [formData, setFormData] = useState<FormData>({
         name: '',
         description: '',
@@ -81,7 +65,6 @@ export function DishDialog({ open, onOpenChange, dish, onSave }: DishDialogProps
         category: '',
         isAvailable: true
     })
-    const [selectedIngredients, setSelectedIngredients] = useState<DishIngredient[]>([])
     const [errors, setErrors] = useState<FormErrors>({})
 
     // Initialize form data when dialog opens or dish changes
@@ -96,21 +79,11 @@ export function DishDialog({ open, onOpenChange, dish, onSave }: DishDialogProps
                     category: dish.category || '',
                     isAvailable: dish.isAvailable ?? true
                 })
-
-                // Map ingredients to the format expected by IngredientsSelector
-                const mappedIngredients = dish.ingredients?.map(ing => ({
-                    ingredientId: ing.ingredient?.id || ing.ingredientId || '',
-                    quantity: ing.quantity || 1,
-                    notes: ing.notes || ''
-                })) || []
-
-                setSelectedIngredients(mappedIngredients)
             } else {
                 // Creating new dish
                 resetForm()
             }
             setErrors({})
-            setActiveTab('details')
         }
     }, [dish, open])
 
@@ -122,7 +95,6 @@ export function DishDialog({ open, onOpenChange, dish, onSave }: DishDialogProps
             category: '',
             isAvailable: true
         })
-        setSelectedIngredients([])
         setErrors({})
     }
 
@@ -145,11 +117,6 @@ export function DishDialog({ open, onOpenChange, dish, onSave }: DishDialogProps
 
         setErrors(newErrors)
 
-        // If there are errors in the details tab, switch to it
-        if (Object.keys(newErrors).length > 0) {
-            setActiveTab('details')
-        }
-
         return Object.keys(newErrors).length === 0
     }
 
@@ -160,16 +127,12 @@ export function DishDialog({ open, onOpenChange, dish, onSave }: DishDialogProps
 
         setSaving(true)
         try {
-            // Filter out ingredients without an ingredientId
-            const validIngredients = selectedIngredients.filter(ing => ing.ingredientId)
-
             await onSave({
                 name: formData.name.trim(),
                 description: formData.description.trim() || undefined,
                 price: Number(formData.price),
                 category: formData.category,
-                isAvailable: formData.isAvailable,
-                ingredients: validIngredients.length > 0 ? validIngredients : undefined
+                isAvailable: formData.isAvailable
             })
 
             // Close dialog after successful save
@@ -198,114 +161,100 @@ export function DishDialog({ open, onOpenChange, dish, onSave }: DishDialogProps
                         </DialogTitle>
                         <DialogDescription>
                             {dish
-                                ? 'ערוך את פרטי המנה והרכיבים שלה'
-                                : 'הזן את פרטי המנה החדשה והרכיבים שלה'
+                                ? 'ערוך את פרטי המנה'
+                                : 'הזן את פרטי המנה החדשה'
                             }
                         </DialogDescription>
                     </DialogHeader>
 
-                    <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-                        <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="details">פרטי המנה</TabsTrigger>
-                            <TabsTrigger value="ingredients">רכיבים</TabsTrigger>
-                        </TabsList>
+                    <div className="space-y-4 mt-4">
+                        {/* Dish Name */}
+                        <div className="grid gap-2">
+                            <Label htmlFor="name">שם המנה *</Label>
+                            <Input
+                                id="name"
+                                value={formData.name}
+                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                placeholder="לדוגמה: שניצל עוף"
+                                className={errors.name ? 'border-red-500' : ''}
+                                disabled={saving}
+                            />
+                            {errors.name && (
+                                <span className="text-xs text-red-500">{errors.name}</span>
+                            )}
+                        </div>
 
-                        <TabsContent value="details" className="space-y-4 mt-4">
-                            {/* Dish Name */}
+                        {/* Description */}
+                        <div className="grid gap-2">
+                            <Label htmlFor="description">תיאור</Label>
+                            <Textarea
+                                id="description"
+                                value={formData.description}
+                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                placeholder="תיאור קצר של המנה"
+                                rows={3}
+                                disabled={saving}
+                            />
+                        </div>
+
+                        {/* Price and Category */}
+                        <div className="grid grid-cols-2 gap-4">
                             <div className="grid gap-2">
-                                <Label htmlFor="name">שם המנה *</Label>
+                                <Label htmlFor="price">מחיר (₪) *</Label>
                                 <Input
-                                    id="name"
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    placeholder="לדוגמה: שניצל עוף"
-                                    className={errors.name ? 'border-red-500' : ''}
+                                    id="price"
+                                    type="number"
+                                    step="0.01"
+                                    value={formData.price}
+                                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                                    placeholder="0.00"
+                                    className={errors.price ? 'border-red-500' : ''}
                                     disabled={saving}
                                 />
-                                {errors.name && (
-                                    <span className="text-xs text-red-500">{errors.name}</span>
+                                {errors.price && (
+                                    <span className="text-xs text-red-500">{errors.price}</span>
                                 )}
                             </div>
 
-                            {/* Description */}
                             <div className="grid gap-2">
-                                <Label htmlFor="description">תיאור</Label>
-                                <Textarea
-                                    id="description"
-                                    value={formData.description}
-                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                    placeholder="תיאור קצר של המנה"
-                                    rows={3}
+                                <Label htmlFor="category">קטגוריה *</Label>
+                                <Select
+                                    value={formData.category}
+                                    onValueChange={(value) => setFormData({ ...formData, category: value })}
                                     disabled={saving}
-                                />
+                                >
+                                    <SelectTrigger className={errors.category ? 'border-red-500' : ''}>
+                                        <SelectValue placeholder="בחר קטגוריה" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {categories.map(cat => (
+                                            <SelectItem key={cat.value} value={cat.value}>
+                                                {cat.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {errors.category && (
+                                    <span className="text-xs text-red-500">{errors.category}</span>
+                                )}
                             </div>
+                        </div>
 
-                            {/* Price and Category */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="price">מחיר (₪) *</Label>
-                                    <Input
-                                        id="price"
-                                        type="number"
-                                        step="0.01"
-                                        value={formData.price}
-                                        onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                                        placeholder="0.00"
-                                        className={errors.price ? 'border-red-500' : ''}
-                                        disabled={saving}
-                                    />
-                                    {errors.price && (
-                                        <span className="text-xs text-red-500">{errors.price}</span>
-                                    )}
-                                </div>
-
-                                <div className="grid gap-2">
-                                    <Label htmlFor="category">קטגוריה *</Label>
-                                    <Select
-                                        value={formData.category}
-                                        onValueChange={(value) => setFormData({ ...formData, category: value })}
-                                        disabled={saving}
-                                    >
-                                        <SelectTrigger className={errors.category ? 'border-red-500' : ''}>
-                                            <SelectValue placeholder="בחר קטגוריה" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {categories.map(cat => (
-                                                <SelectItem key={cat.value} value={cat.value}>
-                                                    {cat.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    {errors.category && (
-                                        <span className="text-xs text-red-500">{errors.category}</span>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Availability */}
-                            <div className="flex items-center space-x-2 space-x-reverse">
-                                <Switch
-                                    id="available"
-                                    checked={formData.isAvailable}
-                                    onCheckedChange={(checked) =>
-                                        setFormData({ ...formData, isAvailable: checked })
-                                    }
-                                    disabled={saving}
-                                />
-                                <Label htmlFor="available" className="cursor-pointer">
-                                    המנה זמינה להזמנה
-                                </Label>
-                            </div>
-                        </TabsContent>
-
-                        <TabsContent value="ingredients" className="mt-4">
-                            <IngredientsSelector
-                                ingredients={selectedIngredients}
-                                onChange={setSelectedIngredients}
+                        {/* Availability */}
+                        <div className="flex items-center space-x-2 space-x-reverse">
+                            <Switch
+                                id="available"
+                                checked={formData.isAvailable}
+                                onCheckedChange={(checked) =>
+                                    setFormData({ ...formData, isAvailable: checked })
+                                }
+                                disabled={saving}
                             />
-                        </TabsContent>
-                    </Tabs>
+                            <Label htmlFor="available" className="cursor-pointer">
+                                המנה זמינה להזמנה
+                            </Label>
+                        </div>
+                    </div>
 
                     <DialogFooter className="mt-6">
                         <Button

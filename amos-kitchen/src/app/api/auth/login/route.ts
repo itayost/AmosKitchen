@@ -1,8 +1,7 @@
 // app/api/auth/login/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
 import { z } from 'zod'
+import { signIn } from '@/lib/firebase/auth'
 
 const loginSchema = z.object({
     email: z.string().email('אימייל לא תקין'),
@@ -16,27 +15,39 @@ export async function POST(request: NextRequest) {
         // Validate input
         const { email, password } = loginSchema.parse(body)
 
-        // Create Supabase client
-        const cookieStore = cookies()
-        const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+        // Sign in with Firebase
+        const { user, error } = await signIn(email, password)
 
-        // Sign in
-        const { data, error } = await supabase.auth.signInWithPassword({
-            email,
-            password
-        })
-
-        if (error) {
+        if (error || !user) {
             return NextResponse.json(
-                { error: 'אימייל או סיסמה שגויים' },
+                { error: error || 'אימייל או סיסמה שגויים' },
                 { status: 401 }
             )
         }
 
-        return NextResponse.json({
-            user: data.user,
+        // Get the ID token for the user
+        const idToken = await user.getIdToken()
+
+        // Create response with token in cookie
+        const response = NextResponse.json({
+            user: {
+                uid: user.uid,
+                email: user.email,
+                displayName: user.displayName
+            },
             message: 'התחברת בהצלחה'
         })
+
+        // Set the token as an HTTP-only cookie
+        response.cookies.set('firebase-auth-token', idToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 60 * 60 * 24 * 7, // 7 days
+            path: '/'
+        })
+
+        return response
 
     } catch (error) {
         if (error instanceof z.ZodError) {
@@ -46,6 +57,7 @@ export async function POST(request: NextRequest) {
             )
         }
 
+        console.error('Login error:', error)
         return NextResponse.json(
             { error: 'שגיאה בהתחברות' },
             { status: 500 }

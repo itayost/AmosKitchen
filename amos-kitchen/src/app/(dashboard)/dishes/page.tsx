@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
 import {
     Plus,
     Search,
@@ -75,7 +76,7 @@ export default function DishesPage() {
             if (categoryFilter !== 'all') params.append('category', categoryFilter)
             if (availabilityFilter !== 'all') params.append('available', availabilityFilter)
 
-            const response = await fetch(`/api/dishes?${params.toString()}`)
+            const response = await fetchWithAuth(`/api/dishes?${params.toString()}`)
 
             if (!response.ok) {
                 throw new Error('Failed to fetch dishes')

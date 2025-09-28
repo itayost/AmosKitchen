@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { User } from "firebase/auth";
 import { onAuthStateChange, logOut as firebaseLogOut } from "@/lib/firebase/auth";
 import { useRouter } from "next/navigation";
@@ -9,12 +9,14 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  refreshToken: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   signOut: async () => {},
+  refreshToken: async () => {},
 });
 
 export const useAuth = () => {
@@ -29,23 +31,113 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const refreshToken = async () => {
+    try {
+      if (!user) return;
+
+      // Get a fresh ID token from Firebase
+      const idToken = await user.getIdToken(true); // Force refresh
+
+      // Send the new token to our backend to update the cookie
+      const response = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ idToken }),
+      });
+
+      if (!response.ok) {
+        console.error('Failed to refresh token cookie');
+        // If refresh fails, the user might need to re-login
+        if (response.status === 401) {
+          await signOut();
+        }
+      } else {
+        console.log('Token refreshed successfully');
+      }
+    } catch (error) {
+      console.error('Error refreshing token:', error);
+    }
+  };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChange((firebaseUser) => {
+    const unsubscribe = onAuthStateChange(async (firebaseUser) => {
       setUser(firebaseUser);
       setLoading(false);
+
+      // Clear any existing refresh interval
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+        refreshIntervalRef.current = null;
+      }
+
+      // If user is logged in, set up token refresh
+      if (firebaseUser) {
+        // Function to refresh token with current user
+        const doRefresh = async () => {
+          try {
+            const idToken = await firebaseUser.getIdToken(true);
+
+            const response = await fetch('/api/auth/refresh', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              credentials: 'include',
+              body: JSON.stringify({ idToken }),
+            });
+
+            if (!response.ok) {
+              console.error('Failed to refresh token cookie');
+            } else {
+              console.log('Token refreshed successfully');
+            }
+          } catch (error) {
+            console.error('Error refreshing token:', error);
+          }
+        };
+
+        // Refresh token immediately to sync cookie
+        await doRefresh();
+
+        // Set up interval to refresh token every 50 minutes
+        // (Firebase tokens expire after 1 hour)
+        refreshIntervalRef.current = setInterval(async () => {
+          console.log('Auto-refreshing token...');
+          await doRefresh();
+        }, 50 * 60 * 1000); // 50 minutes in milliseconds
+      }
     });
 
-    return () => unsubscribe();
+    // Cleanup function
+    return () => {
+      unsubscribe();
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+      }
+    };
   }, []);
 
   const signOut = async () => {
     try {
+      // Clear refresh interval
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+        refreshIntervalRef.current = null;
+      }
+
       // Sign out from Firebase client-side
       await firebaseLogOut();
 
       // Also call backend logout to clear cookie
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+      });
 
       router.push("/login");
     } catch (error) {
@@ -57,6 +149,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     user,
     loading,
     signOut,
+    refreshToken,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

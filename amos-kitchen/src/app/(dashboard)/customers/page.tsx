@@ -12,6 +12,7 @@ import { CustomerGrid } from '@/components/customers/customer-grid'
 import { CustomerDialog } from '@/components/customers/customer-dialog'
 import { LoadingSpinner } from '@/components/shared/loading-spinner'
 import { useDebounce } from '@/lib/hooks/use-debounce'
+import { fetchWithAuth, postWithAuth, putWithAuth, deleteWithAuth } from '@/lib/api/fetch-with-auth'
 import type { Customer } from '@/lib/types/database'
 
 interface CustomerWithStats extends Customer {
@@ -37,7 +38,7 @@ export default function CustomersPage() {
             const params = new URLSearchParams()
             if (debouncedSearch) params.append('search', debouncedSearch)
 
-            const response = await fetch(`/api/customers?${params}`)
+            const response = await fetchWithAuth(`/api/customers?${params}`)
             if (!response.ok) throw new Error('Failed to fetch customers')
 
             const data = await response.json()
@@ -56,7 +57,7 @@ export default function CustomersPage() {
 
     const handleExport = async () => {
         try {
-            const response = await fetch('/api/customers/export', {
+            const response = await fetchWithAuth('/api/customers/export', {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/csv'
@@ -93,9 +94,7 @@ export default function CustomersPage() {
         if (!confirm('האם אתה בטוח שברצונך למחוק לקוח זה?')) return
 
         try {
-            const response = await fetch(`/api/customers/${customerId}`, {
-                method: 'DELETE'
-            })
+            const response = await deleteWithAuth(`/api/customers/${customerId}`)
 
             if (!response.ok) throw new Error('Failed to delete customer')
 
@@ -112,11 +111,9 @@ export default function CustomersPage() {
                 ? `/api/customers/${selectedCustomer.id}`
                 : '/api/customers'
 
-            const response = await fetch(url, {
-                method: selectedCustomer ? 'PUT' : 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(customerData)
-            })
+            const response = selectedCustomer
+                ? await putWithAuth(url, customerData)
+                : await postWithAuth(url, customerData)
 
             const responseData = await response.json()
             console.log('Response status:', response.status)

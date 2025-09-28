@@ -6,11 +6,17 @@ import { getCustomers } from '@/lib/firebase/dao/customers'
 import { getDishes } from '@/lib/firebase/dao/dishes'
 import { query, where, getDocs, orderBy, limit } from 'firebase/firestore'
 import { customersCollection, ordersCollection, dateToTimestamp } from '@/lib/firebase/firestore'
+import { verifyAuth } from '@/lib/api/auth-middleware'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
+    // Verify authentication
+    const auth = await verifyAuth(request)
+    if (!auth.authenticated) {
+      return auth.response
+    }
     const today = new Date()
     const todayStart = startOfDay(today)
     const todayEnd = endOfDay(today)

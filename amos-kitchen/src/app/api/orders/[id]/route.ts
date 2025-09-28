@@ -10,6 +10,7 @@ import {
     addOrderHistory
 } from '@/lib/firebase/dao/orders'
 import { getDishesByIds } from '@/lib/firebase/dao/dishes'
+import { verifyAuth } from '@/lib/api/auth-middleware'
 
 // Validation schema for updating order
 const updateOrderSchema = z.object({
@@ -24,6 +25,11 @@ export async function GET(
     { params }: { params: { id: string } }
 ) {
     try {
+        // Verify authentication
+        const auth = await verifyAuth(request)
+        if (!auth.authenticated) {
+            return auth.response
+        }
         // Fetch order
         const order = await getOrderById(params.id)
 
@@ -71,6 +77,11 @@ export async function PUT(
     { params }: { params: { id: string } }
 ) {
     try {
+        // Verify authentication
+        const auth = await verifyAuth(request)
+        if (!auth.authenticated) {
+            return auth.response
+        }
         const body = await request.json()
         const validatedData = updateOrderSchema.parse(body)
 
@@ -166,6 +177,11 @@ export async function DELETE(
     { params }: { params: { id: string } }
 ) {
     try {
+        // Verify authentication
+        const auth = await verifyAuth(request)
+        if (!auth.authenticated) {
+            return auth.response
+        }
         // Check if order exists
         const order = await getOrderById(params.id)
 

@@ -32,6 +32,7 @@ import { format } from 'date-fns'
 import { he } from 'date-fns/locale'
 import { PreferenceBadge, CriticalPreferenceAlert } from '@/components/customers/preference-badge'
 import { PREFERENCE_CONFIGS, groupPreferencesByType, getPreferenceSummary } from '@/lib/utils/preferences'
+import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
 import type { Customer, Order, OrderItem, Dish, CustomerPreference } from '@/lib/types/database'
 
 interface CustomerDetails extends Customer {
@@ -63,7 +64,7 @@ export default function CustomerProfilePage() {
     const fetchCustomerDetails = useCallback(async () => {
         try {
             setLoading(true)
-            const response = await fetch(`/api/customers/${customerId}`)
+            const response = await fetchWithAuth(`/api/customers/${customerId}`)
 
             if (!response.ok) {
                 throw new Error('Failed to fetch customer details')

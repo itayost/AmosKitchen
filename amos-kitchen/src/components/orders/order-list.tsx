@@ -3,6 +3,7 @@
 
 import { useState } from 'react'
 import { format } from 'date-fns'
+import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
 import {
     ChevronLeft,
     ChevronRight,
@@ -94,7 +95,7 @@ export function OrderList({
 
     const handleStatusUpdate = async (orderId: string, newStatus: OrderStatus) => {
         try {
-            const response = await fetch(`/api/orders/${orderId}`, {
+            const response = await fetchWithAuth(`/api/orders/${orderId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: newStatus })
@@ -111,7 +112,7 @@ export function OrderList({
     const handleDelete = async (orderId: string) => {
         if (confirm('האם אתה בטוח שברצונך למחוק הזמנה זו?')) {
             try {
-                const response = await fetch(`/api/orders/${orderId}`, {
+                const response = await fetchWithAuth(`/api/orders/${orderId}`, {
                     method: 'DELETE'
                 })
 

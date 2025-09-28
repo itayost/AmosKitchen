@@ -14,6 +14,7 @@ import {
 } from '@/lib/firebase/dao/customers'
 import { getOrdersByCustomer } from '@/lib/firebase/dao/orders'
 import { getDishesByIds } from '@/lib/firebase/dao/dishes'
+import { verifyIdToken } from '@/lib/firebase/admin'
 
 // Force this route to be dynamically rendered
 export const dynamic = 'force-dynamic'
@@ -23,6 +24,22 @@ export async function GET(
     { params }: { params: { id: string } }
 ) {
     try {
+        // Verify authentication
+        const token = request.cookies.get('firebase-auth-token')?.value
+        if (!token) {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            )
+        }
+
+        const decodedToken = await verifyIdToken(token)
+        if (!decodedToken) {
+            return NextResponse.json(
+                { error: 'Invalid token' },
+                { status: 401 }
+            )
+        }
         const customer = await getCustomerById(params.id)
 
         if (!customer) {
@@ -115,6 +132,22 @@ export async function PUT(
     { params }: { params: { id: string } }
 ) {
     try {
+        // Verify authentication
+        const token = request.cookies.get('firebase-auth-token')?.value
+        if (!token) {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            )
+        }
+
+        const decodedToken = await verifyIdToken(token)
+        if (!decodedToken) {
+            return NextResponse.json(
+                { error: 'Invalid token' },
+                { status: 401 }
+            )
+        }
         const body = await request.json()
 
         // Validate input
@@ -243,6 +276,22 @@ export async function DELETE(
     { params }: { params: { id: string } }
 ) {
     try {
+        // Verify authentication
+        const token = request.cookies.get('firebase-auth-token')?.value
+        if (!token) {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            )
+        }
+
+        const decodedToken = await verifyIdToken(token)
+        if (!decodedToken) {
+            return NextResponse.json(
+                { error: 'Invalid token' },
+                { status: 401 }
+            )
+        }
         // Check if customer exists
         const existingCustomer = await getCustomerById(params.id)
 

@@ -16,6 +16,7 @@ import { PreferenceInput } from '@/components/customers/preference-input'
 import { CriticalPreferenceAlert } from '@/components/customers/preference-badge'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 import { normalizePhoneNumber } from '@/lib/validators/customer'
+import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
 import type { Customer, CustomerPreference } from '@/lib/types/database'
 
 interface FormData {
@@ -63,7 +64,7 @@ export default function EditCustomerPage() {
     const fetchCustomerDetails = async () => {
         try {
             setLoading(true)
-            const response = await fetch(`/api/customers/${customerId}`)
+            const response = await fetchWithAuth(`/api/customers/${customerId}`)
 
             if (!response.ok) {
                 throw new Error('Failed to fetch customer')
@@ -143,7 +144,7 @@ export default function EditCustomerPage() {
         try {
             setSaving(true)
 
-            const response = await fetch(`/api/customers/${customerId}`, {
+            const response = await fetchWithAuth(`/api/customers/${customerId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json'
@@ -188,7 +189,7 @@ export default function EditCustomerPage() {
         try {
             setDeleting(true)
 
-            const response = await fetch(`/api/customers/${customerId}`, {
+            const response = await fetchWithAuth(`/api/customers/${customerId}`, {
                 method: 'DELETE'
             })
 

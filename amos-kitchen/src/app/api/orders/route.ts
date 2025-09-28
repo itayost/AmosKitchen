@@ -8,6 +8,7 @@ import {
 } from '@/lib/firebase/dao/orders'
 import { getCustomerById } from '@/lib/firebase/dao/customers'
 import { getDishesByIds } from '@/lib/firebase/dao/dishes'
+import { verifyAuth } from '@/lib/api/auth-middleware'
 
 // Validation schema for order creation
 const createOrderSchema = z.object({
@@ -27,7 +28,13 @@ const createOrderSchema = z.object({
 
 export async function GET(request: NextRequest) {
     try {
-        console.log('Orders API called')
+        // Verify authentication
+        const auth = await verifyAuth(request)
+        if (!auth.authenticated) {
+            return auth.response
+        }
+
+        console.log('Orders API called for user:', auth.user?.uid)
 
         // Get query parameters
         const searchParams = request.nextUrl.searchParams
@@ -111,8 +118,14 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
+        // Verify authentication
+        const auth = await verifyAuth(request)
+        if (!auth.authenticated) {
+            return auth.response
+        }
+
         const body = await request.json()
-        console.log('Create order request:', body)
+        console.log('Create order request by user:', auth.user?.uid, body)
 
         // Validate request body
         const validatedData = createOrderSchema.parse(body)

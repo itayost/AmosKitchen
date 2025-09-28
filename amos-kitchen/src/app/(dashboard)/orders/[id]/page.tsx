@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { he } from 'date-fns/locale'
+import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
 import {
     ArrowRight,
     Phone,
@@ -74,7 +75,7 @@ export default function OrderDetailsPage() {
 
     const fetchOrderDetails = async () => {
         try {
-            const response = await fetch(`/api/orders/${orderId}`)
+            const response = await fetchWithAuth(`/api/orders/${orderId}`)
             if (!response.ok) throw new Error('Failed to fetch order')
 
             const data = await response.json()
@@ -95,7 +96,7 @@ export default function OrderDetailsPage() {
 
         setUpdating(true)
         try {
-            const response = await fetch(`/api/orders/${orderId}`, {
+            const response = await fetchWithAuth(`/api/orders/${orderId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: newStatus })
@@ -123,7 +124,7 @@ export default function OrderDetailsPage() {
         if (!confirm('האם אתה בטוח שברצונך למחוק הזמנה זו?')) return
 
         try {
-            const response = await fetch(`/api/orders/${orderId}`, {
+            const response = await fetchWithAuth(`/api/orders/${orderId}`, {
                 method: 'DELETE'
             })
 

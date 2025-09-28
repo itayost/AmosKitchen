@@ -11,6 +11,8 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/lib/hooks/use-toast'
 import { postWithAuth } from '@/lib/api/fetch-with-auth'
+import { PreferenceInput } from '@/components/customers/preference-input'
+import type { CustomerPreference } from '@/lib/types/database'
 import Link from 'next/link'
 
 export default function NewCustomerPage() {
@@ -22,12 +24,17 @@ export default function NewCustomerPage() {
         phone: '',
         email: '',
         address: '',
-        notes: ''
+        notes: '',
+        preferences: [] as Partial<CustomerPreference>[]
     })
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target
         setFormData(prev => ({ ...prev, [name]: value }))
+    }
+
+    const handlePreferencesChange = (preferences: Partial<CustomerPreference>[]) => {
+        setFormData(prev => ({ ...prev, preferences }))
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -70,10 +77,7 @@ export default function NewCustomerPage() {
         try {
             setIsSubmitting(true)
 
-            const response = await postWithAuth('/api/customers', {
-                ...formData,
-                preferences: []
-            })
+            const response = await postWithAuth('/api/customers', formData)
 
             if (!response.ok) {
                 const errorData = await response.json()
@@ -219,6 +223,14 @@ export default function NewCustomerPage() {
                                 placeholder="הערות נוספות על הלקוח..."
                                 rows={4}
                                 disabled={isSubmitting}
+                            />
+                        </div>
+
+                        {/* Preferences */}
+                        <div className="border-t pt-4">
+                            <PreferenceInput
+                                preferences={formData.preferences}
+                                onChange={handlePreferencesChange}
                             />
                         </div>
                     </CardContent>

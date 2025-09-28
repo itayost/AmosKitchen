@@ -5,11 +5,17 @@ import { query, where, getDocs, orderBy } from 'firebase/firestore'
 import { ordersCollection, dateToTimestamp } from '@/lib/firebase/firestore'
 import { getDishesByIds } from '@/lib/firebase/dao/dishes'
 import { getCustomerById } from '@/lib/firebase/dao/customers'
+import { verifyAuth } from '@/lib/api/auth-middleware'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
     try {
+        // Verify authentication
+        const auth = await verifyAuth(request)
+        if (!auth.authenticated) {
+            return auth.response
+        }
         const searchParams = request.nextUrl.searchParams
         const date = searchParams.get('date') ? new Date(searchParams.get('date')!) : new Date()
 

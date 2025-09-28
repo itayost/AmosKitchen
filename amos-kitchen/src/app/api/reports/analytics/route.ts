@@ -4,11 +4,17 @@ import { startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear, startOfQua
 import { query, where, getDocs, orderBy } from 'firebase/firestore'
 import { ordersCollection, customersCollection, dateToTimestamp } from '@/lib/firebase/firestore'
 import { getDishesByIds } from '@/lib/firebase/dao/dishes'
+import { verifyAuth } from '@/lib/api/auth-middleware'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
     try {
+        // Verify authentication
+        const auth = await verifyAuth(request)
+        if (!auth.authenticated) {
+            return auth.response
+        }
         const searchParams = request.nextUrl.searchParams
         const period = searchParams.get('period') || 'month'
 

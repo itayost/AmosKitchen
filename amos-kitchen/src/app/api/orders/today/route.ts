@@ -1,12 +1,18 @@
 // src/app/api/orders/today/route.ts
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getTodayOrders } from '@/lib/firebase/dao/orders'
 import { getDishesByIds } from '@/lib/firebase/dao/dishes'
+import { verifyAuth } from '@/lib/api/auth-middleware'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // Verify authentication
+    const auth = await verifyAuth(request)
+    if (!auth.authenticated) {
+      return auth.response
+    }
     // Get today's orders from Firestore
     const orders = await getTodayOrders()
 

@@ -1,58 +1,15 @@
 // src/app/(dashboard)/orders/new/page.tsx
-import { Suspense } from 'react'
+'use client'
+
+import { useState, useEffect } from 'react'
 import { OrderForm } from '@/components/orders/order-form'
-import { getCustomers } from '@/lib/firebase/dao/customers'
-import { getAvailableDishes } from '@/lib/firebase/dao/dishes'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import Link from 'next/link'
-import { ChevronRight } from 'lucide-react'
-
-async function getFormData() {
-    try {
-        // Fetch customers and dishes from Firestore
-        const [customersResult, dishesData] = await Promise.all([
-            getCustomers(undefined, 100), // Get up to 100 customers
-            getAvailableDishes()
-        ])
-
-        // Serialize the data to ensure proper client-side handling
-        const customers = customersResult.customers
-            .filter(customer => customer.id) // Filter out customers without IDs
-            .map(customer => ({
-                id: customer.id!,
-                name: customer.name,
-                phone: customer.phone,
-                email: customer.email || '',
-                address: customer.address || '',
-                notes: customer.notes || '',
-                createdAt: customer.createdAt,
-                updatedAt: customer.updatedAt
-            }))
-            .sort((a, b) => a.name.localeCompare(b.name))
-
-        const dishes = dishesData
-            .filter(dish => dish.id) // Filter out dishes without IDs
-            .map(dish => ({
-                id: dish.id!,
-                name: dish.name,
-                description: dish.description || '',
-                price: Number(dish.price),
-                category: dish.category?.toLowerCase() || 'main',
-                isAvailable: dish.isAvailable,
-                createdAt: dish.createdAt,
-                updatedAt: dish.updatedAt
-            }))
-            .sort((a, b) => a.name.localeCompare(b.name))
-
-        return { customers, dishes }
-    } catch (error) {
-        console.error('Database error:', error)
-        // Return empty arrays as fallback
-        return { customers: [], dishes: [] }
-    }
-}
+import { ChevronRight, AlertTriangle, Loader2 } from 'lucide-react'
+import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
+import type { Customer, Dish } from '@/lib/types/database'
 
 function LoadingSkeleton() {
     return (
@@ -78,8 +35,145 @@ function LoadingSkeleton() {
     )
 }
 
-export default async function NewOrderPage() {
-    const { customers, dishes } = await getFormData()
+export default function NewOrderPage() {
+    const [customers, setCustomers] = useState<Customer[]>([])
+    const [dishes, setDishes] = useState<Dish[]>([])
+    const [isLoading, setIsLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                setIsLoading(true)
+                setError(null)
+
+                // Fetch customers and dishes in parallel
+                const [customersResponse, dishesResponse] = await Promise.all([
+                    fetchWithAuth('/api/customers?limit=100'),
+                    fetchWithAuth('/api/dishes?available=true')
+                ])
+
+                if (!customersResponse.ok) {
+                    throw new Error('Failed to fetch customers')
+                }
+
+                if (!dishesResponse.ok) {
+                    throw new Error('Failed to fetch dishes')
+                }
+
+                const customersData = await customersResponse.json()
+                const dishesData = await dishesResponse.json()
+
+                // Process and sort customers
+                const processedCustomers = customersData
+                    .filter((customer: any) => customer.id)
+                    .map((customer: any) => ({
+                        id: customer.id,
+                        name: customer.name,
+                        phone: customer.phone,
+                        email: customer.email || '',
+                        address: customer.address || '',
+                        notes: customer.notes || '',
+                        preferences: customer.preferences || [],
+                        createdAt: customer.createdAt,
+                        updatedAt: customer.updatedAt
+                    }))
+                    .sort((a: Customer, b: Customer) => a.name.localeCompare(b.name))
+
+                // Process and sort dishes
+                const processedDishes = dishesData
+                    .filter((dish: any) => dish.id && dish.isAvailable)
+                    .map((dish: any) => ({
+                        id: dish.id,
+                        name: dish.name,
+                        description: dish.description || '',
+                        price: Number(dish.price),
+                        category: dish.category?.toLowerCase() || 'main',
+                        isAvailable: dish.isAvailable,
+                        createdAt: dish.createdAt,
+                        updatedAt: dish.updatedAt
+                    }))
+                    .sort((a: Dish, b: Dish) => a.name.localeCompare(b.name))
+
+                setCustomers(processedCustomers)
+                setDishes(processedDishes)
+            } catch (err) {
+                console.error('Error fetching data:', err)
+                setError(err instanceof Error ? err.message : 'Failed to load data')
+            } finally {
+                setIsLoading(false)
+            }
+        }
+
+        fetchData()
+    }, [])
+
+    if (isLoading) {
+        return (
+            <div className="space-y-6">
+                {/* Breadcrumb */}
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Link href="/dashboard" className="hover:text-foreground">
+                        לוח בקרה
+                    </Link>
+                    <ChevronRight className="h-4 w-4" />
+                    <Link href="/orders" className="hover:text-foreground">
+                        הזמנות
+                    </Link>
+                    <ChevronRight className="h-4 w-4" />
+                    <span className="text-foreground">הזמנה חדשה</span>
+                </div>
+
+                {/* Page Title */}
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">יצירת הזמנה חדשה</h1>
+                    <p className="text-muted-foreground">
+                        מלא את הפרטים ליצירת הזמנה חדשה. ניתן להזמין למשלוח בימי שישי בלבד.
+                    </p>
+                </div>
+
+                <LoadingSkeleton />
+            </div>
+        )
+    }
+
+    if (error) {
+        return (
+            <div className="space-y-6">
+                {/* Breadcrumb */}
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Link href="/dashboard" className="hover:text-foreground">
+                        לוח בקרה
+                    </Link>
+                    <ChevronRight className="h-4 w-4" />
+                    <Link href="/orders" className="hover:text-foreground">
+                        הזמנות
+                    </Link>
+                    <ChevronRight className="h-4 w-4" />
+                    <span className="text-foreground">הזמנה חדשה</span>
+                </div>
+
+                <Card className="border-red-200 bg-red-50">
+                    <CardContent className="p-6">
+                        <div className="flex items-center gap-4">
+                            <AlertTriangle className="h-6 w-6 text-red-600" />
+                            <div>
+                                <h3 className="font-semibold text-red-800">שגיאה בטעינת הנתונים</h3>
+                                <p className="text-sm text-red-700 mt-1">{error}</p>
+                                <Button
+                                    onClick={() => window.location.reload()}
+                                    className="mt-3"
+                                    variant="outline"
+                                >
+                                    נסה שוב
+                                </Button>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        )
+    }
 
     return (
         <div className="space-y-6">
@@ -119,7 +213,7 @@ export default async function NewOrderPage() {
                                 <p className="text-sm text-orange-700 mt-1">
                                     יש להוסיף לקוחות למערכת לפני יצירת הזמנה.
                                 </p>
-                                <Link href="/customers/new">
+                                <Link href="/customers/new?redirect=orders">
                                     <Button className="mt-3" variant="outline">
                                         הוסף לקוח חדש
                                     </Button>
@@ -131,9 +225,7 @@ export default async function NewOrderPage() {
             )}
 
             {/* Order Form */}
-            <Suspense fallback={<LoadingSkeleton />}>
-                <OrderForm customers={customers} dishes={dishes} />
-            </Suspense>
+            <OrderForm customers={customers} dishes={dishes} />
         </div>
     )
 }

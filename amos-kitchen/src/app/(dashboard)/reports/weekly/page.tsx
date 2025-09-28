@@ -16,6 +16,7 @@ import { LoadingSpinner } from '@/components/shared/loading-spinner'
 import { DatePicker } from '@/components/shared/date-picker'
 import { useToast } from '@/lib/hooks/use-toast'
 import { useRouter } from 'next/navigation'
+import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
 
 interface WeeklyReport {
     weekOf: string
@@ -45,12 +46,6 @@ interface WeeklyReport {
         totalSpent: number
         favoritesDishes: Array<{ dish: string; count: number }>
     }>
-    ingredientRequirements: Array<{
-        ingredient: any
-        totalQuantity: number
-        unit: string
-        dishes: string[]
-    }>
     orders: any[]
 }
 
@@ -69,7 +64,7 @@ export default function WeeklyReportPage() {
     const fetchReport = async () => {
         try {
             setLoading(true)
-            const response = await fetch(`/api/reports/weekly-summary?date=${selectedDate.toISOString()}`)
+            const response = await fetchWithAuth(`/api/reports/weekly-summary?date=${selectedDate.toISOString()}`)
 
             if (!response.ok) throw new Error('Failed to fetch report')
 

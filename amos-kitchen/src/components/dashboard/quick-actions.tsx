@@ -33,17 +33,17 @@ export function QuickActions() {
             color: 'text-green-600'
         },
         {
-            label: 'רשימת קניות',
-            icon: FileText,
-            href: '/reports/shopping-list',
-            description: 'צור רשימת קניות',
-            color: 'text-purple-600'
-        },
-        {
             label: 'דוח שבועי',
             icon: FileText,
             href: '/reports/weekly',
             description: 'צפה בדוח השבועי',
+            color: 'text-purple-600'
+        },
+        {
+            label: 'ניתוח לקוחות',
+            icon: FileText,
+            href: '/reports/analytics',
+            description: 'צפה בניתוח לקוחות',
             color: 'text-orange-600'
         }
     ]

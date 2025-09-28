@@ -2,6 +2,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
 import { Check, Clock, Package, AlertTriangle, RefreshCw, Info, CheckSquare, Square } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -61,7 +62,7 @@ export function KitchenDashboard({ initialOrders = [] }: KitchenDashboardProps) 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true)
     try {
-      const response = await fetch('/api/orders/today')
+      const response = await fetchWithAuth('/api/orders/today')
       if (!response.ok) {
         const error = await response.json()
         throw new Error(error.message || 'Failed to fetch orders')
@@ -105,7 +106,7 @@ export function KitchenDashboard({ initialOrders = [] }: KitchenDashboardProps) 
 
       const mappedStatus = statusMap[newStatus] || newStatus.toLowerCase()
 
-      const response = await fetch(`/api/orders/${orderId}`, {
+      const response = await fetchWithAuth(`/api/orders/${orderId}`, {
         method: 'PATCH',  // Changed from PUT to PATCH
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: mappedStatus })  // Send lowercase status

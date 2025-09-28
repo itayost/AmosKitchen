@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
 import {
     ArrowRight,
     Edit,
@@ -50,7 +51,7 @@ export default function DishDetailsPage() {
         try {
             setLoading(true)
             console.log('Fetching dish details for ID:', dishId)
-            const response = await fetch(`/api/dishes/${dishId}`)
+            const response = await fetchWithAuth(`/api/dishes/${dishId}`)
             console.log('Response status:', response.status)
 
             if (!response.ok) {

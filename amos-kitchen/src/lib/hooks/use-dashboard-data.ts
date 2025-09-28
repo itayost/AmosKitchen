@@ -1,5 +1,6 @@
 // lib/hooks/use-dashboard-data.ts
 import { useState, useEffect, useCallback } from 'react';
+import { fetchWithAuth } from '@/lib/api/fetch-with-auth';
 
 interface DashboardData {
   stats: {
@@ -33,7 +34,7 @@ export function useDashboardData() {
         setIsLoading(true);
       }
 
-      const response = await fetch('/api/dashboard');
+      const response = await fetchWithAuth('/api/dashboard');
       
       if (!response.ok) {
         throw new Error('Failed to fetch dashboard data');

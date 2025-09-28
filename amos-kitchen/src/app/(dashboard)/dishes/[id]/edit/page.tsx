@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowRight, Save, Loader2 } from 'lucide-react'
+import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -67,7 +68,7 @@ export default function EditDishPage() {
 
     const fetchDish = async () => {
         try {
-            const response = await fetch(`/api/dishes/${dishId}`)
+            const response = await fetchWithAuth(`/api/dishes/${dishId}`)
             if (!response.ok) throw new Error('Failed to fetch dish')
 
             const data = await response.json()
@@ -119,7 +120,7 @@ export default function EditDishPage() {
 
         setSaving(true)
         try {
-            const response = await fetch(`/api/dishes/${dishId}`, {
+            const response = await fetchWithAuth(`/api/dishes/${dishId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

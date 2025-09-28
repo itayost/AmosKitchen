@@ -2,6 +2,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -240,7 +241,7 @@ export function OrderForm({ customers = [], dishes = [] }: OrderFormProps) {
                 }
             })
 
-            const response = await fetch('/api/orders', {
+            const response = await fetchWithAuth('/api/orders', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

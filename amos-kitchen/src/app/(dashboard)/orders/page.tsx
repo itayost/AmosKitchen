@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react'
 import { OrderFilters } from '@/components/orders/order-filters'
 import { OrderList } from '@/components/orders/order-list'
 import { Button } from '@/components/ui/button'
+import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Download, Plus } from 'lucide-react'
 import { useOrders } from '@/lib/hooks/use-orders'
@@ -25,7 +26,7 @@ export default function OrdersPage() {
 
     const handleExport = async () => {
         try {
-            const response = await fetch(`/api/orders/export?${new URLSearchParams({
+            const response = await fetchWithAuth(`/api/orders/export?${new URLSearchParams({
                 search: filters.search,
                 status: filters.status,
                 dateRange: filters.dateRange

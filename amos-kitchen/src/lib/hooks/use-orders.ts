@@ -1,5 +1,6 @@
 // lib/hooks/use-orders.ts
 import { useState, useEffect, useCallback } from 'react'
+import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
 import type { Order, OrderFilters } from '@/lib/types/database'
 
 interface UseOrdersResult {
@@ -31,7 +32,7 @@ export function useOrders(filters: OrderFilters): UseOrdersResult {
             })
 
             console.log('Calling API:', `/api/orders?${params}`)
-            const response = await fetch(`/api/orders?${params}`)
+            const response = await fetchWithAuth(`/api/orders?${params}`)
 
             if (!response.ok) {
                 const errorData = await response.text()
@@ -80,7 +81,7 @@ export function useOrder(orderId: string) {
             setIsLoading(true)
             setError(null)
 
-            const response = await fetch(`/api/orders/${orderId}`)
+            const response = await fetchWithAuth(`/api/orders/${orderId}`)
 
             if (!response.ok) {
                 throw new Error('Failed to fetch order')
@@ -118,7 +119,7 @@ export function useOrderMutations() {
             setIsLoading(true)
             setError(null)
 
-            const response = await fetch('/api/orders', {
+            const response = await fetchWithAuth('/api/orders', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(orderData)
@@ -142,7 +143,7 @@ export function useOrderMutations() {
             setIsLoading(true)
             setError(null)
 
-            const response = await fetch(`/api/orders/${orderId}`, {
+            const response = await fetchWithAuth(`/api/orders/${orderId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updates)
@@ -166,7 +167,7 @@ export function useOrderMutations() {
             setIsLoading(true)
             setError(null)
 
-            const response = await fetch(`/api/orders/${orderId}`, {
+            const response = await fetchWithAuth(`/api/orders/${orderId}`, {
                 method: 'DELETE'
             })
 

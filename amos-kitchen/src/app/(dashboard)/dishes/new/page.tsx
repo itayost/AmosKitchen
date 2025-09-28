@@ -2,6 +2,7 @@
 'use client'
 
 import { useState } from 'react'
+import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, Save, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -84,7 +85,7 @@ export default function NewDishPage() {
 
         setSaving(true)
         try {
-            const response = await fetch('/api/dishes', {
+            const response = await fetchWithAuth('/api/dishes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

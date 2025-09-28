@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowRight, Save, Loader2, Plus, Trash2 } from 'lucide-react';
+import { fetchWithAuth } from '@/lib/api/fetch-with-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -62,7 +63,7 @@ export default function EditOrderPage() {
 
     const fetchOrder = async () => {
         try {
-            const response = await fetch(`/api/orders/${params.id}`);
+            const response = await fetchWithAuth(`/api/orders/${params.id}`);
             if (!response.ok) throw new Error('Failed to fetch order');
             const data = await response.json();
 
@@ -92,7 +93,7 @@ export default function EditOrderPage() {
 
     const fetchDishes = async () => {
         try {
-            const response = await fetch('/api/dishes?available=true');
+            const response = await fetchWithAuth('/api/dishes?available=true');
             if (!response.ok) throw new Error('Failed to fetch dishes');
             const data = await response.json();
             setAvailableDishes(data);
@@ -148,7 +149,7 @@ export default function EditOrderPage() {
                 items: items
             };
 
-            const response = await fetch(`/api/orders/${params.id}`, {
+            const response = await fetchWithAuth(`/api/orders/${params.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(requestBody),

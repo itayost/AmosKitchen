@@ -2,6 +2,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
 import { format } from 'date-fns'
 import { he } from 'date-fns/locale'
 import {
@@ -77,7 +78,7 @@ export function DashboardContent() {
 
   const fetchDashboardData = async () => {
     try {
-      const response = await fetch('/api/dashboard')
+      const response = await fetchWithAuth('/api/dashboard')
       if (!response.ok) throw new Error('Failed to fetch dashboard data')
 
       const dashboardData = await response.json()

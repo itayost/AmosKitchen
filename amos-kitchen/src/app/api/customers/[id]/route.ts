@@ -15,6 +15,7 @@ import {
 import { getOrdersByCustomer } from '@/lib/firebase/dao/orders'
 import { getDishesByIds } from '@/lib/firebase/dao/dishes'
 import { verifyIdToken } from '@/lib/firebase/admin'
+import type { Order } from '@/lib/types/firestore'
 
 // Force this route to be dynamically rendered
 export const dynamic = 'force-dynamic'
@@ -52,8 +53,14 @@ export async function GET(
         // Get customer preferences
         const preferences = await getCustomerPreferences(params.id)
 
-        // Get customer orders
-        const orders = await getOrdersByCustomer(params.id)
+        // Get customer orders with error handling
+        let orders: Order[] = []
+        try {
+            orders = await getOrdersByCustomer(params.id)
+        } catch (orderError) {
+            console.error('Error fetching customer orders:', orderError)
+            // Continue with empty orders array if query fails
+        }
 
         // Get all unique dish IDs from orders
         const dishIds = new Set<string>()

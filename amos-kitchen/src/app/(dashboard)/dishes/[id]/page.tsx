@@ -227,7 +227,7 @@ export default function DishDetailsPage() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            {dish.orderItems.length > 0 ? (
+                            {dish.orderItems && dish.orderItems.length > 0 ? (
                                 <Table>
                                     <TableHeader>
                                         <TableRow>

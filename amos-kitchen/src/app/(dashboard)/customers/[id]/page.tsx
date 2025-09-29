@@ -87,14 +87,14 @@ export default function CustomerProfilePage() {
     if (error) return <div className="text-center text-red-600">שגיאה: {error}</div>
     if (!customer) return <div className="text-center">לקוח לא נמצא</div>
 
-    const orderCount = customer.orders.length
-    const totalSpent = customer.orders.reduce((sum, order) => sum + Number(order.totalAmount), 0)
-    const lastOrder = customer.orders[0]
+    const orderCount = customer.orders?.length || 0
+    const totalSpent = customer.orders?.reduce((sum, order) => sum + Number(order.totalAmount), 0) || 0
+    const lastOrder = customer.orders?.[0] || null
 
     // Calculate favorite dishes
     const dishStats = new Map<string, DishStats>()
-    customer.orders.forEach(order => {
-        order.orderItems.forEach(item => {
+    customer.orders?.forEach(order => {
+        order.orderItems?.forEach(item => {
             const existing = dishStats.get(item.dishId) || {
                 dishId: item.dishId,
                 dishName: item.dish.name,
@@ -317,7 +317,7 @@ export default function CustomerProfilePage() {
                 </TabsList>
 
                 <TabsContent value="orders" className="space-y-4">
-                    {customer.orders.length === 0 ? (
+                    {!customer.orders || customer.orders.length === 0 ? (
                         <Card>
                             <CardContent className="text-center py-8">
                                 <ShoppingCart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />

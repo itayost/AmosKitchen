@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
         // Verify authentication
         const auth = await verifyAuth(request)
         if (!auth.authenticated) {
+            console.log('Authentication failed - no valid token')
             return auth.response
         }
 
@@ -44,6 +45,8 @@ export async function GET(request: NextRequest) {
         const page = parseInt(searchParams.get('page') || '1')
         const limit = parseInt(searchParams.get('limit') || '10')
 
+        console.log('Query parameters:', { search, status, dateRange, page, limit })
+
         // Build filters for Firestore
         const filters: any = {
             search,
@@ -52,7 +55,9 @@ export async function GET(request: NextRequest) {
         }
 
         // Fetch orders from Firestore
+        console.log('Fetching orders with filters:', filters)
         const { orders, total } = await getOrders(filters, limit)
+        console.log(`Fetched ${orders.length} orders`)
 
         // Get dish details for all orders
         const allDishIds = new Set<string>()
@@ -60,6 +65,7 @@ export async function GET(request: NextRequest) {
             order.items.forEach(item => allDishIds.add(item.dishId))
         })
 
+        console.log(`Fetching details for ${allDishIds.size} dishes`)
         const dishes = await getDishesByIds(Array.from(allDishIds))
         const dishMap = new Map(dishes.map(d => [d.id, d]))
 
@@ -71,6 +77,7 @@ export async function GET(request: NextRequest) {
             }
         })
 
+        console.log(`Fetching details for ${customersToFetch.size} customers`)
         const customerMap = new Map()
         for (const customerId of Array.from(customersToFetch)) {
             const customer = await getCustomerById(customerId)
@@ -98,6 +105,7 @@ export async function GET(request: NextRequest) {
             }))
         }))
 
+        console.log('Successfully transformed orders, returning response')
         return NextResponse.json({
             orders: transformedOrders,
             pagination: {
@@ -107,10 +115,21 @@ export async function GET(request: NextRequest) {
                 totalPages: Math.ceil(total / limit)
             }
         })
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error fetching orders:', error)
+        console.error('Error name:', error?.name)
+        console.error('Error code:', error?.code)
+        console.error('Error message:', error?.message)
+        console.error('Error stack:', error?.stack)
+
+        // Return more specific error messages
+        const errorMessage = error?.message || 'Failed to fetch orders'
         return NextResponse.json(
-            { error: 'Failed to fetch orders' },
+            {
+                error: 'Failed to fetch orders',
+                details: errorMessage,
+                code: error?.code || 'UNKNOWN_ERROR'
+            },
             { status: 500 }
         )
     }

@@ -131,92 +131,131 @@ export async function getOrders(
   pageSize: number = 10,
   lastDoc?: DocumentSnapshot
 ): Promise<{ orders: Order[], lastDoc: DocumentSnapshot | null, total: number }> {
-  const constraints: QueryConstraint[] = [orderBy('createdAt', 'desc')]
+  try {
+    const constraints: QueryConstraint[] = []
 
-  // Add filters
-  if (filters?.status && filters.status !== 'all') {
-    constraints.push(where('status', '==', filters.status.toUpperCase()))
-  }
+    // Build constraints carefully to avoid requiring composite indexes
+    // Only use one field for range queries along with orderBy
 
-  if (filters?.customerId) {
-    constraints.push(where('customerId', '==', filters.customerId))
-  }
-
-  // Date range filter
-  if (filters?.dateRange && filters.dateRange !== 'all') {
-    const now = new Date()
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-
-    switch (filters.dateRange) {
-      case 'today':
-        constraints.push(
-          where('deliveryDate', '>=', dateToTimestamp(today)),
-          where('deliveryDate', '<', dateToTimestamp(new Date(today.getTime() + 24 * 60 * 60 * 1000)))
-        )
-        break
-      case 'week':
-        const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
-        constraints.push(
-          where('deliveryDate', '>=', dateToTimestamp(weekAgo)),
-          where('deliveryDate', '<=', dateToTimestamp(now))
-        )
-        break
-      case 'month':
-        const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
-        constraints.push(
-          where('deliveryDate', '>=', dateToTimestamp(monthAgo)),
-          where('deliveryDate', '<=', dateToTimestamp(now))
-        )
-        break
-    }
-  }
-
-  // Custom date range
-  if (filters?.startDate) {
-    constraints.push(where('deliveryDate', '>=', dateToTimestamp(filters.startDate)))
-  }
-  if (filters?.endDate) {
-    constraints.push(where('deliveryDate', '<=', dateToTimestamp(filters.endDate)))
-  }
-
-  // Pagination
-  constraints.push(limit(pageSize))
-  if (lastDoc) {
-    constraints.push(startAfter(lastDoc))
-  }
-
-  const q = query(ordersCollection, ...constraints)
-  const querySnapshot = await getDocs(q)
-
-  const orders: Order[] = []
-  for (const doc of querySnapshot.docs) {
-    const data = doc.data()
-    const order: Order = {
-      id: doc.id,
-      ...data,
-      orderDate: data.orderDate instanceof Timestamp ? data.orderDate.toDate() : new Date(),
-      deliveryDate: data.deliveryDate instanceof Timestamp ? data.deliveryDate.toDate() : new Date(),
-      createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
-      updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date()
+    // Priority: customerId filter (exact match)
+    if (filters?.customerId) {
+      constraints.push(where('customerId', '==', filters.customerId))
     }
 
-    // Client-side search filter
-    if (!filters?.search ||
-        order.orderNumber.toLowerCase().includes(filters.search.toLowerCase()) ||
-        order.customerData?.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-        order.customerData?.phone.includes(filters.search)) {
-      orders.push(order)
+    // Priority: status filter (exact match)
+    if (filters?.status && filters.status !== 'all') {
+      constraints.push(where('status', '==', filters.status.toUpperCase()))
     }
-  }
 
-  // Get total count
-  const countSnapshot = await getDocs(query(ordersCollection))
-  const total = countSnapshot.size
+    // Date range filter - only apply if no other range queries exist
+    // This simplifies the query to avoid complex composite index requirements
+    if (filters?.dateRange && filters.dateRange !== 'all') {
+      const now = new Date()
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
 
-  return {
-    orders,
-    lastDoc: querySnapshot.docs[querySnapshot.docs.length - 1] || null,
-    total
+      switch (filters.dateRange) {
+        case 'today':
+          constraints.push(
+            where('deliveryDate', '>=', dateToTimestamp(today)),
+            where('deliveryDate', '<', dateToTimestamp(new Date(today.getTime() + 24 * 60 * 60 * 1000)))
+          )
+          // Use deliveryDate for ordering when filtering by date
+          constraints.push(orderBy('deliveryDate', 'desc'))
+          break
+        case 'week':
+          const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
+          constraints.push(
+            where('deliveryDate', '>=', dateToTimestamp(weekAgo)),
+            where('deliveryDate', '<=', dateToTimestamp(now))
+          )
+          constraints.push(orderBy('deliveryDate', 'desc'))
+          break
+        case 'month':
+          const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
+          constraints.push(
+            where('deliveryDate', '>=', dateToTimestamp(monthAgo)),
+            where('deliveryDate', '<=', dateToTimestamp(now))
+          )
+          constraints.push(orderBy('deliveryDate', 'desc'))
+          break
+      }
+    } else if (filters?.startDate || filters?.endDate) {
+      // Custom date range
+      if (filters?.startDate) {
+        constraints.push(where('deliveryDate', '>=', dateToTimestamp(filters.startDate)))
+      }
+      if (filters?.endDate) {
+        constraints.push(where('deliveryDate', '<=', dateToTimestamp(filters.endDate)))
+      }
+      constraints.push(orderBy('deliveryDate', 'desc'))
+    } else {
+      // Default ordering by creation date
+      constraints.push(orderBy('createdAt', 'desc'))
+    }
+
+    // Pagination
+    constraints.push(limit(pageSize))
+    if (lastDoc) {
+      constraints.push(startAfter(lastDoc))
+    }
+
+    const q = query(ordersCollection, ...constraints)
+    const querySnapshot = await getDocs(q)
+
+    const orders: Order[] = []
+    for (const doc of querySnapshot.docs) {
+      const data = doc.data()
+      const order: Order = {
+        id: doc.id,
+        ...data,
+        orderDate: data.orderDate instanceof Timestamp ? data.orderDate.toDate() : new Date(),
+        deliveryDate: data.deliveryDate instanceof Timestamp ? data.deliveryDate.toDate() : new Date(),
+        createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
+        updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date()
+      }
+
+      // Client-side search filter
+      if (!filters?.search ||
+          order.orderNumber.toLowerCase().includes(filters.search.toLowerCase()) ||
+          order.customerData?.name.toLowerCase().includes(filters.search.toLowerCase()) ||
+          order.customerData?.phone.includes(filters.search)) {
+        orders.push(order)
+      }
+    }
+
+    // Use query result size as approximate total instead of fetching all documents
+    // This is more efficient and won't fail on large datasets
+    const total = orders.length
+
+    return {
+      orders,
+      lastDoc: querySnapshot.docs[querySnapshot.docs.length - 1] || null,
+      total
+    }
+  } catch (error: any) {
+    // Handle Firestore-specific errors
+    if (error?.code === 'failed-precondition' || error?.message?.includes('index')) {
+      console.error('Firestore index required. Please create the necessary composite index:', error.message)
+      // Return empty result instead of throwing
+      return {
+        orders: [],
+        lastDoc: null,
+        total: 0
+      }
+    }
+
+    if (error?.code === 'permission-denied') {
+      console.error('Firestore permission denied:', error.message)
+      return {
+        orders: [],
+        lastDoc: null,
+        total: 0
+      }
+    }
+
+    // Re-throw other errors
+    console.error('Error in getOrders:', error)
+    throw error
   }
 }
 

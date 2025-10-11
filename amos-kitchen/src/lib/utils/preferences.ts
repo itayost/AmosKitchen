@@ -83,7 +83,11 @@ export const COMMON_PREFERENCES = {
 }
 
 // Helper functions
-export function getPreferenceConfig(type: PreferenceType): PreferenceConfig {
+export function getPreferenceConfig(type: PreferenceType): PreferenceConfig | null {
+    if (!type || !PREFERENCE_CONFIGS[type]) {
+        console.warn('Invalid preference type in getPreferenceConfig:', type)
+        return null
+    }
     return PREFERENCE_CONFIGS[type]
 }
 
@@ -96,7 +100,12 @@ export function groupPreferencesByType(preferences: CustomerPreference[]): Recor
     } as Record<PreferenceType, CustomerPreference[]>
 
     preferences.forEach(pref => {
-        grouped[pref.type].push(pref)
+        // Validate that the preference type exists in our grouped object
+        if (pref.type && grouped[pref.type]) {
+            grouped[pref.type].push(pref)
+        } else {
+            console.warn('Invalid preference type in groupPreferencesByType:', pref)
+        }
     })
 
     return grouped

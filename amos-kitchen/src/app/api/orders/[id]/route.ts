@@ -72,6 +72,14 @@ export async function GET(
     }
 }
 
+// PATCH endpoint (alias for PUT to support both methods)
+export async function PATCH(
+    request: NextRequest,
+    { params }: { params: { id: string } }
+) {
+    return PUT(request, { params })
+}
+
 export async function PUT(
     request: NextRequest,
     { params }: { params: { id: string } }

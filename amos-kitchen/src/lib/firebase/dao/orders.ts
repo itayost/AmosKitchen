@@ -305,8 +305,6 @@ export async function getOrdersForNextDeliveryDay(): Promise<{ orders: Order[], 
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    console.log('Looking for orders from date:', today.toISOString())
-
     // First, find the next delivery date that has orders (from today onwards)
     let q = query(
       ordersCollection,
@@ -319,7 +317,6 @@ export async function getOrdersForNextDeliveryDay(): Promise<{ orders: Order[], 
 
     // If no future orders, look for the most recent orders (for testing/demo purposes)
     if (firstOrderSnapshot.empty) {
-      console.log('No future orders found, looking for most recent orders...')
       q = query(
         ordersCollection,
         orderBy('deliveryDate', 'desc'),
@@ -329,7 +326,6 @@ export async function getOrdersForNextDeliveryDay(): Promise<{ orders: Order[], 
     }
 
     if (firstOrderSnapshot.empty) {
-      console.log('No orders found at all')
       return { orders: [], deliveryDate: null }
     }
 
@@ -339,15 +335,11 @@ export async function getOrdersForNextDeliveryDay(): Promise<{ orders: Order[], 
       ? firstOrderData.deliveryDate.toDate()
       : new Date(firstOrderData.deliveryDate) // Parse the date properly if it's not a Timestamp
 
-    console.log('Found next delivery date:', nextDeliveryDate.toISOString())
-
     // Set the date range for that specific day
     const startOfDay = new Date(nextDeliveryDate)
     startOfDay.setHours(0, 0, 0, 0)
     const endOfDay = new Date(startOfDay)
     endOfDay.setDate(endOfDay.getDate() + 1)
-
-    console.log('Fetching orders between:', startOfDay.toISOString(), 'and', endOfDay.toISOString())
 
     // Now get all orders for that delivery date
     const ordersQuery = query(
@@ -372,9 +364,7 @@ export async function getOrdersForNextDeliveryDay(): Promise<{ orders: Order[], 
       })
     })
 
-    console.log(`Found ${orders.length} orders for delivery date:`, startOfDay.toISOString())
-
-    return { orders, deliveryDate: startOfDay }
+    return { orders, deliveryDate: nextDeliveryDate }
   } catch (error: any) {
     // Suppress Firebase permission errors during build
     if (error?.code !== 'permission-denied') {

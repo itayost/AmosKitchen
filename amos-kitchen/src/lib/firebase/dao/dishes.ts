@@ -34,12 +34,10 @@ export async function createDish(data: Omit<Dish, 'id' | 'createdAt' | 'updatedA
 // Get dish by ID
 export async function getDishById(id: string): Promise<Dish | null> {
   try {
-    console.log('Getting dish by ID from Firestore:', id)
     const docRef = getDishDoc(id)
     const docSnap = await getDoc(docRef)
 
     if (!docSnap.exists()) {
-      console.log('Dish document does not exist in Firestore:', id)
       return null
     }
 
@@ -52,7 +50,6 @@ export async function getDishById(id: string): Promise<Dish | null> {
       updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date()
     }
 
-    console.log('Dish data retrieved:', dishData)
     return dishData
   } catch (error) {
     console.error('Error getting dish from Firestore:', error)

@@ -31,17 +31,13 @@ import type { Customer, CustomerPreference, CustomerDoc, CustomerPreferenceDoc }
 // Create a new customer
 export async function createCustomer(data: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
   try {
-    console.log('Creating customer in Firestore with data:', data)
-
     const customerData: CustomerDoc = {
       ...data,
       createdAt: getServerTimestamp(),
       updatedAt: getServerTimestamp()
     }
 
-    console.log('Customer data with timestamps:', customerData)
     const docRef = await addDoc(customersCollection, customerData)
-    console.log('Customer document created:', docRef.id)
 
     return docRef.id
   } catch (error) {

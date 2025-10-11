@@ -376,7 +376,7 @@ export default function AnalyticsPage() {
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
-                                {data.topDishes.map((dish, index) => (
+                                {(data.topDishes || []).map((dish, index) => (
                                     <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
                                         <div>
                                             <p className="font-medium">{dish.name}</p>

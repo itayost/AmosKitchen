@@ -499,7 +499,7 @@ export default function AnalyticsPage() {
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-4">
-                                    {data.orderTrends.daily.map((day, index) => (
+                                    {(data.orderTrends?.daily || []).map((day, index) => (
                                         <div key={index} className="flex items-center justify-between p-2 hover:bg-muted rounded">
                                             <span className="text-sm">
                                                 {format(new Date(day.date), 'dd/MM', { locale: he })}

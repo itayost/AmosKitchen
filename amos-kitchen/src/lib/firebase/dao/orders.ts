@@ -84,8 +84,7 @@ export async function createOrder(
   // Add initial history entry
   await addOrderHistory(docRef.id, {
     action: 'CREATED',
-    details: { message: `הזמנה נוצרה עם ${data.items.length} פריטים` },
-    userId: null
+    details: { message: `הזמנה נוצרה עם ${data.items.length} פריטים` }
   })
 
   return docRef.id
@@ -450,10 +449,17 @@ export async function addOrderHistory(
 ): Promise<void> {
   try {
     console.log(`Adding order history for order ${orderId}:`, data)
+
+    // Build history data, conditionally including userId only if it's not null
     const historyData: OrderHistoryDoc = {
       ...data,
       orderId,
       createdAt: getServerTimestamp()
+    }
+
+    // Only include userId if it's not null/undefined
+    if (data.userId !== null && data.userId !== undefined) {
+      historyData.userId = data.userId
     }
 
     await addDoc(orderHistoryCollection(orderId), historyData)

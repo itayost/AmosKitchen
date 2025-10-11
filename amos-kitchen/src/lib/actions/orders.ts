@@ -121,8 +121,7 @@ export async function updateOrderStatus(orderId: string, newStatus: OrderStatus)
                 newStatus: newStatus,
                 changedBy: 'Kitchen Staff',
                 timestamp: new Date().toISOString()
-            },
-            userId: null
+            }
         });
 
         revalidatePath('/kitchen');
@@ -152,8 +151,7 @@ export async function bulkUpdateOrderStatus(orderIds: string[], newStatus: Order
                     bulkUpdate: true,
                     totalOrders: orderIds.length,
                     timestamp: new Date().toISOString()
-                },
-                userId: null
+                }
             });
         });
 

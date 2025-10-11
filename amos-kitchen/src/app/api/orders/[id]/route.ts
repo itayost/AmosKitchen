@@ -129,8 +129,7 @@ export async function PUT(
                     message: `סטטוס שונה מ-${existingOrder.status} ל-${validatedData.status}`,
                     previousStatus: existingOrder.status,
                     newStatus: validatedData.status
-                },
-                userId: null
+                }
             })
         }
 
@@ -279,8 +278,7 @@ export async function PATCH(
                 message: `סטטוס שונה מ-${normalizedExistingStatus} ל-${status}`,
                 previousStatus: normalizedExistingStatus,
                 newStatus: status
-            },
-            userId: null
+            }
         })
         console.log('Order history added successfully')
 

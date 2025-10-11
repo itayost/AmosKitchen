@@ -71,7 +71,7 @@ export async function createOrder(
     customerData: {
       name: customer.name,
       phone: customer.phone,
-      email: customer.email || undefined
+      ...(customer.email && { email: customer.email })
     },
     orderDate: data.orderDate instanceof Date ? dateToTimestamp(data.orderDate) : data.orderDate,
     deliveryDate: data.deliveryDate instanceof Date ? dateToTimestamp(data.deliveryDate) : data.deliveryDate,
@@ -117,7 +117,7 @@ export async function getOrderById(id: string): Promise<Order | null> {
       order.customerData = {
         name: customer.name,
         phone: customer.phone,
-        email: customer.email || undefined
+        ...(customer.email && { email: customer.email })
       }
     }
   }

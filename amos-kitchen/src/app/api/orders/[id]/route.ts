@@ -72,14 +72,6 @@ export async function GET(
     }
 }
 
-// PATCH endpoint (alias for PUT to support both methods)
-export async function PATCH(
-    request: NextRequest,
-    { params }: { params: { id: string } }
-) {
-    return PUT(request, { params })
-}
-
 export async function PUT(
     request: NextRequest,
     { params }: { params: { id: string } }
@@ -231,6 +223,12 @@ export async function PATCH(
 ) {
     try {
         const body = await request.json()
+
+        // Convert status to uppercase if present (to handle lowercase 'new' from Firebase)
+        if (body.status && typeof body.status === 'string') {
+            body.status = body.status.toUpperCase()
+        }
+
         const { status } = body
 
         // Get existing order first
@@ -242,12 +240,13 @@ export async function PATCH(
         // Update status
         await updateOrderStatus(params.id, status)
 
-        // Add to order history
+        // Add to order history (normalize existing status for proper comparison)
+        const normalizedExistingStatus = existingOrder.status?.toUpperCase() || existingOrder.status
         await addOrderHistory(params.id, {
             action: 'STATUS_CHANGED',
             details: {
-                message: `סטטוס שונה ל-${status}`,
-                previousStatus: existingOrder.status,
+                message: `סטטוס שונה מ-${normalizedExistingStatus} ל-${status}`,
+                previousStatus: normalizedExistingStatus,
                 newStatus: status
             },
             userId: null

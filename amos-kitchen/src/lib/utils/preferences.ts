@@ -103,7 +103,16 @@ export function groupPreferencesByType(preferences: CustomerPreference[]): Recor
 }
 
 export function sortPreferencesByPriority(preferences: CustomerPreference[]): CustomerPreference[] {
-    return [...preferences].sort((a, b) => {
+    // Filter out invalid preferences before sorting
+    const validPreferences = preferences.filter(pref => {
+        const hasValidType = pref.type && PREFERENCE_CONFIGS[pref.type]
+        if (!hasValidType) {
+            console.warn('Invalid preference type in sortPreferencesByPriority:', pref)
+        }
+        return hasValidType
+    })
+
+    return [...validPreferences].sort((a, b) => {
         const priorityA = PREFERENCE_CONFIGS[a.type].priority
         const priorityB = PREFERENCE_CONFIGS[b.type].priority
         return priorityA - priorityB

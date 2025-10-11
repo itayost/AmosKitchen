@@ -15,20 +15,33 @@ interface CustomerPreferenceCardProps {
     className?: string
 }
 
-export function CustomerPreferenceCard({ 
-    customer, 
+export function CustomerPreferenceCard({
+    customer,
     variant = 'default',
     showTitle = true,
-    className 
+    className
 }: CustomerPreferenceCardProps) {
     if (!customer.preferences || customer.preferences.length === 0) {
         return null
     }
 
-    const criticalPrefs = customer.preferences.filter(
+    // Filter out preferences with invalid types
+    const validPreferences = customer.preferences.filter(p => {
+        const hasValidType = p.type && PREFERENCE_CONFIGS[p.type]
+        if (!hasValidType) {
+            console.warn('Invalid preference type in CustomerPreferenceCard:', p)
+        }
+        return hasValidType
+    })
+
+    if (validPreferences.length === 0) {
+        return null
+    }
+
+    const criticalPrefs = validPreferences.filter(
         p => p.type === 'ALLERGY' || p.type === 'MEDICAL'
     )
-    const regularPrefs = customer.preferences.filter(
+    const regularPrefs = validPreferences.filter(
         p => p.type !== 'ALLERGY' && p.type !== 'MEDICAL'
     )
 
@@ -38,8 +51,8 @@ export function CustomerPreferenceCard({
                 {criticalPrefs.length > 0 && (
                     <AlertTriangle className="h-4 w-4 text-destructive" />
                 )}
-                <PreferenceBadgeGroup 
-                    preferences={customer.preferences}
+                <PreferenceBadgeGroup
+                    preferences={validPreferences}
                     maxVisible={3}
                     showIcon={true}
                 />
@@ -88,7 +101,7 @@ export function CustomerPreferenceCard({
                 {showTitle && (
                     <CardTitle className="text-base flex items-center justify-between">
                         <span>העדפות - {customer.name}</span>
-                        <Badge variant="outline">{customer.preferences.length}</Badge>
+                        <Badge variant="outline">{validPreferences.length}</Badge>
                     </CardTitle>
                 )}
             </CardHeader>

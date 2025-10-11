@@ -113,9 +113,15 @@ interface CriticalPreferenceAlertProps {
 }
 
 export function CriticalPreferenceAlert({ preferences, className }: CriticalPreferenceAlertProps) {
-    const criticalPrefs = preferences.filter(
-        pref => pref.type === 'ALLERGY' || pref.type === 'MEDICAL'
-    )
+    // Filter for critical preferences with valid types
+    const criticalPrefs = preferences.filter(pref => {
+        const isCritical = pref.type === 'ALLERGY' || pref.type === 'MEDICAL'
+        const hasValidConfig = pref.type && PREFERENCE_CONFIGS[pref.type]
+        if (isCritical && !hasValidConfig) {
+            console.warn('Invalid critical preference type in CriticalPreferenceAlert:', pref)
+        }
+        return isCritical && hasValidConfig
+    })
 
     if (criticalPrefs.length === 0) return null
 

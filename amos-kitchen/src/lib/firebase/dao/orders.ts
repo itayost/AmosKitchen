@@ -305,17 +305,31 @@ export async function getOrdersForNextDeliveryDay(): Promise<{ orders: Order[], 
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    // First, find the next delivery date that has orders
-    const q = query(
+    console.log('Looking for orders from date:', today.toISOString())
+
+    // First, find the next delivery date that has orders (from today onwards)
+    let q = query(
       ordersCollection,
       where('deliveryDate', '>=', dateToTimestamp(today)),
       orderBy('deliveryDate', 'asc'),
       limit(1)
     )
 
-    const firstOrderSnapshot = await getDocs(q)
+    let firstOrderSnapshot = await getDocs(q)
+
+    // If no future orders, look for the most recent orders (for testing/demo purposes)
+    if (firstOrderSnapshot.empty) {
+      console.log('No future orders found, looking for most recent orders...')
+      q = query(
+        ordersCollection,
+        orderBy('deliveryDate', 'desc'),
+        limit(1)
+      )
+      firstOrderSnapshot = await getDocs(q)
+    }
 
     if (firstOrderSnapshot.empty) {
+      console.log('No orders found at all')
       return { orders: [], deliveryDate: null }
     }
 
@@ -323,13 +337,17 @@ export async function getOrdersForNextDeliveryDay(): Promise<{ orders: Order[], 
     const firstOrderData = firstOrderSnapshot.docs[0].data()
     const nextDeliveryDate = firstOrderData.deliveryDate instanceof Timestamp
       ? firstOrderData.deliveryDate.toDate()
-      : new Date()
+      : new Date(firstOrderData.deliveryDate) // Parse the date properly if it's not a Timestamp
+
+    console.log('Found next delivery date:', nextDeliveryDate.toISOString())
 
     // Set the date range for that specific day
     const startOfDay = new Date(nextDeliveryDate)
     startOfDay.setHours(0, 0, 0, 0)
     const endOfDay = new Date(startOfDay)
     endOfDay.setDate(endOfDay.getDate() + 1)
+
+    console.log('Fetching orders between:', startOfDay.toISOString(), 'and', endOfDay.toISOString())
 
     // Now get all orders for that delivery date
     const ordersQuery = query(
@@ -347,12 +365,14 @@ export async function getOrdersForNextDeliveryDay(): Promise<{ orders: Order[], 
       orders.push({
         id: doc.id,
         ...data,
-        orderDate: data.orderDate instanceof Timestamp ? data.orderDate.toDate() : new Date(),
-        deliveryDate: data.deliveryDate instanceof Timestamp ? data.deliveryDate.toDate() : new Date(),
-        createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
-        updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date()
+        orderDate: data.orderDate instanceof Timestamp ? data.orderDate.toDate() : new Date(data.orderDate),
+        deliveryDate: data.deliveryDate instanceof Timestamp ? data.deliveryDate.toDate() : new Date(data.deliveryDate),
+        createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt),
+        updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date(data.updatedAt)
       })
     })
+
+    console.log(`Found ${orders.length} orders for delivery date:`, startOfDay.toISOString())
 
     return { orders, deliveryDate: startOfDay }
   } catch (error: any) {

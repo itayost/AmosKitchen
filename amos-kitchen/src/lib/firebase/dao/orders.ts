@@ -299,6 +299,71 @@ export async function getTodayOrders(): Promise<Order[]> {
   }
 }
 
+// Get orders for the next/closest delivery day
+export async function getOrdersForNextDeliveryDay(): Promise<{ orders: Order[], deliveryDate: Date | null }> {
+  try {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    // First, find the next delivery date that has orders
+    const q = query(
+      ordersCollection,
+      where('deliveryDate', '>=', dateToTimestamp(today)),
+      orderBy('deliveryDate', 'asc'),
+      limit(1)
+    )
+
+    const firstOrderSnapshot = await getDocs(q)
+
+    if (firstOrderSnapshot.empty) {
+      return { orders: [], deliveryDate: null }
+    }
+
+    // Get the delivery date from the first order
+    const firstOrderData = firstOrderSnapshot.docs[0].data()
+    const nextDeliveryDate = firstOrderData.deliveryDate instanceof Timestamp
+      ? firstOrderData.deliveryDate.toDate()
+      : new Date()
+
+    // Set the date range for that specific day
+    const startOfDay = new Date(nextDeliveryDate)
+    startOfDay.setHours(0, 0, 0, 0)
+    const endOfDay = new Date(startOfDay)
+    endOfDay.setDate(endOfDay.getDate() + 1)
+
+    // Now get all orders for that delivery date
+    const ordersQuery = query(
+      ordersCollection,
+      where('deliveryDate', '>=', dateToTimestamp(startOfDay)),
+      where('deliveryDate', '<', dateToTimestamp(endOfDay)),
+      orderBy('deliveryDate', 'asc')
+    )
+
+    const ordersSnapshot = await getDocs(ordersQuery)
+    const orders: Order[] = []
+
+    ordersSnapshot.forEach((doc) => {
+      const data = doc.data()
+      orders.push({
+        id: doc.id,
+        ...data,
+        orderDate: data.orderDate instanceof Timestamp ? data.orderDate.toDate() : new Date(),
+        deliveryDate: data.deliveryDate instanceof Timestamp ? data.deliveryDate.toDate() : new Date(),
+        createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
+        updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date()
+      })
+    })
+
+    return { orders, deliveryDate: startOfDay }
+  } catch (error: any) {
+    // Suppress Firebase permission errors during build
+    if (error?.code !== 'permission-denied') {
+      console.error('Error in getOrdersForNextDeliveryDay:', error)
+    }
+    return { orders: [], deliveryDate: null }
+  }
+}
+
 // Update order
 export async function updateOrder(
   id: string,

@@ -52,7 +52,19 @@ export function BatchCookingView({ dishes, orders }: BatchCookingViewProps) {
       color: 'bg-green-50 border-green-200',
       badge: 'bg-green-100 text-green-800'
     },
+    appetizer: {
+      label: 'מנות ראשונות',
+      icon: <Salad className="h-5 w-5" />,
+      color: 'bg-green-50 border-green-200',
+      badge: 'bg-green-100 text-green-800'
+    },
     MAIN: {
+      label: 'מנות עיקריות',
+      icon: <Utensils className="h-5 w-5" />,
+      color: 'bg-red-50 border-red-200',
+      badge: 'bg-red-100 text-red-800'
+    },
+    main: {
       label: 'מנות עיקריות',
       icon: <Utensils className="h-5 w-5" />,
       color: 'bg-red-50 border-red-200',
@@ -64,13 +76,31 @@ export function BatchCookingView({ dishes, orders }: BatchCookingViewProps) {
       color: 'bg-blue-50 border-blue-200',
       badge: 'bg-blue-100 text-blue-800'
     },
+    side: {
+      label: 'תוספות',
+      icon: <ChefHat className="h-5 w-5" />,
+      color: 'bg-blue-50 border-blue-200',
+      badge: 'bg-blue-100 text-blue-800'
+    },
     DESSERT: {
       label: 'קינוחים',
       icon: <Cookie className="h-5 w-5" />,
       color: 'bg-purple-50 border-purple-200',
       badge: 'bg-purple-100 text-purple-800'
     },
+    dessert: {
+      label: 'קינוחים',
+      icon: <Cookie className="h-5 w-5" />,
+      color: 'bg-purple-50 border-purple-200',
+      badge: 'bg-purple-100 text-purple-800'
+    },
     BEVERAGE: {
+      label: 'משקאות',
+      icon: <Coffee className="h-5 w-5" />,
+      color: 'bg-yellow-50 border-yellow-200',
+      badge: 'bg-yellow-100 text-yellow-800'
+    },
+    beverage: {
       label: 'משקאות',
       icon: <Coffee className="h-5 w-5" />,
       color: 'bg-yellow-50 border-yellow-200',

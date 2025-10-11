@@ -1,9 +1,9 @@
 // src/components/kitchen/kitchen-dashboard.tsx
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
-import { Check, Clock, Package, AlertTriangle, RefreshCw, Info, CheckSquare, Square } from 'lucide-react'
+import { Check, Clock, Package, AlertTriangle, RefreshCw, Info, CheckSquare, Square, ClipboardList, ChefHat, Calendar } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -13,8 +13,10 @@ import { Separator } from '@/components/ui/separator'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useToast } from '@/lib/hooks/use-toast'
 import { CriticalPreferenceAlert, PreferenceBadgeGroup } from '@/components/customers/preference-badge'
+import { BatchCookingView } from '@/components/kitchen/batch-cooking-view'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
+import { he } from 'date-fns/locale'
 import type { Order, OrderStatus, Customer, CustomerPreference, OrderItem, Dish } from '@/lib/types/database'
 
 interface KitchenOrder extends Order {
@@ -28,6 +30,7 @@ interface KitchenOrder extends Order {
 
 interface KitchenDashboardProps {
   initialOrders?: KitchenOrder[]
+  deliveryDate?: Date | null
 }
 
 // Track completed dishes for preparing orders (UI state only)
@@ -37,7 +40,7 @@ interface PreparationProgress {
   }
 }
 
-export function KitchenDashboard({ initialOrders = [] }: KitchenDashboardProps) {
+export function KitchenDashboard({ initialOrders = [], deliveryDate }: KitchenDashboardProps) {
   // Normalize initial orders to ensure uppercase status
   const normalizedInitialOrders = initialOrders.map(order => ({
     ...order,
@@ -46,6 +49,7 @@ export function KitchenDashboard({ initialOrders = [] }: KitchenDashboardProps) 
 
   const [orders, setOrders] = useState<KitchenOrder[]>(normalizedInitialOrders)
   const [view, setView] = useState<'all' | 'preparing' | 'ready'>('all')
+  const [viewMode, setViewMode] = useState<'orders' | 'dishes'>('orders')
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const [preparationProgress, setPreparationProgress] = useState<PreparationProgress>({})
@@ -62,7 +66,7 @@ export function KitchenDashboard({ initialOrders = [] }: KitchenDashboardProps) 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true)
     try {
-      const response = await fetchWithAuth('/api/orders/today')
+      const response = await fetchWithAuth('/api/orders/next-delivery')
       if (!response.ok) {
         const error = await response.json()
         throw new Error(error.message || 'Failed to fetch orders')
@@ -70,7 +74,7 @@ export function KitchenDashboard({ initialOrders = [] }: KitchenDashboardProps) 
       const data = await response.json()
 
       // Ensure status format consistency
-      const normalizedOrders = data.map((order: any) => ({
+      const normalizedOrders = data.orders.map((order: any) => ({
         ...order,
         status: order.status.toUpperCase() // Ensure uppercase for display
       }))
@@ -227,22 +231,95 @@ export function KitchenDashboard({ initialOrders = [] }: KitchenDashboardProps) 
     return critical.map(p => `${p.type === 'ALLERGY' ? '🚨 אלרגיה' : '⚕️ רפואי'}: ${p.value}`).join(' | ')
   }
 
+  // Prepare data for dish view
+  const dishAggregation = useMemo(() => {
+    const dishMap = new Map<string, any>()
+
+    // Only include orders that are being prepared
+    const relevantOrders = orders.filter(order =>
+      ['CONFIRMED', 'PREPARING'].includes(order.status)
+    )
+
+    relevantOrders.forEach(order => {
+      order.orderItems.forEach(item => {
+        const dishId = item.dish.id || item.dishId
+        const dishName = item.dish.name
+
+        if (!dishMap.has(dishId)) {
+          dishMap.set(dishId, {
+            id: dishId,
+            name: dishName,
+            category: item.dish.category || 'MAIN',
+            totalQuantity: 0,
+            orderCount: 0,
+            orders: []
+          })
+        }
+
+        const dish = dishMap.get(dishId)
+        dish.totalQuantity += item.quantity
+        dish.orderCount += 1
+        dish.orders.push({
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          customerName: order.customer.name,
+          quantity: item.quantity,
+          notes: item.notes || order.notes
+        })
+      })
+    })
+
+    return Array.from(dishMap.values())
+  }, [orders])
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">לוח מטבח</h1>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-lg px-3 py-1">
-            {filteredOrders.length} הזמנות פעילות
-          </Badge>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">לוח מטבח</h1>
+            {deliveryDate && (
+              <div className="flex items-center gap-2 mt-2 text-lg text-muted-foreground">
+                <Calendar className="h-5 w-5" />
+                <span>הזמנות ליום {format(new Date(deliveryDate), 'EEEE, d בMMMM yyyy', { locale: he })}</span>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-lg px-3 py-1">
+              {filteredOrders.length} הזמנות פעילות
+            </Badge>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+            >
+              <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+            </Button>
+          </div>
+        </div>
+
+        {/* View Mode Toggle */}
+        <div className="flex items-center gap-2 bg-white p-1 rounded-lg border w-fit">
           <Button
-            variant="outline"
-            size="icon"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
+            variant={viewMode === 'orders' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setViewMode('orders')}
+            className="flex items-center gap-2"
           >
-            <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+            <ClipboardList className="h-4 w-4" />
+            תצוגת הזמנות
+          </Button>
+          <Button
+            variant={viewMode === 'dishes' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setViewMode('dishes')}
+            className="flex items-center gap-2"
+          >
+            <ChefHat className="h-4 w-4" />
+            תצוגת מנות
           </Button>
         </div>
       </div>
@@ -274,22 +351,32 @@ export function KitchenDashboard({ initialOrders = [] }: KitchenDashboardProps) 
         </Card>
       )}
 
-      {/* View Tabs */}
-      <Tabs value={view} onValueChange={(v) => setView(v as any)}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="all">
-            כל ההזמנות ({orders.filter(o => ['CONFIRMED', 'PREPARING', 'READY'].includes(o.status)).length})
-          </TabsTrigger>
-          <TabsTrigger value="preparing">
-            בהכנה ({orders.filter(o => o.status === 'PREPARING').length})
-          </TabsTrigger>
-          <TabsTrigger value="ready">
-            מוכן ({orders.filter(o => o.status === 'READY').length})
-          </TabsTrigger>
-        </TabsList>
+      {/* Content based on view mode */}
+      {viewMode === 'dishes' ? (
+        // Dish View
+        <BatchCookingView
+          dishes={dishAggregation}
+          orders={orders}
+        />
+      ) : (
+        // Order View
+        <>
+          {/* View Tabs */}
+          <Tabs value={view} onValueChange={(v) => setView(v as any)}>
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="all">
+                כל ההזמנות ({orders.filter(o => ['CONFIRMED', 'PREPARING', 'READY'].includes(o.status)).length})
+              </TabsTrigger>
+              <TabsTrigger value="preparing">
+                בהכנה ({orders.filter(o => o.status === 'PREPARING').length})
+              </TabsTrigger>
+              <TabsTrigger value="ready">
+                מוכן ({orders.filter(o => o.status === 'READY').length})
+              </TabsTrigger>
+            </TabsList>
 
-        <TabsContent value={view} className="mt-6">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <TabsContent value={view} className="mt-6">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {['CONFIRMED', 'PREPARING', 'READY'].map(status => (
               <div key={status} className="space-y-4">
                 <div className="flex items-center gap-2">
@@ -487,6 +574,8 @@ export function KitchenDashboard({ initialOrders = [] }: KitchenDashboardProps) 
           </div>
         </TabsContent>
       </Tabs>
+      </>
+      )}
     </div>
   )
 }

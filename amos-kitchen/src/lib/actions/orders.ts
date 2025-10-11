@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { getTodayOrders, updateOrderStatus as updateOrderFirestore, addOrderHistory } from '@/lib/firebase/dao/orders';
+import { getTodayOrders, getOrdersForNextDeliveryDay, updateOrderStatus as updateOrderFirestore, addOrderHistory } from '@/lib/firebase/dao/orders';
 import { getDishesByIds } from '@/lib/firebase/dao/dishes';
 import type { OrderStatus } from '@/lib/types/database';
 
@@ -54,6 +54,58 @@ export async function getOrdersForToday() {
             console.error('Error in getOrdersForToday:', error);
         }
         return [];
+    }
+}
+
+export async function getOrdersForNextDelivery() {
+    try {
+        // Get orders for the next delivery day from Firestore
+        const { orders, deliveryDate } = await getOrdersForNextDeliveryDay();
+
+        // Filter out cancelled orders
+        const activeOrders = orders.filter(order => order.status !== 'CANCELLED');
+
+        // Get all unique dish IDs
+        const dishIds = new Set<string>();
+        activeOrders.forEach(order => {
+            if (order.items) {
+                order.items.forEach(item => dishIds.add(item.dishId));
+            }
+        });
+
+        // Fetch dish details
+        const dishes = await getDishesByIds(Array.from(dishIds));
+        const dishMap = new Map(dishes.map(d => [d.id, d]));
+
+        // Transform orders to match expected format
+        const transformedOrders = activeOrders.map(order => ({
+            ...order,
+            customer: order.customerData || { name: 'Unknown', phone: '' },
+            orderItems: order.items?.map(item => ({
+                ...item,
+                dish: dishMap.get(item.dishId) || {
+                    name: item.dishName || 'Unknown Dish',
+                    category: 'MAIN'
+                }
+            })) || []
+        }));
+
+        // Sort by status and creation date
+        const statusOrder = ['NEW', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERED'];
+        transformedOrders.sort((a, b) => {
+            const statusDiff = statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status);
+            if (statusDiff !== 0) return statusDiff;
+            return a.createdAt < b.createdAt ? -1 : 1;
+        });
+
+        return { orders: transformedOrders, deliveryDate };
+    } catch (error) {
+        // Suppress Firebase permission errors during build
+        const isPermissionError = error && typeof error === 'object' && 'code' in error && error.code === 'permission-denied';
+        if (!isPermissionError) {
+            console.error('Error in getOrdersForNextDelivery:', error);
+        }
+        return { orders: [], deliveryDate: null };
     }
 }
 

@@ -239,9 +239,9 @@ export function KitchenDashboard({ initialOrders = [], deliveryDate }: KitchenDa
   const dishAggregation = useMemo(() => {
     const dishMap = new Map<string, any>()
 
-    // Only include orders that are being prepared
+    // Include all active orders (not delivered or cancelled)
     const relevantOrders = orders.filter(order =>
-      ['CONFIRMED', 'PREPARING'].includes(order.status)
+      ['NEW', 'CONFIRMED', 'PREPARING', 'READY'].includes(order.status)
     )
 
     relevantOrders.forEach(order => {

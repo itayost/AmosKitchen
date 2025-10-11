@@ -83,6 +83,12 @@ export async function PUT(
             return auth.response
         }
         const body = await request.json()
+
+        // Convert status to uppercase if present
+        if (body.status && typeof body.status === 'string') {
+            body.status = body.status.toUpperCase()
+        }
+
         const validatedData = updateOrderSchema.parse(body)
 
         // Check if order exists
@@ -114,8 +120,9 @@ export async function PUT(
         // Update order
         await updateOrder(params.id, updateData)
 
-        // Create history entry for status changes
-        if (validatedData.status && validatedData.status !== existingOrder.status) {
+        // Create history entry for status changes (normalize existing status for comparison)
+        const normalizedExistingStatus = existingOrder.status?.toUpperCase() || existingOrder.status
+        if (validatedData.status && validatedData.status !== normalizedExistingStatus) {
             await addOrderHistory(params.id, {
                 action: 'STATUS_CHANGED',
                 details: {

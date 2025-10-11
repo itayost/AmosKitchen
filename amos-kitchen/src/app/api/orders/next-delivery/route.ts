@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getOrdersForNextDeliveryDay } from '@/lib/firebase/dao/orders'
 import { getDishesByIds } from '@/lib/firebase/dao/dishes'
-import { getCustomerById } from '@/lib/firebase/dao/customers'
+import { getCustomerById, getCustomerPreferences } from '@/lib/firebase/dao/customers'
 import { verifyAuth } from '@/lib/api/auth-middleware'
 
 export const dynamic = 'force-dynamic'
@@ -34,14 +34,20 @@ export async function GET(request: NextRequest) {
     const dishes = await getDishesByIds(Array.from(dishIds))
     const dishMap = new Map(dishes.map(d => [d.id, d]))
 
-    // Fetch customer details with preferences
+    // Fetch customer details
     const customerPromises = Array.from(customerIds).map(id => getCustomerById(id))
     const customers = await Promise.all(customerPromises)
     const customerMap = new Map(customers.filter(c => c).map(c => [c!.id, c]))
 
+    // Fetch customer preferences separately
+    const preferencesPromises = Array.from(customerIds).map(id => getCustomerPreferences(id))
+    const allPreferences = await Promise.all(preferencesPromises)
+    const preferencesMap = new Map(Array.from(customerIds).map((id, index) => [id, allPreferences[index]]))
+
     // Transform orders to match frontend expectations
     const transformedOrders = activeOrders.map(order => {
       const customer = customerMap.get(order.customerId)
+      const preferences = preferencesMap.get(order.customerId) || []
 
       return {
         ...order,
@@ -52,7 +58,7 @@ export async function GET(request: NextRequest) {
           email: order.customerData?.email || customer?.email || null,
           address: customer?.address || null,
           notes: customer?.notes || null,
-          preferences: customer?.preferences || []
+          preferences: preferences
         },
         orderItems: order.items.map(item => ({
           ...item,

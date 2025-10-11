@@ -222,6 +222,12 @@ export async function PATCH(
     { params }: { params: { id: string } }
 ) {
     try {
+        // Verify authentication
+        const auth = await verifyAuth(request)
+        if (!auth.authenticated) {
+            return auth.response
+        }
+
         const body = await request.json()
 
         // Convert status to uppercase if present (to handle lowercase 'new' from Firebase)
@@ -254,8 +260,9 @@ export async function PATCH(
 
         return NextResponse.json({ success: true })
     } catch (error) {
+        console.error('Error in PATCH /api/orders/[id]:', error)
         return NextResponse.json(
-            { error: 'Failed to update order' },
+            { error: 'Failed to update order', details: error instanceof Error ? error.message : 'Unknown error' },
             { status: 500 }
         )
     }

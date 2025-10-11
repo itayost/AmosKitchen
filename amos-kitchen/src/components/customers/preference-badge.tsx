@@ -14,13 +14,20 @@ interface PreferenceBadgeProps {
     onClick?: () => void
 }
 
-export function PreferenceBadge({ 
-    preference, 
-    showIcon = true, 
+export function PreferenceBadge({
+    preference,
+    showIcon = true,
     className,
-    onClick 
+    onClick
 }: PreferenceBadgeProps) {
     const config = PREFERENCE_CONFIGS[preference.type]
+
+    // Handle invalid/undefined preference types
+    if (!config) {
+        console.warn(`Invalid preference type: ${preference.type}`, preference)
+        return null
+    }
+
     const Icon = config.icon
 
     const variantMap = {
@@ -54,29 +61,40 @@ interface PreferenceBadgeGroupProps {
     className?: string
 }
 
-export function PreferenceBadgeGroup({ 
-    preferences, 
+export function PreferenceBadgeGroup({
+    preferences,
     maxVisible = 3,
     showIcon = true,
-    className 
+    className
 }: PreferenceBadgeGroupProps) {
     if (!preferences || preferences.length === 0) return null
 
-    const sortedPreferences = [...preferences].sort((a, b) => {
+    // Filter out preferences with invalid types
+    const validPreferences = preferences.filter(pref => {
+        const hasValidType = pref.type && PREFERENCE_CONFIGS[pref.type]
+        if (!hasValidType) {
+            console.warn(`Filtering out invalid preference:`, pref)
+        }
+        return hasValidType
+    })
+
+    if (validPreferences.length === 0) return null
+
+    const sortedPreferences = [...validPreferences].sort((a, b) => {
         const priorityA = PREFERENCE_CONFIGS[a.type].priority
         const priorityB = PREFERENCE_CONFIGS[b.type].priority
         return priorityA - priorityB
     })
 
     const visiblePreferences = sortedPreferences.slice(0, maxVisible)
-    const hiddenCount = preferences.length - maxVisible
+    const hiddenCount = validPreferences.length - maxVisible
 
     return (
         <div className={cn('flex flex-wrap gap-1', className)}>
             {visiblePreferences.map((pref) => (
-                <PreferenceBadge 
-                    key={pref.id} 
-                    preference={pref} 
+                <PreferenceBadge
+                    key={pref.id}
+                    preference={pref}
                     showIcon={showIcon}
                 />
             ))}

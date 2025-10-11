@@ -194,7 +194,7 @@ export async function POST(request: NextRequest) {
             customerData: {
                 name: customer.name,
                 phone: customer.phone,
-                email: customer.email
+                ...(customer.email && { email: customer.email })
             },
             deliveryDate: validatedData.deliveryDate,
             deliveryAddress: validatedData.deliveryAddress || customer.address || '',

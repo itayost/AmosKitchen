@@ -45,19 +45,48 @@ interface AnalyticsData {
         revenueGrowth: number
         ordersGrowth: number
     }
-    topDishes: Array<{
+    revenue?: {
+        daily: Array<{ date: string; amount: number }>
+        weekly: Array<{ date: string; amount: number }>
+        monthly: Array<{ date: string; amount: number }>
+    }
+    orders?: {
+        byStatus: Record<string, number>
+        byDay: Array<{ day: string; count: number }>
+        byHour?: Array<{ hour: string; count: number }>
+    }
+    dishes?: {
+        topSelling: Array<{
+            name: string
+            quantity: number
+            revenue: number
+            category?: string
+        }>
+        byCategory: Record<string, { quantity: number; revenue: number }>
+    }
+    customers?: {
+        byOrderCount: Array<{ range: string; count: number }>
+        topSpenders: Array<{
+            id: string
+            name: string
+            totalSpent: number
+            orderCount: number
+        }>
+    }
+    // Legacy format support
+    topDishes?: Array<{
         name: string
         quantity: number
         revenue: number
-        orderCount: number
+        orderCount?: number
     }>
-    topCustomers: Array<{
+    topCustomers?: Array<{
         name: string
         totalSpent: number
         orderCount: number
-        lastOrder: string
+        lastOrder?: string
     }>
-    orderTrends: {
+    orderTrends?: {
         daily: Array<{ date: string; orders: number; revenue: number }>
         byDay: Array<{ day: string; avgOrders: number }>
     }
@@ -79,8 +108,25 @@ export default function AnalyticsPage() {
             setLoading(true)
             const response = await fetchWithAuth(`/api/reports/analytics?period=${period}`)
 
-            if (!response.ok) {
-                // If analytics endpoint doesn't exist, fetch from dashboard for now
+            if (response.ok) {
+                const analyticsData = await response.json()
+                // Handle both new and legacy formats
+                const normalizedData: AnalyticsData = {
+                    ...analyticsData,
+                    topDishes: analyticsData.dishes?.topSelling || analyticsData.topDishes || [],
+                    topCustomers: analyticsData.customers?.topSpenders || analyticsData.topCustomers || [],
+                    orderTrends: analyticsData.orderTrends || {
+                        daily: analyticsData.revenue?.daily?.map((d: any) => ({
+                            date: d.date,
+                            orders: 0,
+                            revenue: d.amount
+                        })) || [],
+                        byDay: analyticsData.orders?.byDay || []
+                    }
+                }
+                setData(normalizedData)
+            } else {
+                // Fallback to dashboard data if analytics endpoint fails
                 const dashboardResponse = await fetchWithAuth('/api/dashboard')
                 if (dashboardResponse.ok) {
                     const dashboardData = await dashboardResponse.json()
@@ -112,9 +158,6 @@ export default function AnalyticsPage() {
                     }
                     setData(analyticsData)
                 }
-            } else {
-                const analyticsData = await response.json()
-                setData(analyticsData)
             }
         } catch (error) {
             console.error('Error fetching analytics:', error)
@@ -273,6 +316,7 @@ export default function AnalyticsPage() {
                 <TabsList>
                     <TabsTrigger value="customers">לקוחות מובילים</TabsTrigger>
                     <TabsTrigger value="dishes">מנות פופולריות</TabsTrigger>
+                    <TabsTrigger value="categories">קטגוריות</TabsTrigger>
                     <TabsTrigger value="trends">מגמות</TabsTrigger>
                 </TabsList>
 
@@ -286,21 +330,28 @@ export default function AnalyticsPage() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            {data.topCustomers.length > 0 ? (
+                            {data.topCustomers && data.topCustomers.length > 0 ? (
                                 <div className="space-y-4">
-                                    {data.topCustomers.map((customer, index) => (
+                                    {data.topCustomers.slice(0, 10).map((customer, index) => (
                                         <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
-                                            <div>
-                                                <p className="font-medium">{customer.name}</p>
-                                                <p className="text-sm text-muted-foreground">
-                                                    {customer.orderCount} הזמנות
-                                                </p>
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">
+                                                    {index + 1}
+                                                </div>
+                                                <div>
+                                                    <p className="font-medium">{customer.name}</p>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        {customer.orderCount} הזמנות
+                                                    </p>
+                                                </div>
                                             </div>
                                             <div className="text-right">
-                                                <p className="font-bold">₪{customer.totalSpent.toLocaleString()}</p>
-                                                <p className="text-sm text-muted-foreground">
-                                                    הזמנה אחרונה: {customer.lastOrder}
-                                                </p>
+                                                <p className="font-bold text-lg">₪{customer.totalSpent.toLocaleString()}</p>
+                                                {customer.lastOrder && (
+                                                    <p className="text-sm text-muted-foreground">
+                                                        הזמנה אחרונה: {customer.lastOrder}
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
@@ -344,6 +395,96 @@ export default function AnalyticsPage() {
                             </div>
                         </CardContent>
                     </Card>
+                </TabsContent>
+
+                {/* Categories */}
+                <TabsContent value="categories">
+                    <div className="grid gap-4">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>מכירות לפי קטגוריה</CardTitle>
+                                <CardDescription>
+                                    התפלגות המכירות וההכנסות לפי קטגוריות מנות
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                {data.dishes?.byCategory ? (
+                                    <div className="space-y-4">
+                                        {Object.entries(data.dishes.byCategory)
+                                            .sort((a, b) => b[1].revenue - a[1].revenue)
+                                            .map(([category, stats]) => {
+                                                const categoryNames: Record<string, string> = {
+                                                    'appetizer': 'מנות ראשונות',
+                                                    'main': 'מנות עיקריות',
+                                                    'side': 'תוספות',
+                                                    'dessert': 'קינוחים',
+                                                    'beverage': 'משקאות',
+                                                    'APPETIZER': 'מנות ראשונות',
+                                                    'MAIN': 'מנות עיקריות',
+                                                    'SIDE': 'תוספות',
+                                                    'DESSERT': 'קינוחים',
+                                                    'BEVERAGE': 'משקאות'
+                                                }
+                                                const displayName = categoryNames[category] || category
+                                                const revenuePercent = ((stats.revenue / data.summary.totalRevenue) * 100).toFixed(1)
+
+                                                return (
+                                                    <div key={category} className="space-y-2">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="font-medium">{displayName}</span>
+                                                            <span className="text-sm text-muted-foreground">
+                                                                {revenuePercent}% מסך ההכנסות
+                                                            </span>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <div className="flex justify-between text-sm">
+                                                                <span>כמות: {stats.quantity} יחידות</span>
+                                                                <span className="font-medium">₪{stats.revenue.toLocaleString()}</span>
+                                                            </div>
+                                                            <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className="h-full bg-primary transition-all"
+                                                                    style={{ width: `${revenuePercent}%` }}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })}
+                                    </div>
+                                ) : (
+                                    <p className="text-center text-muted-foreground py-8">
+                                        אין נתוני קטגוריות זמינים
+                                    </p>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Customer Order Frequency */}
+                        {data.customers?.byOrderCount && (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>התפלגות לקוחות לפי תדירות הזמנה</CardTitle>
+                                    <CardDescription>
+                                        כמה לקוחות ביצעו כמה הזמנות בתקופה
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-3">
+                                        {data.customers.byOrderCount.map((item, index) => (
+                                            <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                                                <span className="font-medium">{item.range}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-2xl font-bold">{item.count}</span>
+                                                    <span className="text-sm text-muted-foreground">לקוחות</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+                    </div>
                 </TabsContent>
 
                 {/* Trends */}

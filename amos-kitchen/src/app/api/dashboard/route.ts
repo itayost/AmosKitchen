@@ -129,8 +129,8 @@ export async function GET(request: NextRequest) {
       }
     }))
 
-    // Top dishes this week - manual aggregation
-    const dishCounts = new Map<string, { dish: any, quantity: number, orderCount: number }>()
+    // Top dishes this week - manual aggregation with revenue
+    const dishCounts = new Map<string, { dish: any, quantity: number, orderCount: number, revenue: number }>()
 
     weekOrders.forEach(order => {
       if (order.items) {
@@ -138,10 +138,12 @@ export async function GET(request: NextRequest) {
           const existing = dishCounts.get(item.dishId) || {
             dish: { id: item.dishId, name: item.dishName || 'Unknown' },
             quantity: 0,
-            orderCount: 0
+            orderCount: 0,
+            revenue: 0
           }
           existing.quantity += item.quantity
           existing.orderCount += 1
+          existing.revenue += (item.price || 0) * item.quantity
           dishCounts.set(item.dishId, existing)
         })
       }
@@ -149,7 +151,7 @@ export async function GET(request: NextRequest) {
 
     // Get dish details for top dishes
     const topDishEntries = Array.from(dishCounts.entries())
-      .sort((a, b) => b[1].quantity - a[1].quantity)
+      .sort((a, b) => b[1].revenue - a[1].revenue) // Sort by revenue instead of quantity
       .slice(0, 5)
 
     const dishIds = topDishEntries.map(([id]) => id)
@@ -159,7 +161,9 @@ export async function GET(request: NextRequest) {
     const topDishes = topDishEntries.map(([dishId, stats]) => ({
       dish: dishMap.get(dishId) || stats.dish,
       quantity: stats.quantity,
-      orderCount: stats.orderCount
+      orderCount: stats.orderCount,
+      revenue: stats.revenue,
+      name: (dishMap.get(dishId) || stats.dish).name // Add name for easier display
     }))
 
 
@@ -237,19 +241,75 @@ export async function GET(request: NextRequest) {
         : 0
     }
 
+    // Additional KPIs
+    const averageOrderValue = weekStats.orders > 0
+      ? weekStats.revenue / weekStats.orders
+      : 0
+
+    // Order fulfillment rate (delivered vs cancelled)
+    const deliveredOrders = weekOrders.filter(o => o.status === 'DELIVERED').length
+    const cancelledOrders = weekOrders.filter(o => o.status === 'CANCELLED').length
+    const fulfillmentRate = weekOrders.length > 0
+      ? (deliveredOrders / weekOrders.length) * 100
+      : 0
+
+    // Category breakdown
+    const categoryBreakdown = new Map<string, { quantity: number, revenue: number }>()
+
+    dishCounts.forEach((stats, dishId) => {
+      const dish = dishMap.get(dishId)
+      const category = dish?.category || 'uncategorized'
+      const existing = categoryBreakdown.get(category) || { quantity: 0, revenue: 0 }
+      existing.quantity += stats.quantity
+      existing.revenue += stats.revenue
+      categoryBreakdown.set(category, existing)
+    })
+
+    // Peak ordering days
+    const ordersByDayOfWeek = new Map<string, number>()
+    weekOrders.forEach(order => {
+      if (order.deliveryDate) {
+        const date = order.deliveryDate.toDate ? order.deliveryDate.toDate() : new Date(order.deliveryDate)
+        const dayName = date.toLocaleDateString('he-IL', { weekday: 'long' })
+        ordersByDayOfWeek.set(dayName, (ordersByDayOfWeek.get(dayName) || 0) + 1)
+      }
+    })
+
+    // Sort peak days
+    const peakDays = Array.from(ordersByDayOfWeek.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([day, count]) => ({ day, count }))
+
     return NextResponse.json({
       today: todayStats,
-      week: weekStats,
+      week: {
+        ...weekStats,
+        averageOrderValue,
+        fulfillmentRate,
+        cancelledOrders
+      },
       friday: fridayStats,
       recentOrders,
       recentActivity,
       topDishes,
       customers: {
         total: totalCustomers,
-        active: activeCustomers
+        active: activeCustomers,
+        retention: totalCustomers > 0 ? (activeCustomers / totalCustomers) * 100 : 0
       },
       chartData,
-      comparison
+      comparison,
+      categoryBreakdown: Array.from(categoryBreakdown.entries()).map(([category, stats]) => ({
+        category,
+        ...stats
+      })),
+      peakDays,
+      kpis: {
+        averageOrderValue,
+        fulfillmentRate,
+        customerRetention: totalCustomers > 0 ? (activeCustomers / totalCustomers) * 100 : 0,
+        weekOverWeekGrowth: parseFloat(comparison.revenueChangePercent as any) || 0
+      }
     })
   } catch (error: any) {
     // Suppress Firebase permission errors during build

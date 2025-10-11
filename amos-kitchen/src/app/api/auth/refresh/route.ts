@@ -5,28 +5,8 @@ import { auth } from '@/lib/firebase/config'
 
 export async function POST(request: NextRequest) {
     try {
-        // Get the current token from cookie
-        const currentToken = request.cookies.get('firebase-auth-token')?.value
-
-        if (!currentToken) {
-            return NextResponse.json(
-                { error: 'No authentication token found' },
-                { status: 401 }
-            )
-        }
-
-        // Verify the current token
-        const decodedToken = await verifyIdToken(currentToken)
-
-        if (!decodedToken) {
-            return NextResponse.json(
-                { error: 'Invalid token' },
-                { status: 401 }
-            )
-        }
-
-        // Token is still valid, but we need to get a fresh one from the client
-        // The client will need to send the new token
+        // Get the new token from the request body
+        // We don't validate the old cookie - it may be expired, which is why we're refreshing
         const body = await request.json()
         const { idToken } = body
 
@@ -37,12 +17,12 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        // Verify the new token
-        const newDecodedToken = await verifyIdToken(idToken)
+        // Verify the new token from Firebase client
+        const decodedToken = await verifyIdToken(idToken)
 
-        if (!newDecodedToken) {
+        if (!decodedToken) {
             return NextResponse.json(
-                { error: 'Invalid new token' },
+                { error: 'Invalid token' },
                 { status: 401 }
             )
         }

@@ -35,7 +35,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const refreshToken = async () => {
     try {
-      if (!user) return;
+      if (!user) {
+        console.log('No user to refresh token for');
+        return;
+      }
 
       // Get a fresh ID token from Firebase
       const idToken = await user.getIdToken(true); // Force refresh
@@ -51,9 +54,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       if (!response.ok) {
-        console.error('Failed to refresh token cookie');
-        // If refresh fails, the user might need to re-login
+        const errorText = await response.text();
+        console.error('Failed to refresh token cookie:', response.status, errorText);
+
+        // If refresh fails with 401, the token is invalid - sign out
         if (response.status === 401) {
+          console.error('Token refresh returned 401 - signing out user');
           await signOut();
         }
       } else {
@@ -61,6 +67,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     } catch (error) {
       console.error('Error refreshing token:', error);
+      // Don't sign out on network errors, only on auth failures
     }
   };
 
@@ -92,12 +99,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             });
 
             if (!response.ok) {
-              console.error('Failed to refresh token cookie');
+              const errorText = await response.text();
+              console.error('Failed to refresh token cookie:', response.status, errorText);
+
+              // If refresh fails with 401, sign out the user
+              if (response.status === 401) {
+                console.error('Auto-refresh returned 401 - signing out user');
+                await signOut();
+              }
             } else {
               console.log('Token refreshed successfully');
             }
           } catch (error) {
             console.error('Error refreshing token:', error);
+            // Don't sign out on network errors
           }
         };
 

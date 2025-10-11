@@ -25,8 +25,12 @@ export async function fetchWithAuth(url: string, options: FetchOptions = {}): Pr
     return response;
   }
 
-  // If we get a 401, try to refresh the token and retry once
-  if (response.status === 401) {
+  // Check if this is already a retry to prevent infinite loops
+  const isRetry = optionsWithCredentials.headers &&
+    (optionsWithCredentials.headers as Record<string, string>)['X-Retry-After-Auth'] === 'true';
+
+  // If we get a 401 and this is not already a retry, try to refresh the token
+  if (response.status === 401 && !isRetry) {
     console.log('Got 401, attempting to refresh token...');
 
     try {
@@ -42,6 +46,7 @@ export async function fetchWithAuth(url: string, options: FetchOptions = {}): Pr
       const idToken = await currentUser.getIdToken(true);
 
       // Update the cookie with the fresh token
+      // Use skipRetry to prevent infinite loops if refresh endpoint fails
       const refreshResponse = await fetch('/api/auth/refresh', {
         method: 'POST',
         headers: {
@@ -52,7 +57,7 @@ export async function fetchWithAuth(url: string, options: FetchOptions = {}): Pr
       });
 
       if (!refreshResponse.ok) {
-        console.error('Failed to refresh token');
+        console.error('Failed to refresh token cookie');
         return response;
       }
 

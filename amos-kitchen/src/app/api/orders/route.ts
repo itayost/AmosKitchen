@@ -27,14 +27,14 @@ const createOrderSchema = z.object({
 
 
 export async function GET(request: NextRequest) {
-    try {
-        // Verify authentication
-        const auth = await verifyAuth(request)
-        if (!auth.authenticated) {
-            console.log('Authentication failed - no valid token')
-            return auth.response
-        }
+    // Verify authentication first, outside try-catch to ensure proper 401 responses
+    const auth = await verifyAuth(request)
+    if (!auth.authenticated) {
+        console.log('Authentication failed - no valid token')
+        return auth.response
+    }
 
+    try {
         console.log('Orders API called for user:', auth.user?.uid)
 
         // Get query parameters
@@ -136,13 +136,13 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-    try {
-        // Verify authentication
-        const auth = await verifyAuth(request)
-        if (!auth.authenticated) {
-            return auth.response
-        }
+    // Verify authentication first, outside try-catch to ensure proper 401 responses
+    const auth = await verifyAuth(request)
+    if (!auth.authenticated) {
+        return auth.response
+    }
 
+    try {
         const body = await request.json()
         console.log('Create order request by user:', auth.user?.uid, body)
 

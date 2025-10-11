@@ -178,7 +178,7 @@ export function KitchenDashboard({ initialOrders = [], deliveryDate }: KitchenDa
 
   // Filter orders based on view
   const filteredOrders = orders.filter(order => {
-    if (view === 'all') return ['CONFIRMED', 'PREPARING', 'READY'].includes(order.status)
+    if (view === 'all') return ['NEW', 'CONFIRMED', 'PREPARING', 'READY'].includes(order.status)
     if (view === 'preparing') return order.status === 'PREPARING'
     if (view === 'ready') return order.status === 'READY'
     return true
@@ -186,6 +186,7 @@ export function KitchenDashboard({ initialOrders = [], deliveryDate }: KitchenDa
 
   // Group orders by status
   const groupedOrders = {
+    NEW: filteredOrders.filter(o => o.status === 'NEW'),
     CONFIRMED: filteredOrders.filter(o => o.status === 'CONFIRMED'),
     PREPARING: filteredOrders.filter(o => o.status === 'PREPARING'),
     READY: filteredOrders.filter(o => o.status === 'READY')
@@ -193,6 +194,7 @@ export function KitchenDashboard({ initialOrders = [], deliveryDate }: KitchenDa
 
   const getStatusColor = (status: OrderStatus) => {
     switch (status) {
+      case 'NEW': return 'bg-purple-500'
       case 'CONFIRMED': return 'bg-blue-500'
       case 'PREPARING': return 'bg-yellow-500'
       case 'READY': return 'bg-green-500'
@@ -202,6 +204,7 @@ export function KitchenDashboard({ initialOrders = [], deliveryDate }: KitchenDa
 
   const getNextStatus = (currentStatus: OrderStatus): OrderStatus | null => {
     switch (currentStatus) {
+      case 'NEW': return 'CONFIRMED'
       case 'CONFIRMED': return 'PREPARING'
       case 'PREPARING': return 'READY'
       case 'READY': return 'DELIVERED'
@@ -211,6 +214,7 @@ export function KitchenDashboard({ initialOrders = [], deliveryDate }: KitchenDa
 
   const getStatusActionLabel = (status: OrderStatus) => {
     switch (status) {
+      case 'NEW': return 'אשר הזמנה'
       case 'CONFIRMED': return 'התחל הכנה'
       case 'PREPARING': return 'סמן כמוכן'
       case 'READY': return 'סמן כנמסר'
@@ -365,7 +369,7 @@ export function KitchenDashboard({ initialOrders = [], deliveryDate }: KitchenDa
           <Tabs value={view} onValueChange={(v) => setView(v as any)}>
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="all">
-                כל ההזמנות ({orders.filter(o => ['CONFIRMED', 'PREPARING', 'READY'].includes(o.status)).length})
+                כל ההזמנות ({orders.filter(o => ['NEW', 'CONFIRMED', 'PREPARING', 'READY'].includes(o.status)).length})
               </TabsTrigger>
               <TabsTrigger value="preparing">
                 בהכנה ({orders.filter(o => o.status === 'PREPARING').length})
@@ -376,12 +380,13 @@ export function KitchenDashboard({ initialOrders = [], deliveryDate }: KitchenDa
             </TabsList>
 
             <TabsContent value={view} className="mt-6">
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {['CONFIRMED', 'PREPARING', 'READY'].map(status => (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {['NEW', 'CONFIRMED', 'PREPARING', 'READY'].map(status => (
               <div key={status} className="space-y-4">
                 <div className="flex items-center gap-2">
                   <div className={cn("w-3 h-3 rounded-full", getStatusColor(status as OrderStatus))} />
                   <h3 className="font-semibold">
+                    {status === 'NEW' && 'הזמנות חדשות'}
                     {status === 'CONFIRMED' && 'ממתין להכנה'}
                     {status === 'PREPARING' && 'בהכנה'}
                     {status === 'READY' && 'מוכן למשלוח'}

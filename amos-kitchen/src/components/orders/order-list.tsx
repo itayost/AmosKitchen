@@ -95,15 +95,24 @@ export function OrderList({
 
     const handleStatusUpdate = async (orderId: string, newStatus: OrderStatus) => {
         try {
+            console.log(`Updating order ${orderId} status to ${newStatus}`)
+
             const response = await fetchWithAuth(`/api/orders/${orderId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: newStatus })
             })
 
-            if (response.ok) {
-                onRefresh()
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ message: 'Unknown error' }))
+                console.error('API error response:', errorData)
+                throw new Error(errorData.message || `Server error: ${response.status}`)
             }
+
+            const responseData = await response.json()
+            console.log('Status update response:', responseData)
+
+            onRefresh()
         } catch (error) {
             console.error('Failed to update status:', error)
         }

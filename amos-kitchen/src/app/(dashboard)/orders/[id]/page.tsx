@@ -96,13 +96,22 @@ export default function OrderDetailsPage() {
 
         setUpdating(true)
         try {
+            console.log(`Updating order ${orderId} status to ${newStatus}`)
+
             const response = await fetchWithAuth(`/api/orders/${orderId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: newStatus })
             })
 
-            if (!response.ok) throw new Error('Failed to update status')
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ message: 'Unknown error' }))
+                console.error('API error response:', errorData)
+                throw new Error(errorData.message || `Server error: ${response.status}`)
+            }
+
+            const responseData = await response.json()
+            console.log('Status update response:', responseData)
 
             await fetchOrderDetails()
             toast({
@@ -110,9 +119,10 @@ export default function OrderDetailsPage() {
                 description: 'סטטוס ההזמנה עודכן בהצלחה'
             })
         } catch (error) {
+            console.error('Status update error:', error)
             toast({
                 title: 'שגיאה',
-                description: 'לא ניתן לעדכן את סטטוס ההזמנה',
+                description: error instanceof Error ? error.message : 'לא ניתן לעדכן את סטטוס ההזמנה',
                 variant: 'destructive'
             })
         } finally {

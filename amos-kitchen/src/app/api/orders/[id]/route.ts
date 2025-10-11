@@ -229,22 +229,47 @@ export async function PATCH(
         }
 
         const body = await request.json()
+        console.log('PATCH request body:', body)
+        console.log('Order ID from params:', params.id)
+
+        // Validate that status is provided
+        if (!body.status) {
+            return NextResponse.json(
+                { error: 'Status is required' },
+                { status: 400 }
+            )
+        }
 
         // Convert status to uppercase if present (to handle lowercase 'new' from Firebase)
-        if (body.status && typeof body.status === 'string') {
+        if (typeof body.status === 'string') {
             body.status = body.status.toUpperCase()
         }
 
         const { status } = body
 
+        // Validate status is a valid enum value
+        const validStatuses = ['NEW', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERED', 'CANCELLED']
+        if (!validStatuses.includes(status)) {
+            return NextResponse.json(
+                { error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` },
+                { status: 400 }
+            )
+        }
+
+        console.log('Validated status:', status)
+
         // Get existing order first
         const existingOrder = await getOrderById(params.id)
         if (!existingOrder) {
+            console.error('Order not found:', params.id)
             return NextResponse.json({ error: 'Order not found' }, { status: 404 })
         }
 
+        console.log('Existing order status:', existingOrder.status)
+
         // Update status
         await updateOrderStatus(params.id, status)
+        console.log('Status updated successfully')
 
         // Add to order history (normalize existing status for proper comparison)
         const normalizedExistingStatus = existingOrder.status?.toUpperCase() || existingOrder.status
@@ -257,14 +282,36 @@ export async function PATCH(
             },
             userId: null
         })
+        console.log('Order history added successfully')
 
         return NextResponse.json({ success: true })
     } catch (error) {
         console.error('Error in PATCH /api/orders/[id]:', error)
+
+        // Safely extract error details
+        const errorDetails = error instanceof Error ? {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
+        } : {
+            name: 'Unknown',
+            message: String(error),
+            stack: 'No stack trace available'
+        }
+
+        console.error('Error details:', {
+            ...errorDetails,
+            params: params,
+            body: await request.json().catch(() => 'Failed to parse body')
+        })
+
         return NextResponse.json(
-            { error: 'Failed to update order', details: error instanceof Error ? error.message : 'Unknown error' },
+            {
+                error: 'Failed to update order',
+                details: errorDetails.message,
+                orderId: params.id
+            },
             { status: 500 }
         )
     }
 }
-

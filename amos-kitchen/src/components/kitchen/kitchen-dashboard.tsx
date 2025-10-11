@@ -110,6 +110,8 @@ export function KitchenDashboard({ initialOrders = [], deliveryDate }: KitchenDa
 
       const mappedStatus = statusMap[newStatus] || newStatus.toLowerCase()
 
+      console.log(`Updating order ${orderId} status to ${mappedStatus}`)
+
       const response = await fetchWithAuth(`/api/orders/${orderId}`, {
         method: 'PATCH',  // Changed from PUT to PATCH
         headers: { 'Content-Type': 'application/json' },
@@ -117,9 +119,13 @@ export function KitchenDashboard({ initialOrders = [], deliveryDate }: KitchenDa
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to update status')
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }))
+        console.error('API error response:', errorData)
+        throw new Error(errorData.message || `Server error: ${response.status}`)
       }
+
+      const responseData = await response.json()
+      console.log('Status update response:', responseData)
 
       // Update local state
       setOrders(orders.map(order =>

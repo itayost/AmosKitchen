@@ -416,7 +416,14 @@ export async function updateOrderStatus(
   status: Order['status'],
   userId?: string
 ): Promise<void> {
-  await updateOrder(id, { status }, userId)
+  try {
+    console.log(`Updating order ${id} status to ${status}`)
+    await updateOrder(id, { status }, userId)
+    console.log(`Successfully updated order ${id} status to ${status}`)
+  } catch (error) {
+    console.error(`Failed to update order ${id} status to ${status}:`, error)
+    throw error
+  }
 }
 
 // Delete order
@@ -441,13 +448,20 @@ export async function addOrderHistory(
   orderId: string,
   data: Omit<OrderHistory, 'id' | 'orderId' | 'createdAt'>
 ): Promise<void> {
-  const historyData: OrderHistoryDoc = {
-    ...data,
-    orderId,
-    createdAt: getServerTimestamp()
-  }
+  try {
+    console.log(`Adding order history for order ${orderId}:`, data)
+    const historyData: OrderHistoryDoc = {
+      ...data,
+      orderId,
+      createdAt: getServerTimestamp()
+    }
 
-  await addDoc(orderHistoryCollection(orderId), historyData)
+    await addDoc(orderHistoryCollection(orderId), historyData)
+    console.log(`Successfully added order history for order ${orderId}`)
+  } catch (error) {
+    console.error(`Failed to add order history for order ${orderId}:`, error)
+    throw error
+  }
 }
 
 // Get order history

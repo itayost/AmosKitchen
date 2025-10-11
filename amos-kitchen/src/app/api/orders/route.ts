@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
         // Transform orders to match frontend expectations
         const transformedOrders = orders.map(order => ({
             ...order,
-            status: order.status.toLowerCase(),
+            status: order.status,
             totalAmount: order.totalAmount,
             customer: order.customerData || customerMap.get(order.customerId) || {
                 name: 'Unknown',
@@ -198,7 +198,7 @@ export async function POST(request: NextRequest) {
             },
             deliveryDate: validatedData.deliveryDate,
             deliveryAddress: validatedData.deliveryAddress || customer.address || '',
-            status: 'new',
+            status: 'NEW',
             totalAmount,
             notes: validatedData.notes || '',
             orderItems: validatedData.items.map(item => ({

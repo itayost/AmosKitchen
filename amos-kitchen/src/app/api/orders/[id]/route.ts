@@ -14,7 +14,7 @@ import { verifyAuth } from '@/lib/api/auth-middleware'
 
 // Validation schema for updating order
 const updateOrderSchema = z.object({
-    status: z.enum(['new', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled']).optional(),
+    status: z.enum(['NEW', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERED', 'CANCELLED']).optional(),
     deliveryDate: z.string().optional(),
     notes: z.string().optional(),
     deliveryAddress: z.string().optional(),
@@ -48,7 +48,7 @@ export async function GET(
         // Transform response
         const transformedOrder = {
             ...order,
-            status: order.status.toLowerCase(),
+            status: order.status,
             totalAmount: order.totalAmount,
             customer: order.customerData || { name: 'Unknown', phone: '' },
             orderItems: order.items.map(item => ({
@@ -96,7 +96,7 @@ export async function PUT(
         const updateData: any = {}
 
         if (validatedData.status) {
-            updateData.status = validatedData.status.toUpperCase()
+            updateData.status = validatedData.status
         }
 
         if (validatedData.deliveryDate) {
@@ -115,13 +115,13 @@ export async function PUT(
         await updateOrder(params.id, updateData)
 
         // Create history entry for status changes
-        if (validatedData.status && validatedData.status.toUpperCase() !== existingOrder.status) {
+        if (validatedData.status && validatedData.status !== existingOrder.status) {
             await addOrderHistory(params.id, {
                 action: 'STATUS_CHANGED',
                 details: {
-                    message: `סטטוס שונה מ-${existingOrder.status.toLowerCase()} ל-${validatedData.status}`,
+                    message: `סטטוס שונה מ-${existingOrder.status} ל-${validatedData.status}`,
                     previousStatus: existingOrder.status,
-                    newStatus: validatedData.status.toUpperCase()
+                    newStatus: validatedData.status
                 },
                 userId: null
             })
@@ -142,7 +142,7 @@ export async function PUT(
         // Transform response
         const transformedOrder = {
             ...updatedOrder,
-            status: updatedOrder.status.toLowerCase(),
+            status: updatedOrder.status,
             totalAmount: updatedOrder.totalAmount,
             customer: updatedOrder.customerData || { name: 'Unknown', phone: '' },
             orderItems: updatedOrder.items.map(item => ({
@@ -225,7 +225,7 @@ export async function PATCH(
         }
 
         // Update status
-        await updateOrderStatus(params.id, status.toUpperCase())
+        await updateOrderStatus(params.id, status)
 
         // Add to order history
         await addOrderHistory(params.id, {
@@ -233,7 +233,7 @@ export async function PATCH(
             details: {
                 message: `סטטוס שונה ל-${status}`,
                 previousStatus: existingOrder.status,
-                newStatus: status.toUpperCase()
+                newStatus: status
             },
             userId: null
         })

@@ -46,6 +46,17 @@ const statusConfig: Record<OrderStatus, {
 
 export function OrderStatusBadge({ status }: OrderStatusBadgeProps) {
     const config = statusConfig[status]
+
+    // Handle invalid/undefined status
+    if (!config) {
+        console.warn('Invalid order status:', status)
+        return (
+            <Badge variant="secondary">
+                {status || 'Unknown'}
+            </Badge>
+        )
+    }
+
     const Icon = config.icon
 
     return (

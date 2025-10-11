@@ -158,12 +158,17 @@ export async function POST(request: NextRequest) {
             )
         }
 
+        // Get dish details BEFORE creating order
+        const dishIds = validatedData.items.map(item => item.dishId)
+        const dishes = await getDishesByIds(dishIds)
+        const dishMap = new Map(dishes.map(d => [d.id, d]))
+
         // Calculate total amount
         const totalAmount = validatedData.items.reduce((sum, item) => {
             return sum + (item.price * item.quantity)
         }, 0)
 
-        // Create order with Firestore
+        // Create order with Firestore - now with dish names
         const orderId = await createOrder({
             customerId: validatedData.customerId,
             orderDate: new Date(),
@@ -171,7 +176,7 @@ export async function POST(request: NextRequest) {
             deliveryAddress: validatedData.deliveryAddress || customer.address || '',
             items: validatedData.items.map(item => ({
                 dishId: item.dishId,
-                dishName: '', // Will be filled by frontend or we can fetch
+                dishName: dishMap.get(item.dishId)?.name || 'Unknown Dish',
                 quantity: item.quantity,
                 price: item.price,
                 notes: item.notes || ''
@@ -180,11 +185,6 @@ export async function POST(request: NextRequest) {
             status: 'NEW',
             notes: validatedData.notes || ''
         })
-
-        // Get dish details to fill in dish names
-        const dishIds = validatedData.items.map(item => item.dishId)
-        const dishes = await getDishesByIds(dishIds)
-        const dishMap = new Map(dishes.map(d => [d.id, d]))
 
         // Transform response
         const transformedOrder = {

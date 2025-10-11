@@ -71,7 +71,7 @@ export function RecentOrders({ orders }: RecentOrdersProps) {
                   {format(new Date(order.deliveryDate), 'dd/MM/yyyy', { locale: he })}
                 </TableCell>
                 <TableCell>
-                  <OrderStatusBadge status={order.status.toLowerCase()} />
+                  <OrderStatusBadge status={order.status?.toUpperCase() || order.status} />
                 </TableCell>
                 <TableCell className="text-right">
                   {formatPrice(order.totalAmount)}

@@ -138,7 +138,7 @@ export default function EditDishPage() {
                 title: 'הצלחה',
                 description: 'המנה עודכנה בהצלחה'
             })
-            router.push(`/dishes/${dishId}`)
+            router.replace(`/dishes/${dishId}`)
         } catch (error) {
             toast({
                 title: 'שגיאה',

@@ -113,7 +113,7 @@ export default function DishDetailsPage() {
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => router.back()}
+                        onClick={() => router.push('/dishes')}
                     >
                         <ArrowRight className="h-4 w-4" />
                     </Button>

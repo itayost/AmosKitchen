@@ -43,3 +43,4 @@ prisma/migrations/
 
 #Ignore vscode AI rules
 .github/instructions/codacy.instructions.md
+firebase-debug.log*

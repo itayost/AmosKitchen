@@ -366,7 +366,6 @@ export function KitchenDashboard({ initialOrders = [], deliveryDate }: KitchenDa
         // Dish View
         <BatchCookingView
           dishes={dishAggregation}
-          orders={orders}
         />
       ) : (
         // Order View

@@ -1,16 +1,15 @@
 // app/(dashboard)/orders/page.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { OrderFilters } from '@/components/orders/order-filters'
 import { OrderList } from '@/components/orders/order-list'
 import { Button } from '@/components/ui/button'
 import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Download, Plus } from 'lucide-react'
+import { Download } from 'lucide-react'
 import { useOrders } from '@/lib/hooks/use-orders'
 import { exportOrdersToExcel } from '@/lib/utils/export'
-import Link from 'next/link'
 import type { OrderFilters as OrderFiltersType } from '@/lib/types/database'
 
 export default function OrdersPage() {
@@ -56,18 +55,10 @@ export default function OrdersPage() {
             {/* Header */}
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold">ניהול הזמנות</h1>
-                <div className="flex gap-2">
-                    <Button onClick={handleExport} variant="outline" className="gap-2">
-                        <Download className="h-4 w-4" />
-                        ייצוא לאקסל
-                    </Button>
-                    <Link href="/orders/new">
-                        <Button className="gap-2">
-                            <Plus className="h-4 w-4" />
-                            הזמנה חדשה
-                        </Button>
-                    </Link>
-                </div>
+                <Button onClick={handleExport} variant="outline" className="gap-2">
+                    <Download className="h-4 w-4" />
+                    ייצוא לאקסל
+                </Button>
             </div>
 
             {/* Stats Cards */}

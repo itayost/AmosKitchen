@@ -4,7 +4,9 @@ import { Rubik } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/contexts/auth-context";
+import { QueryProvider } from "@/lib/providers/query-provider";
 import { cn } from "@/lib/utils";
+import { Analytics } from "@vercel/analytics/react";
 
 // Rubik supports Hebrew and Latin characters well
 const rubik = Rubik({
@@ -29,9 +31,12 @@ export default function RootLayout({
                 "min-h-screen bg-background font-sans antialiased"
             )}>
                 <AuthProvider>
-                    {children}
-                    <Toaster />
+                    <QueryProvider>
+                        {children}
+                        <Toaster />
+                    </QueryProvider>
                 </AuthProvider>
+                <Analytics />
             </body>
         </html>
     );

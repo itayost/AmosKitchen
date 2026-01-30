@@ -2,17 +2,17 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Search, Download, Users, ShoppingCart, DollarSign } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Search, Download, Users, ShoppingCart, DollarSign } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CustomerList } from '@/components/customers/customer-list'
 import { CustomerGrid } from '@/components/customers/customer-grid'
-import { CustomerDialog } from '@/components/customers/customer-dialog'
 import { LoadingSpinner } from '@/components/shared/loading-spinner'
 import { useDebounce } from '@/lib/hooks/use-debounce'
-import { fetchWithAuth, postWithAuth, putWithAuth, deleteWithAuth } from '@/lib/api/fetch-with-auth'
+import { fetchWithAuth, deleteWithAuth } from '@/lib/api/fetch-with-auth'
 import type { Customer } from '@/lib/types/database'
 
 interface CustomerWithStats extends Customer {
@@ -22,12 +22,11 @@ interface CustomerWithStats extends Customer {
 }
 
 export default function CustomersPage() {
+    const router = useRouter()
     const [customers, setCustomers] = useState<CustomerWithStats[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState('')
     const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards')
-    const [isDialogOpen, setIsDialogOpen] = useState(false)
-    const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
 
     const debouncedSearch = useDebounce(searchQuery, 300)
 
@@ -80,14 +79,8 @@ export default function CustomersPage() {
         }
     }
 
-    const handleAddCustomer = () => {
-        setSelectedCustomer(null)
-        setIsDialogOpen(true)
-    }
-
     const handleEditCustomer = (customer: Customer) => {
-        setSelectedCustomer(customer)
-        setIsDialogOpen(true)
+        router.push(`/customers/${customer.id}/edit`)
     }
 
     const handleDeleteCustomer = async (customerId: string) => {
@@ -101,34 +94,6 @@ export default function CustomersPage() {
             await fetchCustomers()
         } catch (error) {
             console.error('Error deleting customer:', error)
-        }
-    }
-
-    const handleSaveCustomer = async (customerData: Partial<Customer>) => {
-        try {
-            console.log('Saving customer:', customerData)
-            const url = selectedCustomer
-                ? `/api/customers/${selectedCustomer.id}`
-                : '/api/customers'
-
-            const response = selectedCustomer
-                ? await putWithAuth(url, customerData)
-                : await postWithAuth(url, customerData)
-
-            const responseData = await response.json()
-            console.log('Response status:', response.status)
-            console.log('Response data:', responseData)
-
-            if (!response.ok) {
-                console.error('Failed to save customer. Response:', responseData)
-                throw new Error(responseData.error || 'Failed to save customer')
-            }
-
-            setIsDialogOpen(false)
-            await fetchCustomers()
-        } catch (error) {
-            console.error('Error saving customer:', error)
-            alert(`Error: ${error instanceof Error ? error.message : 'Failed to save customer'}`)
         }
     }
 
@@ -150,16 +115,10 @@ export default function CustomersPage() {
                     <h1 className="text-3xl font-bold tracking-tight">לקוחות</h1>
                     <p className="text-muted-foreground">ניהול לקוחות והיסטוריית הזמנות</p>
                 </div>
-                <div className="flex gap-2">
-                    <Button onClick={handleExport} variant="outline" size="sm">
-                        <Download className="h-4 w-4 ml-2" />
-                        ייצוא
-                    </Button>
-                    <Button onClick={handleAddCustomer} size="sm">
-                        <Plus className="h-4 w-4 ml-2" />
-                        לקוח חדש
-                    </Button>
-                </div>
+                <Button onClick={handleExport} variant="outline" size="sm">
+                    <Download className="h-4 w-4 ml-2" />
+                    ייצוא
+                </Button>
             </div>
 
             {/* Statistics Cards */}
@@ -233,7 +192,7 @@ export default function CustomersPage() {
 
                 <TabsContent value="cards" className="mt-6">
                     {isLoading ? (
-                        <LoadingSpinner />
+                        <LoadingSpinner centered />
                     ) : customers.length === 0 ? (
                         <Card>
                             <CardContent className="text-center py-8">
@@ -251,7 +210,7 @@ export default function CustomersPage() {
 
                 <TabsContent value="table" className="mt-6">
                     {isLoading ? (
-                        <LoadingSpinner />
+                        <LoadingSpinner centered />
                     ) : customers.length === 0 ? (
                         <Card>
                             <CardContent className="text-center py-8">
@@ -267,14 +226,6 @@ export default function CustomersPage() {
                     )}
                 </TabsContent>
             </Tabs>
-
-            {/* Customer Dialog */}
-            <CustomerDialog
-                open={isDialogOpen}
-                onOpenChange={setIsDialogOpen}
-                customer={selectedCustomer}
-                onSave={handleSaveCustomer}
-            />
         </div>
     )
 }

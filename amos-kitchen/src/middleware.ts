@@ -53,10 +53,9 @@ export async function middleware(req: NextRequest) {
         }
     }
 
-    // Redirect authenticated users away from login/register pages
-    if ((req.nextUrl.pathname === '/login' || req.nextUrl.pathname === '/register') && token) {
-        return NextResponse.redirect(new URL('/dashboard', req.url))
-    }
+    // Note: We don't redirect authenticated users from login/register here
+    // because the cookie might be stale. The client-side AuthProvider
+    // will handle the redirect after verifying Firebase auth state.
 
     return NextResponse.next()
 }

@@ -1,11 +1,11 @@
 // src/app/(dashboard)/dishes/[id]/edit/page.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowRight, Save, Loader2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { FormPageLayout, FormSection, FormActions } from '@/components/forms'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -18,7 +18,7 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { LoadingSpinner } from '@/components/shared/loading-spinner'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 import { useToast } from '@/lib/hooks/use-toast'
 import type { Dish } from '@/lib/types/database'
 
@@ -52,7 +52,9 @@ export default function EditDishPage() {
 
     const [dish, setDish] = useState<Dish | null>(null)
     const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
     const [saving, setSaving] = useState(false)
+    const [deleting, setDeleting] = useState(false)
     const [formData, setFormData] = useState<FormData>({
         name: '',
         description: '',
@@ -62,12 +64,10 @@ export default function EditDishPage() {
     })
     const [errors, setErrors] = useState<FormErrors>({})
 
-    useEffect(() => {
-        fetchDish()
-    }, [dishId])
-
-    const fetchDish = async () => {
+    const fetchDish = useCallback(async () => {
         try {
+            setLoading(true)
+            setError(null)
             const response = await fetchWithAuth(`/api/dishes/${dishId}`)
             if (!response.ok) throw new Error('Failed to fetch dish')
 
@@ -80,17 +80,21 @@ export default function EditDishPage() {
                 category: data.category,
                 isAvailable: data.isAvailable
             })
-        } catch (error) {
+        } catch (err) {
+            setError('לא ניתן לטעון את פרטי המנה')
             toast({
                 title: 'שגיאה',
                 description: 'לא ניתן לטעון את פרטי המנה',
                 variant: 'destructive'
             })
-            router.push('/dishes')
         } finally {
             setLoading(false)
         }
-    }
+    }, [dishId, toast])
+
+    useEffect(() => {
+        fetchDish()
+    }, [fetchDish])
 
     const validateForm = (): boolean => {
         const newErrors: FormErrors = {}
@@ -139,7 +143,7 @@ export default function EditDishPage() {
                 description: 'המנה עודכנה בהצלחה'
             })
             router.replace(`/dishes/${dishId}`)
-        } catch (error) {
+        } catch (err) {
             toast({
                 title: 'שגיאה',
                 description: 'לא ניתן לעדכן את המנה',
@@ -150,135 +154,171 @@ export default function EditDishPage() {
         }
     }
 
-    if (loading) return <LoadingSpinner />
-    if (!dish) return null
+    const handleDelete = async () => {
+        try {
+            setDeleting(true)
+            const response = await fetchWithAuth(`/api/dishes/${dishId}`, {
+                method: 'DELETE'
+            })
+
+            if (!response.ok) throw new Error('Failed to delete dish')
+
+            toast({
+                title: 'הצלחה',
+                description: 'המנה נמחקה בהצלחה'
+            })
+            router.push('/dishes')
+        } catch (err) {
+            toast({
+                title: 'שגיאה',
+                description: 'לא ניתן למחוק את המנה',
+                variant: 'destructive'
+            })
+        } finally {
+            setDeleting(false)
+        }
+    }
+
+    // Delete button for header
+    const deleteButton = (
+        <AlertDialog>
+            <AlertDialogTrigger asChild>
+                <Button variant="destructive" disabled={deleting}>
+                    <Trash2 className="h-4 w-4 ml-2" />
+                    מחק מנה
+                </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>האם אתה בטוח?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        פעולה זו תמחק את המנה לצמיתות. לא ניתן לבטל פעולה זו.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>ביטול</AlertDialogCancel>
+                    <AlertDialogAction
+                        onClick={handleDelete}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                        מחק
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    )
 
     return (
-        <div className="max-w-2xl mx-auto space-y-6">
-            {/* Header */}
-            <div className="flex items-center gap-4">
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => router.back()}
-                >
-                    <ArrowRight className="h-4 w-4" />
-                </Button>
-                <div>
-                    <h1 className="text-3xl font-bold">עריכת מנה</h1>
-                    <p className="text-muted-foreground">
-                        עדכן את פרטי המנה
-                    </p>
-                </div>
-            </div>
-
-            {/* Form */}
+        <FormPageLayout
+            breadcrumbs={[
+                { label: 'לוח בקרה', href: '/dashboard' },
+                { label: 'מנות', href: '/dishes' },
+                { label: dish?.name || 'מנה', href: `/dishes/${dishId}` },
+                { label: 'עריכה' }
+            ]}
+            title="עריכת מנה"
+            description={dish?.name}
+            headerActions={deleteButton}
+            isLoading={loading}
+            loadingSkeletonConfig={{ sections: 1, fieldsPerSection: [5] }}
+            error={error}
+            onRetry={fetchDish}
+        >
             <form onSubmit={handleSubmit}>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>פרטי המנה</CardTitle>
-                        <CardDescription>
-                            ערוך את המידע הבסיסי של המנה
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        <div className="grid gap-2">
-                            <Label htmlFor="name">שם המנה *</Label>
+                <FormSection
+                    title="פרטי המנה"
+                    description="ערוך את המידע הבסיסי של המנה"
+                >
+                    <div className="space-y-2">
+                        <Label htmlFor="name">שם המנה *</Label>
+                        <Input
+                            id="name"
+                            value={formData.name}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            placeholder="לדוגמה: שניצל עוף"
+                            className={errors.name ? 'border-destructive' : ''}
+                            disabled={saving}
+                        />
+                        {errors.name && (
+                            <p className="text-sm text-destructive">{errors.name}</p>
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="description">תיאור</Label>
+                        <Textarea
+                            id="description"
+                            value={formData.description}
+                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                            placeholder="תיאור קצר של המנה"
+                            rows={3}
+                            disabled={saving}
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="price">מחיר (₪) *</Label>
                             <Input
-                                id="name"
-                                value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                placeholder="לדוגמה: שניצל עוף"
-                                className={errors.name ? 'border-red-500' : ''}
+                                id="price"
+                                type="number"
+                                step="0.01"
+                                value={formData.price}
+                                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                                placeholder="0.00"
+                                className={errors.price ? 'border-destructive' : ''}
+                                disabled={saving}
                             />
-                            {errors.name && (
-                                <span className="text-xs text-red-500">{errors.name}</span>
+                            {errors.price && (
+                                <p className="text-sm text-destructive">{errors.price}</p>
                             )}
                         </div>
 
-                        <div className="grid gap-2">
-                            <Label htmlFor="description">תיאור</Label>
-                            <Textarea
-                                id="description"
-                                value={formData.description}
-                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                placeholder="תיאור קצר של המנה"
-                                rows={3}
-                            />
+                        <div className="space-y-2">
+                            <Label htmlFor="category">קטגוריה *</Label>
+                            <Select
+                                value={formData.category}
+                                onValueChange={(value) => setFormData({ ...formData, category: value })}
+                                disabled={saving}
+                            >
+                                <SelectTrigger className={errors.category ? 'border-destructive' : ''}>
+                                    <SelectValue placeholder="בחר קטגוריה" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {categories.map(cat => (
+                                        <SelectItem key={cat.value} value={cat.value}>
+                                            {cat.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {errors.category && (
+                                <p className="text-sm text-destructive">{errors.category}</p>
+                            )}
                         </div>
+                    </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="price">מחיר (₪) *</Label>
-                                <Input
-                                    id="price"
-                                    type="number"
-                                    step="0.01"
-                                    value={formData.price}
-                                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                                    placeholder="0.00"
-                                    className={errors.price ? 'border-red-500' : ''}
-                                />
-                                {errors.price && (
-                                    <span className="text-xs text-red-500">{errors.price}</span>
-                                )}
-                            </div>
+                    <div className="flex items-center space-x-2 space-x-reverse">
+                        <Switch
+                            id="available"
+                            checked={formData.isAvailable}
+                            onCheckedChange={(checked) =>
+                                setFormData({ ...formData, isAvailable: checked })
+                            }
+                            disabled={saving}
+                        />
+                        <Label htmlFor="available" className="cursor-pointer">
+                            המנה זמינה להזמנה
+                        </Label>
+                    </div>
+                </FormSection>
 
-                            <div className="grid gap-2">
-                                <Label htmlFor="category">קטגוריה *</Label>
-                                <Select
-                                    value={formData.category}
-                                    onValueChange={(value) => setFormData({ ...formData, category: value })}
-                                >
-                                    <SelectTrigger className={errors.category ? 'border-red-500' : ''}>
-                                        <SelectValue placeholder="בחר קטגוריה" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {categories.map(cat => (
-                                            <SelectItem key={cat.value} value={cat.value}>
-                                                {cat.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                {errors.category && (
-                                    <span className="text-xs text-red-500">{errors.category}</span>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="flex items-center space-x-2 space-x-reverse">
-                            <Switch
-                                id="available"
-                                checked={formData.isAvailable}
-                                onCheckedChange={(checked) =>
-                                    setFormData({ ...formData, isAvailable: checked })
-                                }
-                            />
-                            <Label htmlFor="available" className="cursor-pointer">
-                                המנה זמינה להזמנה
-                            </Label>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Actions */}
-                <div className="flex gap-3 justify-end mt-6">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => router.back()}
-                        disabled={saving}
-                    >
-                        ביטול
-                    </Button>
-                    <Button type="submit" disabled={saving}>
-                        {saving && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
-                        <Save className="ml-2 h-4 w-4" />
-                        שמור שינויים
-                    </Button>
-                </div>
+                <FormActions
+                    onCancel={() => router.back()}
+                    submitLabel="שמור שינויים"
+                    isSubmitting={saving}
+                />
             </form>
-        </div>
+        </FormPageLayout>
     )
 }

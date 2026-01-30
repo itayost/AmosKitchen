@@ -188,18 +188,19 @@ export async function isDishExists(id: string): Promise<boolean> {
   return docSnap.exists()
 }
 
-// Get dishes by IDs
+// Get dishes by IDs (batch fetch for performance)
 export async function getDishesByIds(ids: string[]): Promise<Dish[]> {
-  const dishes: Dish[] = []
+  if (ids.length === 0) return []
 
-  for (const id of ids) {
-    const dish = await getDishById(id)
-    if (dish) {
-      dishes.push(dish)
-    }
-  }
+  // Remove duplicates
+  const uniqueIds = Array.from(new Set(ids))
 
-  return dishes
+  // Fetch all dishes in parallel
+  const dishPromises = uniqueIds.map(id => getDishById(id))
+  const results = await Promise.all(dishPromises)
+
+  // Filter out nulls and return
+  return results.filter((dish): dish is Dish => dish !== null)
 }
 
 // Get dish count by category

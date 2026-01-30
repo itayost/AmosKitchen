@@ -4,9 +4,7 @@
 import { useState } from 'react'
 import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
 import { useRouter } from 'next/navigation'
-import { ArrowRight, Save, Loader2 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { FormPageLayout, FormSection, FormActions } from '@/components/forms'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -19,7 +17,6 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { useToast } from '@/lib/hooks/use-toast'
-import type { Dish } from '@/lib/types/database'
 
 interface FormData {
     name: string
@@ -118,131 +115,105 @@ export default function NewDishPage() {
     }
 
     return (
-        <div className="max-w-2xl mx-auto space-y-6">
-            {/* Header */}
-            <div className="flex items-center gap-4">
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => router.back()}
-                >
-                    <ArrowRight className="h-4 w-4" />
-                </Button>
-                <div>
-                    <h1 className="text-3xl font-bold">הוספת מנה חדשה</h1>
-                    <p className="text-muted-foreground">
-                        הוסף מנה חדשה לתפריט
-                    </p>
-                </div>
-            </div>
-
-            {/* Form */}
+        <FormPageLayout
+            breadcrumbs={[
+                { label: 'לוח בקרה', href: '/dashboard' },
+                { label: 'מנות', href: '/dishes' },
+                { label: 'מנה חדשה' }
+            ]}
+            title="הוספת מנה חדשה"
+            description="הוסף מנה חדשה לתפריט"
+        >
             <form onSubmit={handleSubmit}>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>פרטי המנה</CardTitle>
-                        <CardDescription>
-                            הזן את המידע הבסיסי של המנה החדשה
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        <div className="grid gap-2">
-                            <Label htmlFor="name">שם המנה *</Label>
+                <FormSection
+                    title="פרטי המנה"
+                    description="הזן את המידע הבסיסי של המנה החדשה"
+                >
+                    <div className="space-y-2">
+                        <Label htmlFor="name">שם המנה *</Label>
+                        <Input
+                            id="name"
+                            value={formData.name}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            placeholder="לדוגמה: שניצל עוף"
+                            className={errors.name ? 'border-destructive' : ''}
+                        />
+                        {errors.name && (
+                            <p className="text-sm text-destructive">{errors.name}</p>
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="description">תיאור</Label>
+                        <Textarea
+                            id="description"
+                            value={formData.description}
+                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                            placeholder="תיאור קצר של המנה"
+                            rows={3}
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="price">מחיר (₪) *</Label>
                             <Input
-                                id="name"
-                                value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                placeholder="לדוגמה: שניצל עוף"
-                                className={errors.name ? 'border-red-500' : ''}
+                                id="price"
+                                type="number"
+                                step="0.01"
+                                value={formData.price}
+                                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                                placeholder="0.00"
+                                className={errors.price ? 'border-destructive' : ''}
                             />
-                            {errors.name && (
-                                <span className="text-xs text-red-500">{errors.name}</span>
+                            {errors.price && (
+                                <p className="text-sm text-destructive">{errors.price}</p>
                             )}
                         </div>
 
-                        <div className="grid gap-2">
-                            <Label htmlFor="description">תיאור</Label>
-                            <Textarea
-                                id="description"
-                                value={formData.description}
-                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                placeholder="תיאור קצר של המנה"
-                                rows={3}
-                            />
+                        <div className="space-y-2">
+                            <Label htmlFor="category">קטגוריה *</Label>
+                            <Select
+                                value={formData.category}
+                                onValueChange={(value) => setFormData({ ...formData, category: value })}
+                            >
+                                <SelectTrigger className={errors.category ? 'border-destructive' : ''}>
+                                    <SelectValue placeholder="בחר קטגוריה" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {categories.map(cat => (
+                                        <SelectItem key={cat.value} value={cat.value}>
+                                            {cat.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {errors.category && (
+                                <p className="text-sm text-destructive">{errors.category}</p>
+                            )}
                         </div>
+                    </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="price">מחיר (₪) *</Label>
-                                <Input
-                                    id="price"
-                                    type="number"
-                                    step="0.01"
-                                    value={formData.price}
-                                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                                    placeholder="0.00"
-                                    className={errors.price ? 'border-red-500' : ''}
-                                />
-                                {errors.price && (
-                                    <span className="text-xs text-red-500">{errors.price}</span>
-                                )}
-                            </div>
+                    <div className="flex items-center space-x-2 space-x-reverse">
+                        <Switch
+                            id="available"
+                            checked={formData.isAvailable}
+                            onCheckedChange={(checked) =>
+                                setFormData({ ...formData, isAvailable: checked })
+                            }
+                        />
+                        <Label htmlFor="available" className="cursor-pointer">
+                            המנה זמינה להזמנה
+                        </Label>
+                    </div>
+                </FormSection>
 
-                            <div className="grid gap-2">
-                                <Label htmlFor="category">קטגוריה *</Label>
-                                <Select
-                                    value={formData.category}
-                                    onValueChange={(value) => setFormData({ ...formData, category: value })}
-                                >
-                                    <SelectTrigger className={errors.category ? 'border-red-500' : ''}>
-                                        <SelectValue placeholder="בחר קטגוריה" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {categories.map(cat => (
-                                            <SelectItem key={cat.value} value={cat.value}>
-                                                {cat.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                {errors.category && (
-                                    <span className="text-xs text-red-500">{errors.category}</span>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="flex items-center space-x-2 space-x-reverse">
-                            <Switch
-                                id="available"
-                                checked={formData.isAvailable}
-                                onCheckedChange={(checked) =>
-                                    setFormData({ ...formData, isAvailable: checked })
-                                }
-                            />
-                            <Label htmlFor="available" className="cursor-pointer">
-                                המנה זמינה להזמנה
-                            </Label>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Actions */}
-                <div className="flex gap-3 justify-end mt-6">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => router.back()}
-                        disabled={saving}
-                    >
-                        ביטול
-                    </Button>
-                    <Button type="submit" disabled={saving}>
-                        {saving && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
-                        <Save className="ml-2 h-4 w-4" />
-                        צור מנה
-                    </Button>
-                </div>
+                <FormActions
+                    onCancel={() => router.back()}
+                    submitLabel="צור מנה"
+                    isSubmitting={saving}
+                />
             </form>
-        </div>
+        </FormPageLayout>
     )
 }

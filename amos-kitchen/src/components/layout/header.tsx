@@ -13,6 +13,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Menu, LogOut, User, Settings } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { QuickActions } from "./quick-actions";
 
 interface HeaderProps {
     user: any;
@@ -43,6 +44,9 @@ export function Header({ user, onMenuClick }: HeaderProps) {
                     </div>
 
                     <div className="flex items-center gap-4">
+                        {/* Quick Actions - Desktop only */}
+                        <QuickActions />
+
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">

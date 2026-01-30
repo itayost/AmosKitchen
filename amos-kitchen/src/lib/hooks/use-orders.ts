@@ -1,194 +1,158 @@
 // lib/hooks/use-orders.ts
-import { useState, useEffect, useCallback } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
 import type { Order, OrderFilters } from '@/lib/types/database'
 
-interface UseOrdersResult {
-    orders: Order[] | null
-    isLoading: boolean
-    error: Error | null
-    totalCount: number
-    refetch: () => void
+// Query keys
+export const ordersQueryKey = (filters: OrderFilters) => ['orders', filters] as const
+export const orderQueryKey = (orderId: string) => ['order', orderId] as const
+
+// Fetch functions
+async function fetchOrders(filters: OrderFilters): Promise<{ orders: Order[]; totalCount: number }> {
+  const params = new URLSearchParams({
+    search: filters.search,
+    status: filters.status,
+    dateRange: filters.dateRange,
+    page: filters.page.toString(),
+    limit: filters.limit.toString()
+  })
+
+  const response = await fetchWithAuth(`/api/orders?${params}`)
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch orders: ${response.status}`)
+  }
+
+  return response.json()
 }
 
-export function useOrders(filters: OrderFilters): UseOrdersResult {
-    const [orders, setOrders] = useState<Order[] | null>(null)
-    const [isLoading, setIsLoading] = useState(true)
-    const [error, setError] = useState<Error | null>(null)
-    const [totalCount, setTotalCount] = useState(0)
+async function fetchOrder(orderId: string): Promise<Order> {
+  const response = await fetchWithAuth(`/api/orders/${orderId}`)
 
-    const fetchOrders = useCallback(async () => {
-        console.log('Fetching orders with filters:', filters)
-        try {
-            setIsLoading(true)
-            setError(null)
+  if (!response.ok) {
+    throw new Error('Failed to fetch order')
+  }
 
-            const params = new URLSearchParams({
-                search: filters.search,
-                status: filters.status,
-                dateRange: filters.dateRange,
-                page: filters.page.toString(),
-                limit: filters.limit.toString()
-            })
-
-            console.log('Calling API:', `/api/orders?${params}`)
-            const response = await fetchWithAuth(`/api/orders?${params}`)
-
-            if (!response.ok) {
-                const errorData = await response.text()
-                console.error('API Error:', response.status, errorData)
-                throw new Error(`Failed to fetch orders: ${response.status}`)
-            }
-
-            const data = await response.json()
-            console.log('Received data:', data)
-            setOrders(data.orders || [])
-            setTotalCount(data.totalCount || 0)
-        } catch (err) {
-            setError(err as Error)
-            console.error('Error fetching orders:', err)
-            setOrders([])
-            setTotalCount(0)
-        } finally {
-            console.log('Setting loading to false')
-            setIsLoading(false)
-        }
-    }, [filters])
-
-    useEffect(() => {
-        fetchOrders()
-    }, [fetchOrders])
-
-    return {
-        orders,
-        isLoading,
-        error,
-        totalCount,
-        refetch: fetchOrders
-    }
+  return response.json()
 }
 
-// Hook for single order
+// Orders list hook
+export function useOrders(filters: OrderFilters) {
+  const {
+    data,
+    isLoading,
+    error,
+    refetch
+  } = useQuery({
+    queryKey: ordersQueryKey(filters),
+    queryFn: () => fetchOrders(filters),
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
+  })
+
+  return {
+    orders: data?.orders ?? null,
+    isLoading,
+    error: error instanceof Error ? error : null,
+    totalCount: data?.totalCount ?? 0,
+    refetch
+  }
+}
+
+// Single order hook
 export function useOrder(orderId: string) {
-    const [order, setOrder] = useState<Order | null>(null)
-    const [isLoading, setIsLoading] = useState(true)
-    const [error, setError] = useState<Error | null>(null)
+  const {
+    data,
+    isLoading,
+    error,
+    refetch
+  } = useQuery({
+    queryKey: orderQueryKey(orderId),
+    queryFn: () => fetchOrder(orderId),
+    enabled: !!orderId,
+    staleTime: 30 * 1000,
+  })
 
-    const fetchOrder = useCallback(async () => {
-        if (!orderId) return
-
-        try {
-            setIsLoading(true)
-            setError(null)
-
-            const response = await fetchWithAuth(`/api/orders/${orderId}`)
-
-            if (!response.ok) {
-                throw new Error('Failed to fetch order')
-            }
-
-            const data = await response.json()
-            setOrder(data)
-        } catch (err) {
-            setError(err as Error)
-            console.error('Error fetching order:', err)
-        } finally {
-            setIsLoading(false)
-        }
-    }, [orderId])
-
-    useEffect(() => {
-        fetchOrder()
-    }, [fetchOrder])
-
-    return {
-        order,
-        isLoading,
-        error,
-        refetch: fetchOrder
-    }
+  return {
+    order: data ?? null,
+    isLoading,
+    error: error instanceof Error ? error : null,
+    refetch
+  }
 }
 
-// Hook for order mutations
+// Order mutations hook
 export function useOrderMutations() {
-    const [isLoading, setIsLoading] = useState(false)
-    const [error, setError] = useState<Error | null>(null)
+  const queryClient = useQueryClient()
 
-    const createOrder = async (orderData: any) => {
-        try {
-            setIsLoading(true)
-            setError(null)
+  const createMutation = useMutation({
+    mutationFn: async (orderData: any) => {
+      const response = await fetchWithAuth('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData)
+      })
 
-            const response = await fetchWithAuth('/api/orders', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(orderData)
-            })
+      if (!response.ok) {
+        throw new Error('Failed to create order')
+      }
 
-            if (!response.ok) {
-                throw new Error('Failed to create order')
-            }
-
-            return await response.json()
-        } catch (err) {
-            setError(err as Error)
-            throw err
-        } finally {
-            setIsLoading(false)
-        }
+      return response.json()
+    },
+    onSuccess: () => {
+      // Invalidate orders list queries
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['friday'] })
     }
+  })
 
-    const updateOrder = async (orderId: string, updates: any) => {
-        try {
-            setIsLoading(true)
-            setError(null)
+  const updateMutation = useMutation({
+    mutationFn: async ({ orderId, updates }: { orderId: string; updates: any }) => {
+      const response = await fetchWithAuth(`/api/orders/${orderId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      })
 
-            const response = await fetchWithAuth(`/api/orders/${orderId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updates)
-            })
+      if (!response.ok) {
+        throw new Error('Failed to update order')
+      }
 
-            if (!response.ok) {
-                throw new Error('Failed to update order')
-            }
-
-            return await response.json()
-        } catch (err) {
-            setError(err as Error)
-            throw err
-        } finally {
-            setIsLoading(false)
-        }
+      return response.json()
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
+      queryClient.invalidateQueries({ queryKey: orderQueryKey(variables.orderId) })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['friday'] })
     }
+  })
 
-    const deleteOrder = async (orderId: string) => {
-        try {
-            setIsLoading(true)
-            setError(null)
+  const deleteMutation = useMutation({
+    mutationFn: async (orderId: string) => {
+      const response = await fetchWithAuth(`/api/orders/${orderId}`, {
+        method: 'DELETE'
+      })
 
-            const response = await fetchWithAuth(`/api/orders/${orderId}`, {
-                method: 'DELETE'
-            })
+      if (!response.ok) {
+        throw new Error('Failed to delete order')
+      }
 
-            if (!response.ok) {
-                throw new Error('Failed to delete order')
-            }
-
-            return true
-        } catch (err) {
-            setError(err as Error)
-            throw err
-        } finally {
-            setIsLoading(false)
-        }
+      return true
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['friday'] })
     }
+  })
 
-    return {
-        createOrder,
-        updateOrder,
-        deleteOrder,
-        isLoading,
-        error
-    }
+  return {
+    createOrder: createMutation.mutateAsync,
+    updateOrder: (orderId: string, updates: any) => updateMutation.mutateAsync({ orderId, updates }),
+    deleteOrder: deleteMutation.mutateAsync,
+    isLoading: createMutation.isPending || updateMutation.isPending || deleteMutation.isPending,
+    error: createMutation.error || updateMutation.error || deleteMutation.error
+  }
 }

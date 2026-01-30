@@ -14,7 +14,6 @@ import {
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Badge } from '@/components/ui/badge'
 
 interface Activity {
     id: string
@@ -35,6 +34,15 @@ interface RecentActivityProps {
 }
 
 export function RecentActivity({ activities }: RecentActivityProps) {
+    // Handle Firestore timestamps and various date formats
+    const parseDate = (date: any): Date => {
+        if (!date) return new Date()
+        if (date.toDate) return date.toDate() // Firestore Timestamp
+        if (date.seconds) return new Date(date.seconds * 1000) // Firestore timestamp object
+        if (date instanceof Date) return date
+        return new Date(date)
+    }
+
     const getActivityIcon = (action: string) => {
         switch (action) {
             case 'order_created':
@@ -55,21 +63,21 @@ export function RecentActivity({ activities }: RecentActivityProps) {
     const getActivityMessage = (activity: Activity) => {
         switch (activity.action) {
             case 'order_created':
-                return `הזמנה חדשה #${activity.order?.orderNumber} נוצרה עבור ${activity.order?.customer.name}`
+                return `הזמנה חדשה #${activity.order?.orderNumber} נוצרה עבור ${activity.order?.customer?.name || 'לקוח'}`
             case 'status_change':
-                return `סטטוס הזמנה #${activity.order?.orderNumber} שונה ל-${getStatusLabel(activity.details.newStatus)}`
+                return `סטטוס הזמנה #${activity.order?.orderNumber} שונה ל-${getStatusLabel(activity.details?.newStatus || '')}`
             case 'order_completed':
                 return `הזמנה #${activity.order?.orderNumber} הושלמה ונמסרה`
             case 'order_cancelled':
                 return `הזמנה #${activity.order?.orderNumber} בוטלה`
             case 'customer_created':
-                return `לקוח חדש נוסף: ${activity.details.customerName}`
+                return `לקוח חדש נוסף: ${activity.details?.customerName || 'לקוח'}`
             case 'item_added':
-                return `${activity.details.dishName} נוסף להזמנה #${activity.order?.orderNumber}`
+                return `${activity.details?.dishName || 'מנה'} נוסף להזמנה #${activity.order?.orderNumber}`
             case 'item_removed':
-                return `${activity.details.dishName} הוסר מהזמנה #${activity.order?.orderNumber}`
+                return `${activity.details?.dishName || 'מנה'} הוסר מהזמנה #${activity.order?.orderNumber}`
             default:
-                return activity.details.message || 'פעילות חדשה'
+                return activity.details?.message || 'פעילות חדשה'
         }
     }
 
@@ -108,7 +116,7 @@ export function RecentActivity({ activities }: RecentActivityProps) {
                                             {getActivityMessage(activity)}
                                         </p>
                                         <p className="text-xs text-muted-foreground">
-                                            {formatDistanceToNow(new Date(activity.createdAt), {
+                                            {formatDistanceToNow(parseDate(activity.createdAt), {
                                                 addSuffix: true,
                                                 locale: he
                                             })}

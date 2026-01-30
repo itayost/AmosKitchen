@@ -1,6 +1,7 @@
 // src/app/api/orders/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+// Use server-side (Admin SDK) functions for API routes
 import {
     getOrderById,
     updateOrder,
@@ -8,8 +9,8 @@ import {
     deleteOrder,
     getOrderHistory,
     addOrderHistory
-} from '@/lib/firebase/dao/orders'
-import { getDishesByIds } from '@/lib/firebase/dao/dishes'
+} from '@/lib/firebase/server/orders'
+import { getDishesByIds } from '@/lib/firebase/server/dishes'
 import { verifyAuth } from '@/lib/api/auth-middleware'
 
 // Validation schema for updating order

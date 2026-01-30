@@ -1,73 +1,61 @@
 // lib/hooks/use-dashboard-data.ts
-import { useState, useEffect, useCallback } from 'react';
-import { fetchWithAuth } from '@/lib/api/fetch-with-auth';
+import { useQuery } from '@tanstack/react-query'
+import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
 
 interface DashboardData {
   stats: {
-    totalOrders: number;
-    activeCustomers: number;
-    revenue: number;
-    avgOrderValue: number;
-  };
-  weeklyOrders: Array<{ day: string; orders: number }>;
-  topDishes: Array<{ name: string; count: number }>;
+    totalOrders: number
+    activeCustomers: number
+    revenue: number
+    avgOrderValue: number
+  }
+  weeklyOrders: Array<{ day: string; orders: number }>
+  topDishes: Array<{ name: string; count: number }>
   recentOrders: Array<{
-    id: string;
-    customer: string;
-    amount: number;
-    status: string;
-    time: string;
-  }>;
+    id: string
+    customer: string
+    amount: number
+    status: string
+    time: string
+  }>
 }
 
+async function fetchDashboardData(): Promise<DashboardData> {
+  const response = await fetchWithAuth('/api/dashboard')
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch dashboard data')
+  }
+
+  return response.json()
+}
+
+export const dashboardQueryKey = ['dashboard'] as const
+
 export function useDashboardData() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const {
+    data,
+    isLoading,
+    error,
+    isFetching: isRefreshing,
+    refetch
+  } = useQuery({
+    queryKey: dashboardQueryKey,
+    queryFn: fetchDashboardData,
+    staleTime: 30 * 1000, // 30 seconds
+    refetchInterval: 30 * 1000, // Auto-refresh every 30 seconds
+    refetchOnWindowFocus: true,
+  })
 
-  const fetchDashboardData = useCallback(async (showRefreshAnimation = false) => {
-    try {
-      if (showRefreshAnimation) {
-        setIsRefreshing(true);
-      } else {
-        setIsLoading(true);
-      }
+  const refresh = () => {
+    refetch()
+  }
 
-      const response = await fetchWithAuth('/api/dashboard');
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch dashboard data');
-      }
-
-      const dashboardData = await response.json();
-      setData(dashboardData);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, []);
-
-  // Initial load
-  useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
-
-  // Auto-refresh every 30 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchDashboardData(true);
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, [fetchDashboardData]);
-
-  const refresh = useCallback(() => {
-    fetchDashboardData(true);
-  }, [fetchDashboardData]);
-
-  return { data, isLoading, error, isRefreshing, refresh };
+  return {
+    data: data ?? null,
+    isLoading,
+    error: error ? (error instanceof Error ? error.message : 'An error occurred') : null,
+    isRefreshing: isRefreshing && !isLoading,
+    refresh
+  }
 }

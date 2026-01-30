@@ -2,18 +2,33 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { OrderForm } from '@/components/orders/order-form'
+import { useSearchParams } from 'next/navigation'
+import { OrderWizard } from '@/components/orders/order-wizard/order-wizard'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import Link from 'next/link'
-import { ChevronRight, AlertTriangle, Loader2 } from 'lucide-react'
+import { ChevronRight, AlertTriangle } from 'lucide-react'
 import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
-import type { Customer, Dish } from '@/lib/types/database'
+import type { Customer, Dish, CustomerPreference } from '@/lib/types/database'
+
+interface CustomerWithPreferences extends Customer {
+    preferences?: CustomerPreference[]
+}
 
 function LoadingSkeleton() {
     return (
         <div className="space-y-6">
+            {/* Step Indicator Skeleton */}
+            <div className="flex items-center justify-center gap-4 mb-8">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <Skeleton className="h-1 w-16" />
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <Skeleton className="h-1 w-16" />
+                <Skeleton className="h-10 w-10 rounded-full" />
+            </div>
+
+            {/* Content Skeleton */}
             <Card>
                 <CardContent className="p-6">
                     <div className="space-y-4">
@@ -36,7 +51,11 @@ function LoadingSkeleton() {
 }
 
 export default function NewOrderPage() {
-    const [customers, setCustomers] = useState<Customer[]>([])
+    const searchParams = useSearchParams()
+    const customerId = searchParams.get('customer')
+    const duplicateId = searchParams.get('duplicate')
+
+    const [customers, setCustomers] = useState<CustomerWithPreferences[]>([])
     const [dishes, setDishes] = useState<Dish[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
@@ -65,7 +84,7 @@ export default function NewOrderPage() {
                 const dishesData = await dishesResponse.json()
 
                 // Process and sort customers
-                const processedCustomers = customersData
+                const processedCustomers: CustomerWithPreferences[] = customersData
                     .filter((customer: any) => customer.id)
                     .map((customer: any) => ({
                         id: customer.id,
@@ -78,10 +97,10 @@ export default function NewOrderPage() {
                         createdAt: customer.createdAt,
                         updatedAt: customer.updatedAt
                     }))
-                    .sort((a: Customer, b: Customer) => a.name.localeCompare(b.name))
+                    .sort((a: CustomerWithPreferences, b: CustomerWithPreferences) => a.name.localeCompare(b.name))
 
                 // Process and sort dishes
-                const processedDishes = dishesData
+                const processedDishes: Dish[] = dishesData
                     .filter((dish: any) => dish.id && dish.isAvailable)
                     .map((dish: any) => ({
                         id: dish.id,
@@ -108,30 +127,41 @@ export default function NewOrderPage() {
         fetchData()
     }, [])
 
+    // Breadcrumb component
+    const Breadcrumb = () => (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Link href="/dashboard" className="hover:text-foreground">
+                לוח בקרה
+            </Link>
+            <ChevronRight className="h-4 w-4" />
+            <Link href="/orders" className="hover:text-foreground">
+                הזמנות
+            </Link>
+            <ChevronRight className="h-4 w-4" />
+            <span className="text-foreground">הזמנה חדשה</span>
+        </div>
+    )
+
+    // Page header component
+    const PageHeader = () => (
+        <div>
+            <h1 className="text-3xl font-bold tracking-tight">
+                {duplicateId ? 'שכפול הזמנה' : 'יצירת הזמנה חדשה'}
+            </h1>
+            <p className="text-muted-foreground">
+                {duplicateId
+                    ? 'שכפול הזמנה קיימת עם תאריך משלוח חדש. ניתן לערוך את הפרטים לפני האישור.'
+                    : 'מלא את הפרטים ליצירת הזמנה חדשה. ניתן להזמין למשלוח בימי שישי בלבד.'
+                }
+            </p>
+        </div>
+    )
+
     if (isLoading) {
         return (
             <div className="space-y-6">
-                {/* Breadcrumb */}
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Link href="/dashboard" className="hover:text-foreground">
-                        לוח בקרה
-                    </Link>
-                    <ChevronRight className="h-4 w-4" />
-                    <Link href="/orders" className="hover:text-foreground">
-                        הזמנות
-                    </Link>
-                    <ChevronRight className="h-4 w-4" />
-                    <span className="text-foreground">הזמנה חדשה</span>
-                </div>
-
-                {/* Page Title */}
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">יצירת הזמנה חדשה</h1>
-                    <p className="text-muted-foreground">
-                        מלא את הפרטים ליצירת הזמנה חדשה. ניתן להזמין למשלוח בימי שישי בלבד.
-                    </p>
-                </div>
-
+                <Breadcrumb />
+                <PageHeader />
                 <LoadingSkeleton />
             </div>
         )
@@ -140,19 +170,7 @@ export default function NewOrderPage() {
     if (error) {
         return (
             <div className="space-y-6">
-                {/* Breadcrumb */}
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Link href="/dashboard" className="hover:text-foreground">
-                        לוח בקרה
-                    </Link>
-                    <ChevronRight className="h-4 w-4" />
-                    <Link href="/orders" className="hover:text-foreground">
-                        הזמנות
-                    </Link>
-                    <ChevronRight className="h-4 w-4" />
-                    <span className="text-foreground">הזמנה חדשה</span>
-                </div>
-
+                <Breadcrumb />
                 <Card className="border-red-200 bg-red-50">
                     <CardContent className="p-6">
                         <div className="flex items-center gap-4">
@@ -177,26 +195,8 @@ export default function NewOrderPage() {
 
     return (
         <div className="space-y-6">
-            {/* Breadcrumb */}
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Link href="/dashboard" className="hover:text-foreground">
-                    לוח בקרה
-                </Link>
-                <ChevronRight className="h-4 w-4" />
-                <Link href="/orders" className="hover:text-foreground">
-                    הזמנות
-                </Link>
-                <ChevronRight className="h-4 w-4" />
-                <span className="text-foreground">הזמנה חדשה</span>
-            </div>
-
-            {/* Page Title */}
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">יצירת הזמנה חדשה</h1>
-                <p className="text-muted-foreground">
-                    מלא את הפרטים ליצירת הזמנה חדשה. ניתן להזמין למשלוח בימי שישי בלבד.
-                </p>
-            </div>
+            <Breadcrumb />
+            <PageHeader />
 
             {/* Show warning if no customers */}
             {customers.length === 0 && (
@@ -224,8 +224,13 @@ export default function NewOrderPage() {
                 </Card>
             )}
 
-            {/* Order Form */}
-            <OrderForm customers={customers} dishes={dishes} />
+            {/* Order Wizard */}
+            <OrderWizard
+                customers={customers}
+                dishes={dishes}
+                initialCustomerId={customerId}
+                duplicateOrderId={duplicateId}
+            />
         </div>
     )
 }

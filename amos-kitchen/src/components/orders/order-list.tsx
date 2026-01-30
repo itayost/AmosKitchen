@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { LoadingSpinner } from '@/components/shared/loading-spinner'
 import { OrderStatusBadge } from './order-status-badge'
 import { PreferenceBadgeGroup } from '@/components/customers/preference-badge'
 import { useRouter } from 'next/navigation'
@@ -182,13 +183,7 @@ export function OrderList({
     )
 
     if (isLoading) {
-        return (
-            <Card>
-                <CardContent className="p-8 text-center">
-                    <p className="text-muted-foreground">טוען הזמנות...</p>
-                </CardContent>
-            </Card>
-        )
+        return <LoadingSpinner centered />
     }
 
     return (

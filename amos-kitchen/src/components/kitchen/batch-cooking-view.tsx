@@ -4,8 +4,6 @@ import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-// Define types locally instead of importing from Prisma
-type DishCategory = 'APPETIZER' | 'MAIN' | 'SIDE' | 'DESSERT' | 'BEVERAGE';
 import { ChefHat, Utensils, Coffee, Cookie, Salad, Info, Users, AlertCircle } from 'lucide-react';
 import {
   Collapsible,
@@ -31,10 +29,9 @@ interface DishAggregation {
 
 interface BatchCookingViewProps {
   dishes: DishAggregation[]
-  orders: any[] // or define proper Order type
 }
 
-export function BatchCookingView({ dishes, orders }: BatchCookingViewProps) {
+export function BatchCookingView({ dishes }: BatchCookingViewProps) {
   const [expandedDishes, setExpandedDishes] = useState<string[]>([]);
 
   const toggleDish = (dishId: string) => {

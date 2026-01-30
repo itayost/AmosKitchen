@@ -1,9 +1,8 @@
 import { Suspense } from 'react';
 import { Card } from '@/components/ui/card';
-import { KitchenDashboard } from '@/components/kitchen/kitchen-dashboard';
+import { KitchenDashboardV2 } from '@/components/kitchen/kitchen-dashboard-v2';
 import { getOrdersForNextDelivery } from '@/lib/actions/orders';
 import { Loader2 } from 'lucide-react';
-import type { Order } from '@/lib/types/database'
 
 export const dynamic = 'force-dynamic';
 
@@ -26,15 +25,6 @@ export default async function KitchenPage() {
     nextDeliveryData = { orders: [], deliveryDate: null };
   }
 
-  const deliveryDateString = nextDeliveryData.deliveryDate
-    ? new Date(nextDeliveryData.deliveryDate).toLocaleDateString('he-IL', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      })
-    : 'אין הזמנות עתידיות';
-
   return (
     <div className="h-full bg-gray-50 p-4">
       <div className="max-w-7xl mx-auto">
@@ -46,7 +36,7 @@ export default async function KitchenPage() {
             </Card>
           }
         >
-          <KitchenDashboard
+          <KitchenDashboardV2
             initialOrders={nextDeliveryData.orders as any}
             deliveryDate={nextDeliveryData.deliveryDate}
           />

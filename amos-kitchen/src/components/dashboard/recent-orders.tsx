@@ -6,7 +6,6 @@ import { he } from 'date-fns/locale'
 import { Eye, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import {
   Table,
   TableBody,
@@ -28,6 +27,15 @@ export function RecentOrders({ orders }: RecentOrdersProps) {
       style: 'currency',
       currency: 'ILS'
     }).format(price)
+  }
+
+  // Handle Firestore timestamps and various date formats
+  const parseDate = (date: any): Date => {
+    if (!date) return new Date()
+    if (date.toDate) return date.toDate() // Firestore Timestamp
+    if (date.seconds) return new Date(date.seconds * 1000) // Firestore timestamp object
+    if (date instanceof Date) return date
+    return new Date(date)
   }
 
   return (
@@ -68,7 +76,7 @@ export function RecentOrders({ orders }: RecentOrdersProps) {
                   </div>
                 </TableCell>
                 <TableCell>
-                  {format(new Date(order.deliveryDate), 'dd/MM/yyyy', { locale: he })}
+                  {format(parseDate(order.deliveryDate), 'dd/MM/yyyy', { locale: he })}
                 </TableCell>
                 <TableCell>
                   <OrderStatusBadge status={order.status} />

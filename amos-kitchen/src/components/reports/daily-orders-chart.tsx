@@ -35,23 +35,35 @@ export function DailyOrdersChart({ data }: DailyOrdersChartProps) {
         avgOrder: day.count > 0 ? Math.round(day.revenue / day.count) : 0
     }))
 
+    // Calculate totals
+    const totalOrders = data.reduce((sum, day) => sum + day.count, 0)
+    const totalRevenue = data.reduce((sum, day) => sum + day.revenue, 0)
+    const avgOrder = totalOrders > 0 ? totalRevenue / totalOrders : 0
+
     const formatCurrency = (value: number) => {
-        return `₪${value.toLocaleString('he-IL')}`
+        return `₪${Math.round(value).toLocaleString('he-IL')}`
     }
 
     const CustomTooltip = ({ active, payload, label }: any) => {
         if (active && payload && payload.length) {
             return (
-                <div className="bg-white p-3 border rounded-lg shadow-lg">
-                    <p className="font-medium">{label}</p>
-                    <p className="text-sm text-muted-foreground">{payload[0]?.payload.shortDate}</p>
-                    <div className="mt-2 space-y-1">
+                <div className="bg-white dark:bg-gray-800 p-4 border rounded-xl shadow-xl backdrop-blur-sm">
+                    <p className="font-semibold text-base">{label}</p>
+                    <p className="text-sm text-muted-foreground mb-2">{payload[0]?.payload.shortDate}</p>
+                    <div className="space-y-1.5">
                         {payload.map((entry: any, index: number) => (
-                            <p key={index} className="text-sm" style={{ color: entry.color }}>
-                                {entry.name}: {entry.name === 'הזמנות'
-                                    ? entry.value
-                                    : formatCurrency(entry.value)}
-                            </p>
+                            <div key={index} className="flex items-center gap-2">
+                                <div
+                                    className="w-2.5 h-2.5 rounded-full"
+                                    style={{ backgroundColor: entry.color }}
+                                />
+                                <span className="text-sm">
+                                    {entry.name}: {' '}
+                                    <span className="font-medium">
+                                        {entry.name === 'הזמנות' ? entry.value : formatCurrency(entry.value)}
+                                    </span>
+                                </span>
+                            </div>
                         ))}
                     </div>
                 </div>
@@ -61,9 +73,9 @@ export function DailyOrdersChart({ data }: DailyOrdersChartProps) {
     }
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>מגמת הזמנות יומית</CardTitle>
+        <Card className="overflow-hidden">
+            <CardHeader className="pb-2">
+                <CardTitle className="text-lg font-semibold">מגמת הזמנות יומית</CardTitle>
             </CardHeader>
             <CardContent>
                 <div className="h-[350px]">
@@ -74,39 +86,49 @@ export function DailyOrdersChart({ data }: DailyOrdersChartProps) {
                         >
                             <defs>
                                 <linearGradient id="colorOrders" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8} />
-                                    <stop offset="95%" stopColor="#8884d8" stopOpacity={0} />
+                                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
+                                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0.05} />
                                 </linearGradient>
                                 <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#82ca9d" stopOpacity={0.8} />
-                                    <stop offset="95%" stopColor="#82ca9d" stopOpacity={0} />
+                                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.4} />
+                                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0.05} />
                                 </linearGradient>
                             </defs>
-                            <CartesianGrid strokeDasharray="3 3" />
+                            <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="opacity-10" />
                             <XAxis
                                 dataKey="date"
                                 style={{ fontSize: '12px' }}
+                                tick={{ fill: 'currentColor' }}
+                                className="text-muted-foreground"
                             />
                             <YAxis
                                 yAxisId="left"
                                 style={{ fontSize: '12px' }}
+                                tick={{ fill: 'currentColor' }}
+                                className="text-muted-foreground"
                             />
                             <YAxis
                                 yAxisId="right"
                                 orientation="right"
                                 style={{ fontSize: '12px' }}
                                 tickFormatter={formatCurrency}
+                                tick={{ fill: 'currentColor' }}
+                                className="text-muted-foreground"
                             />
-                            <Tooltip content={<CustomTooltip />} />
+                            <Tooltip
+                                content={<CustomTooltip />}
+                                cursor={{ stroke: 'currentColor', strokeOpacity: 0.1 }}
+                            />
                             <Legend
-                                wrapperStyle={{ fontSize: '14px' }}
-                                iconType="line"
+                                wrapperStyle={{ fontSize: '14px', paddingTop: '20px' }}
+                                iconType="circle"
                             />
                             <Area
                                 yAxisId="left"
                                 type="monotone"
                                 dataKey="orders"
-                                stroke="#8884d8"
+                                stroke="#6366f1"
+                                strokeWidth={2.5}
                                 fillOpacity={1}
                                 fill="url(#colorOrders)"
                                 name="הזמנות"
@@ -115,7 +137,8 @@ export function DailyOrdersChart({ data }: DailyOrdersChartProps) {
                                 yAxisId="right"
                                 type="monotone"
                                 dataKey="revenue"
-                                stroke="#82ca9d"
+                                stroke="#22c55e"
+                                strokeWidth={2.5}
                                 fillOpacity={1}
                                 fill="url(#colorRevenue)"
                                 name="הכנסות"
@@ -123,24 +146,25 @@ export function DailyOrdersChart({ data }: DailyOrdersChartProps) {
                         </AreaChart>
                     </ResponsiveContainer>
                 </div>
-                <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
-                    <div className="text-center">
-                        <p className="text-muted-foreground">סה&quot;כ הזמנות</p>
-                        <p className="text-2xl font-bold">{data.reduce((sum, day) => sum + day.count, 0)}</p>
-                    </div>
-                    <div className="text-center">
-                        <p className="text-muted-foreground">סה&quot;כ הכנסות</p>
-                        <p className="text-2xl font-bold">
-                            {formatCurrency(data.reduce((sum, day) => sum + day.revenue, 0))}
+
+                {/* Summary Stats */}
+                <div className="mt-6 pt-6 border-t grid grid-cols-3 gap-4">
+                    <div className="text-center p-4 rounded-lg bg-indigo-50 dark:bg-indigo-950/30">
+                        <p className="text-sm text-muted-foreground mb-1">סה&quot;כ הזמנות</p>
+                        <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                            {totalOrders}
                         </p>
                     </div>
-                    <div className="text-center">
-                        <p className="text-muted-foreground">ממוצע להזמנה</p>
-                        <p className="text-2xl font-bold">
-                            {formatCurrency(
-                                data.reduce((sum, day) => sum + day.revenue, 0) /
-                                Math.max(data.reduce((sum, day) => sum + day.count, 0), 1)
-                            )}
+                    <div className="text-center p-4 rounded-lg bg-green-50 dark:bg-green-950/30">
+                        <p className="text-sm text-muted-foreground mb-1">סה&quot;כ הכנסות</p>
+                        <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                            {formatCurrency(totalRevenue)}
+                        </p>
+                    </div>
+                    <div className="text-center p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30">
+                        <p className="text-sm text-muted-foreground mb-1">ממוצע להזמנה</p>
+                        <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                            {formatCurrency(avgOrder)}
                         </p>
                     </div>
                 </div>

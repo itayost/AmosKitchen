@@ -1,25 +1,16 @@
 // src/app/(dashboard)/dishes/[id]/page.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useState, useEffect, useCallback } from 'react'
+import { useParams } from 'next/navigation'
 import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
-import {
-    ArrowRight,
-    Edit,
-    Package,
-    DollarSign,
-    ShoppingCart,
-    TrendingUp,
-    Calendar,
-    Users
-} from 'lucide-react'
+import { Edit } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { LoadingSpinner } from '@/components/shared/loading-spinner'
+import { DetailPageLayout } from '@/components/forms'
 import { format } from 'date-fns'
 import { he } from 'date-fns/locale'
 import Link from 'next/link'
@@ -36,40 +27,35 @@ interface DishDetails extends Dish {
 
 export default function DishDetailsPage() {
     const params = useParams()
-    const router = useRouter()
     const dishId = params.id as string
 
     const [dish, setDish] = useState<DishDetails | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
 
-    useEffect(() => {
-        fetchDishDetails()
-    }, [dishId])
-
-    const fetchDishDetails = async () => {
+    const fetchDishDetails = useCallback(async () => {
         try {
             setLoading(true)
-            console.log('Fetching dish details for ID:', dishId)
+            setError(null)
             const response = await fetchWithAuth(`/api/dishes/${dishId}`)
-            console.log('Response status:', response.status)
 
             if (!response.ok) {
                 const errorData = await response.json()
-                console.error('Failed to fetch dish. Response:', errorData)
                 throw new Error(errorData.error || 'Failed to fetch dish details')
             }
 
             const data = await response.json()
-            console.log('Dish data received:', data)
             setDish(data)
         } catch (err) {
-            console.error('Error fetching dish:', err)
-            setError(err instanceof Error ? err.message : 'An error occurred')
+            setError(err instanceof Error ? err.message : 'אירעה שגיאה')
         } finally {
             setLoading(false)
         }
-    }
+    }, [dishId])
+
+    useEffect(() => {
+        fetchDishDetails()
+    }, [fetchDishDetails])
 
     const formatPrice = (price: number) => {
         return new Intl.NumberFormat('he-IL', {
@@ -77,7 +63,6 @@ export default function DishDetailsPage() {
             currency: 'ILS'
         }).format(price)
     }
-
 
     const getCategoryLabel = (category: string) => {
         const categories: Record<string, string> = {
@@ -90,186 +75,175 @@ export default function DishDetailsPage() {
         return categories[category] || category
     }
 
-    if (loading) return <LoadingSpinner />
-    if (error || !dish) {
-        return (
-            <div className="p-6">
-                <Card>
-                    <CardContent className="p-6">
-                        <p className="text-center text-muted-foreground">
-                            {error || 'המנה לא נמצאה'}
-                        </p>
-                    </CardContent>
-                </Card>
-            </div>
-        )
-    }
+    // Header actions
+    const headerActions = (
+        <Button asChild>
+            <Link href={`/dishes/${dishId}/edit`}>
+                <Edit className="ml-2 h-4 w-4" />
+                עריכה
+            </Link>
+        </Button>
+    )
+
+    // Category badge
+    const categoryBadge = dish ? (
+        <Badge variant="outline">{getCategoryLabel(dish.category || 'main')}</Badge>
+    ) : undefined
 
     return (
-        <div className="p-6 space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => router.push('/dishes')}
-                    >
-                        <ArrowRight className="h-4 w-4" />
-                    </Button>
-                    <div>
-                        <h1 className="text-3xl font-bold">{dish.name}</h1>
-                        <p className="text-muted-foreground">
-                            <Badge variant="outline">{getCategoryLabel(dish.category || 'main')}</Badge>
-                        </p>
+        <DetailPageLayout
+            breadcrumbs={[
+                { label: 'לוח בקרה', href: '/dashboard' },
+                { label: 'מנות', href: '/dishes' },
+                { label: dish?.name || 'מנה' }
+            ]}
+            title={dish?.name || 'פרטי מנה'}
+            badge={categoryBadge}
+            headerActions={headerActions}
+            isLoading={loading}
+            loadingSkeletonConfig={{ showHeader: true, statCards: 4, sections: 1 }}
+            error={error}
+            onRetry={fetchDishDetails}
+        >
+            {dish && (
+                <>
+                    {/* Stats Cards */}
+                    <div className="grid gap-4 grid-cols-1 md:grid-cols-4">
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium text-muted-foreground">
+                                    מחיר
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{formatPrice(dish.price)}</div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium text-muted-foreground">
+                                    סה&quot;כ הזמנות
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{dish.stats.totalOrders}</div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium text-muted-foreground">
+                                    כמות כוללת
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{dish.stats.totalQuantity}</div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium text-muted-foreground">
+                                    הכנסות
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold text-green-600">
+                                    {formatPrice(dish.stats.totalRevenue)}
+                                </div>
+                            </CardContent>
+                        </Card>
                     </div>
-                </div>
-                <div>
-                    <Button asChild>
-                        <Link href={`/dishes/${dishId}/edit`}>
-                            <Edit className="ml-2 h-4 w-4" />
-                            עריכה
-                        </Link>
-                    </Button>
-                </div>
-            </div>
 
-            {/* Stats Cards */}
-            <div className="grid gap-4 grid-cols-1 md:grid-cols-4">
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            מחיר
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{formatPrice(dish.price)}</div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            סה&quot;כ הזמנות
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{dish.stats.totalOrders}</div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            כמות כוללת
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{dish.stats.totalQuantity}</div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            הכנסות
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-green-600">
-                            {formatPrice(dish.stats.totalRevenue)}
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
+                    {/* Tabs */}
+                    <Tabs defaultValue="details" className="space-y-4">
+                        <TabsList>
+                            <TabsTrigger value="details">פרטים</TabsTrigger>
+                            <TabsTrigger value="orders">הזמנות אחרונות</TabsTrigger>
+                        </TabsList>
 
-            {/* Tabs */}
-            <Tabs defaultValue="details" className="space-y-4">
-                <TabsList>
-                    <TabsTrigger value="details">פרטים</TabsTrigger>
-                    <TabsTrigger value="orders">הזמנות אחרונות</TabsTrigger>
-                </TabsList>
+                        <TabsContent value="details">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>פרטי המנה</CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div>
+                                        <div className="text-sm font-medium text-muted-foreground mb-1">
+                                            תיאור
+                                        </div>
+                                        <p>{dish.description || 'אין תיאור'}</p>
+                                    </div>
+                                    <div>
+                                        <div className="text-sm font-medium text-muted-foreground mb-1">
+                                            סטטוס
+                                        </div>
+                                        <Badge variant={dish.isAvailable ? 'default' : 'secondary'}>
+                                            {dish.isAvailable ? 'זמין להזמנה' : 'לא זמין'}
+                                        </Badge>
+                                    </div>
+                                    <div>
+                                        <div className="text-sm font-medium text-muted-foreground mb-1">
+                                            תאריך יצירה
+                                        </div>
+                                        <p>{format(new Date(dish.createdAt), 'dd/MM/yyyy', { locale: he })}</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
 
-                <TabsContent value="details">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>פרטי המנה</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div>
-                                <div className="text-sm font-medium text-muted-foreground mb-1">
-                                    תיאור
-                                </div>
-                                <p>{dish.description || 'אין תיאור'}</p>
-                            </div>
-                            <div>
-                                <div className="text-sm font-medium text-muted-foreground mb-1">
-                                    סטטוס
-                                </div>
-                                <Badge variant={dish.isAvailable ? 'default' : 'secondary'}>
-                                    {dish.isAvailable ? 'זמין להזמנה' : 'לא זמין'}
-                                </Badge>
-                            </div>
-                            <div>
-                                <div className="text-sm font-medium text-muted-foreground mb-1">
-                                    תאריך יצירה
-                                </div>
-                                <p>{format(new Date(dish.createdAt), 'dd/MM/yyyy', { locale: he })}</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-
-                <TabsContent value="orders">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>הזמנות אחרונות</CardTitle>
-                            <CardDescription>
-                                20 ההזמנות האחרונות שכללו מנה זו
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            {dish.orderItems && dish.orderItems.length > 0 ? (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>תאריך</TableHead>
-                                            <TableHead>לקוח</TableHead>
-                                            <TableHead>כמות</TableHead>
-                                            <TableHead>סטטוס</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {dish.orderItems.slice(0, 20).map((item) => (
-                                            <TableRow key={item.id}>
-                                                <TableCell>
-                                                    {format(new Date(item.createdAt), 'dd/MM/yyyy', { locale: he })}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Link
-                                                        href={`/customers/${item.order.customer.id}`}
-                                                        className="text-primary hover:underline"
-                                                    >
-                                                        {item.order.customer.name}
-                                                    </Link>
-                                                </TableCell>
-                                                <TableCell>{item.quantity}</TableCell>
-                                                <TableCell>
-                                                    <Badge variant="outline">
-                                                        {item.order.status}
-                                                    </Badge>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            ) : (
-                                <p className="text-center text-muted-foreground py-8">
-                                    אין הזמנות עדיין
-                                </p>
-                            )}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-            </Tabs>
-        </div>
+                        <TabsContent value="orders">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>הזמנות אחרונות</CardTitle>
+                                    <CardDescription>
+                                        20 ההזמנות האחרונות שכללו מנה זו
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    {dish.orderItems && dish.orderItems.length > 0 ? (
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>תאריך</TableHead>
+                                                    <TableHead>לקוח</TableHead>
+                                                    <TableHead>כמות</TableHead>
+                                                    <TableHead>סטטוס</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {dish.orderItems.slice(0, 20).map((item) => (
+                                                    <TableRow key={item.id}>
+                                                        <TableCell>
+                                                            {format(new Date(item.createdAt), 'dd/MM/yyyy', { locale: he })}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Link
+                                                                href={`/customers/${item.order.customer.id}`}
+                                                                className="text-primary hover:underline"
+                                                            >
+                                                                {item.order.customer.name}
+                                                            </Link>
+                                                        </TableCell>
+                                                        <TableCell>{item.quantity}</TableCell>
+                                                        <TableCell>
+                                                            <Badge variant="outline">
+                                                                {item.order.status}
+                                                            </Badge>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    ) : (
+                                        <p className="text-center text-muted-foreground py-8">
+                                            אין הזמנות עדיין
+                                        </p>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+                    </Tabs>
+                </>
+            )}
+        </DetailPageLayout>
     )
 }

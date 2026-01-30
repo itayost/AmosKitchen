@@ -1,9 +1,9 @@
 // src/components/dashboard/dashboard-content.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
-import { format } from 'date-fns'
+import { format, isSameDay, addDays } from 'date-fns'
 import { he } from 'date-fns/locale'
 import {
   ArrowUpRight,
@@ -11,26 +11,24 @@ import {
   ShoppingCart,
   Users,
   DollarSign,
-  TrendingUp,
-  Package,
   AlertTriangle,
   Calendar,
-  Plus,
-  FileText,
-  Activity
+  Activity,
+  Clock,
+  TrendingDown
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DashboardStats } from '@/components/dashboard/dashboard-stats'
 import { RecentOrders } from '@/components/dashboard/recent-orders'
 import { RecentActivity } from '@/components/dashboard/recent-activity'
 import { TopDishes } from '@/components/dashboard/top-dishes'
 import { RevenueChart } from '@/components/dashboard/revenue-chart'
 import { QuickActions } from '@/components/dashboard/quick-actions'
+import { NeedsAttentionSection, type NeedsAttentionAlert } from '@/components/dashboard/needs-attention-section'
+import { FridaySummaryCard } from '@/components/dashboard/friday-summary-card'
+import { LoadingSpinner } from '@/components/shared/loading-spinner'
 import { useToast } from '@/lib/hooks/use-toast'
-import Link from 'next/link'
+import { getNextFriday, getFridayStatus } from '@/lib/constants/friday'
 
 interface DashboardData {
   today: {
@@ -43,6 +41,7 @@ interface DashboardData {
     revenue: number
     pendingOrders: number
     completedOrders: number
+    fulfillmentRate?: number
   }
   friday: {
     orders: number
@@ -62,6 +61,88 @@ interface DashboardData {
     revenueChangePercent: number
     ordersChange: number
     ordersChangePercent: number
+  }
+}
+
+// Compute alerts from dashboard data
+function computeAlerts(data: DashboardData): NeedsAttentionAlert[] {
+  const alerts: NeedsAttentionAlert[] = []
+  const today = new Date()
+  const tomorrow = addDays(today, 1)
+
+  // 1. NEW status orders (not yet confirmed)
+  const newOrders = data.recentOrders.filter((o) => o.status === 'NEW')
+  if (newOrders.length > 0) {
+    alerts.push({
+      id: 'new_orders',
+      type: 'new_orders',
+      priority: 'high',
+      title: 'הזמנות חדשות ממתינות לאישור',
+      description: `${newOrders.length} הזמנות ממתינות לאישור`,
+      count: newOrders.length,
+      actionLabel: 'צפה בהזמנות',
+      actionHref: '/orders?status=NEW',
+      icon: AlertTriangle,
+    })
+  }
+
+  // 2. Approaching delivery (today/tomorrow) not READY
+  const approachingOrders = data.recentOrders.filter((o) => {
+    const deliveryDate = new Date(o.deliveryDate)
+    const isApproaching = isSameDay(deliveryDate, today) || isSameDay(deliveryDate, tomorrow)
+    const notReady = !['READY', 'DELIVERED'].includes(o.status)
+    return isApproaching && notReady
+  })
+  if (approachingOrders.length > 0) {
+    alerts.push({
+      id: 'approaching_delivery',
+      type: 'approaching_delivery',
+      priority: 'high',
+      title: 'הזמנות קרובות למסירה',
+      description: `${approachingOrders.length} הזמנות למסירה היום/מחר שעדיין לא מוכנות`,
+      count: approachingOrders.length,
+      actionLabel: 'עבור למטבח',
+      actionHref: '/kitchen',
+      icon: Clock,
+    })
+  }
+
+  // 3. Low fulfillment rate (< 90%)
+  const fulfillmentRate = data.week.fulfillmentRate ??
+    (data.week.completedOrders / (data.week.pendingOrders + data.week.completedOrders) * 100)
+
+  if (fulfillmentRate < 90 && data.week.pendingOrders + data.week.completedOrders > 0) {
+    alerts.push({
+      id: 'low_fulfillment',
+      type: 'low_fulfillment',
+      priority: 'medium',
+      title: 'שיעור השלמה נמוך',
+      description: `${fulfillmentRate.toFixed(1)}% - מתחת ל-90%`,
+      count: 0,
+      actionLabel: 'צפה בדוחות',
+      actionHref: '/reports',
+      icon: TrendingDown,
+    })
+  }
+
+  // Sort by priority
+  const priorityOrder = { high: 1, medium: 2, low: 3 }
+  return alerts.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority])
+}
+
+// Compute Friday preparation progress
+function computeFridayProgress(orders: any[]) {
+  const fridayDate = getNextFriday()
+  const fridayOrders = orders.filter((o) => {
+    const deliveryDate = new Date(o.deliveryDate)
+    return isSameDay(deliveryDate, fridayDate)
+  })
+
+  return {
+    pending: fridayOrders.filter((o) => ['NEW', 'CONFIRMED'].includes(o.status)).length,
+    preparing: fridayOrders.filter((o) => o.status === 'PREPARING').length,
+    ready: fridayOrders.filter((o) => o.status === 'READY').length,
+    delivered: fridayOrders.filter((o) => o.status === 'DELIVERED').length,
   }
 }
 
@@ -94,9 +175,23 @@ export function DashboardContent() {
     }
   }
 
+  // Compute alerts from data
+  const alerts = useMemo(() => {
+    if (!data) return []
+    return computeAlerts(data)
+  }, [data])
+
+  // Compute Friday progress
+  const fridayProgress = useMemo(() => {
+    if (!data) return undefined
+    return computeFridayProgress(data.recentOrders)
+  }, [data])
+
   if (loading || !data) {
-    return <div>טוען...</div>
+    return <LoadingSpinner centered />
   }
+
+  const fridayDate = getNextFriday()
 
   return (
     <div className="space-y-8">
@@ -110,6 +205,21 @@ export function DashboardContent() {
         </div>
         <QuickActions />
       </div>
+
+      {/* Needs Attention Section */}
+      <NeedsAttentionSection alerts={alerts} />
+
+      {/* Friday Summary */}
+      <FridaySummaryCard
+        fridayData={{
+          date: fridayDate,
+          orderCount: data.friday.orders,
+          dishCount: data.friday.dishes,
+          revenue: data.friday.revenue,
+          status: getFridayStatus(),
+        }}
+        preparationProgress={fridayProgress}
+      />
 
       {/* Key Metrics */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -232,46 +342,34 @@ export function DashboardContent() {
         </CardContent>
       </Card>
 
-      {/* Main Content Tabs */}
-      <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="overview">סקירה כללית</TabsTrigger>
-          <TabsTrigger value="orders">הזמנות אחרונות</TabsTrigger>
-          <TabsTrigger value="activity">פעילות אחרונה</TabsTrigger>
-        </TabsList>
+      {/* Revenue Chart & Top Dishes */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <Card className="lg:col-span-4">
+          <CardHeader>
+            <CardTitle>הכנסות השבוע</CardTitle>
+          </CardHeader>
+          <CardContent className="pl-2">
+            <RevenueChart data={data.chartData} />
+          </CardContent>
+        </Card>
+        <Card className="lg:col-span-3">
+          <CardHeader>
+            <CardTitle>מנות פופולריות</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <TopDishes dishes={data.topDishes} />
+          </CardContent>
+        </Card>
+      </div>
 
-        <TabsContent value="overview" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-            <Card className="col-span-4">
-              <CardHeader>
-                <CardTitle>הכנסות השבוע</CardTitle>
-              </CardHeader>
-              <CardContent className="pl-2">
-                <RevenueChart data={data.chartData} />
-              </CardContent>
-            </Card>
-            <Card className="col-span-3">
-              <CardHeader>
-                <CardTitle>מנות פופולריות</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <TopDishes dishes={data.topDishes} />
-              </CardContent>
-            </Card>
-          </div>
+      {/* Order Status */}
+      <DashboardStats weekStats={data.week} />
 
-          {/* Order Status */}
-          <DashboardStats weekStats={data.week} />
-        </TabsContent>
+      {/* Recent Orders */}
+      <RecentOrders orders={data.recentOrders} />
 
-        <TabsContent value="orders">
-          <RecentOrders orders={data.recentOrders} />
-        </TabsContent>
-
-        <TabsContent value="activity">
-          <RecentActivity activities={data.recentActivity} />
-        </TabsContent>
-      </Tabs>
+      {/* Recent Activity */}
+      <RecentActivity activities={data.recentActivity} />
     </div>
   )
 }

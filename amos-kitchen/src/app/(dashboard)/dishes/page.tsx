@@ -2,21 +2,16 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
 import {
     Plus,
     Search,
-    Filter,
     Package,
     DollarSign,
     ShoppingCart,
     TrendingUp,
-    Calendar,
-    Users,
     Eye,
-    Edit,
-    Trash2
+    Edit
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -55,7 +50,6 @@ interface Dish {
 }
 
 export default function DishesPage() {
-    const router = useRouter()
     const [dishes, setDishes] = useState<Dish[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
@@ -114,11 +108,7 @@ export default function DishesPage() {
     }
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <LoadingSpinner />
-            </div>
-        )
+        return <LoadingSpinner centered />
     }
 
     if (error) {
@@ -135,19 +125,11 @@ export default function DishesPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">מנות</h1>
-                    <p className="text-muted-foreground">
-                        נהל את התפריט של המסעדה
-                    </p>
-                </div>
-                <Link href="/dishes/new">
-                    <Button>
-                        <Plus className="h-4 w-4 mr-2" />
-                        הוסף מנה
-                    </Button>
-                </Link>
+            <div>
+                <h1 className="text-3xl font-bold tracking-tight">מנות</h1>
+                <p className="text-muted-foreground">
+                    נהל את התפריט של המסעדה
+                </p>
             </div>
 
             {/* Stats Cards */}

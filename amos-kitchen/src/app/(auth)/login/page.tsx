@@ -1,9 +1,10 @@
 // app/(auth)/login/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "@/lib/firebase/auth";
+import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,11 +16,37 @@ export default function LoginPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const redirectedFrom = searchParams.get("redirectedFrom") || "/dashboard";
+    const { user, loading: authLoading } = useAuth();
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Redirect if already authenticated
+    useEffect(() => {
+        if (!authLoading && user) {
+            router.push(redirectedFrom);
+        }
+    }, [user, authLoading, router, redirectedFrom]);
+
+    // Show loading while checking auth state
+    if (authLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    // Show loading while redirecting authenticated user
+    if (user) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();

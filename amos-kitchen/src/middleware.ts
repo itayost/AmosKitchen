@@ -1,10 +1,11 @@
 // middleware.ts
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { AUTH_CONFIG } from '@/lib/constants/auth'
 
 export async function middleware(req: NextRequest) {
     // Get the Firebase auth token from cookies
-    const token = req.cookies.get('firebase-auth-token')?.value
+    const token = req.cookies.get(AUTH_CONFIG.AUTH_COOKIE_NAME)?.value
 
     // Protected routes
     const protectedPaths = [

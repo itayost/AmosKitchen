@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { signIn } from '@/lib/firebase/auth'
+import { AUTH_CONFIG, getAuthCookieOptions } from '@/lib/constants/auth'
 
 const loginSchema = z.object({
     email: z.string().email('אימייל לא תקין'),
@@ -38,14 +39,13 @@ export async function POST(request: NextRequest) {
             message: 'התחברת בהצלחה'
         })
 
-        // Set the token as an HTTP-only cookie
-        response.cookies.set('firebase-auth-token', idToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 60 * 60 * 24 * 7, // 7 days
-            path: '/'
-        })
+        // Set the token as an HTTP-only cookie with secure settings
+        const isProduction = process.env.NODE_ENV === 'production'
+        response.cookies.set(
+            AUTH_CONFIG.AUTH_COOKIE_NAME,
+            idToken,
+            getAuthCookieOptions(isProduction)
+        )
 
         return response
 

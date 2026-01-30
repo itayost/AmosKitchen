@@ -1,7 +1,7 @@
 // app/api/auth/refresh/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyIdToken } from '@/lib/firebase/admin'
-import { auth } from '@/lib/firebase/config'
+import { AUTH_CONFIG, getAuthCookieOptions } from '@/lib/constants/auth'
 
 export async function POST(request: NextRequest) {
     try {
@@ -33,14 +33,13 @@ export async function POST(request: NextRequest) {
             message: 'Token refreshed successfully'
         })
 
-        // Set the new token as an HTTP-only cookie
-        response.cookies.set('firebase-auth-token', idToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 60 * 60 * 24 * 7, // 7 days
-            path: '/'
-        })
+        // Set the new token as an HTTP-only cookie with secure settings
+        const isProduction = process.env.NODE_ENV === 'production'
+        response.cookies.set(
+            AUTH_CONFIG.AUTH_COOKIE_NAME,
+            idToken,
+            getAuthCookieOptions(isProduction)
+        )
 
         return response
 

@@ -7,8 +7,6 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { format } from 'date-fns'
-import { he } from 'date-fns/locale'
 import { Plus, Trash2, AlertTriangle, Info, User, Calendar as CalendarIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -31,70 +29,13 @@ import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/lib/hooks/use-toast'
 import { CriticalPreferenceAlert, PreferenceBadgeGroup } from '@/components/customers/preference-badge'
 import { CustomerPreferenceCard } from '@/components/customers/customer-preference-card'
+import {
+    getNextAvailableFriday,
+    getAvailableFridays,
+    formatDeliveryDate,
+    DAYS
+} from '@/lib/utils/friday-dates'
 import type { Customer, Dish, CustomerPreference } from '@/lib/types/database'
-
-// Helper functions for Friday-only delivery
-const getNextAvailableFriday = (): Date => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    const currentDay = today.getDay()
-    let daysUntilFriday = (5 - currentDay + 7) % 7
-
-    // If today is Thursday after cutoff (6 PM), skip to next Friday
-    if (currentDay === 4) { // Thursday
-        const now = new Date()
-        const cutoffTime = new Date(today)
-        cutoffTime.setHours(18, 0, 0, 0) // 6 PM cutoff
-
-        if (now >= cutoffTime) {
-            daysUntilFriday = 8 // Next Friday (skip this week)
-        } else {
-            daysUntilFriday = 1 // Tomorrow (Friday)
-        }
-    }
-
-    // If today is Friday, check if before delivery cutoff
-    if (currentDay === 5) { // Friday
-        const now = new Date()
-        const cutoffTime = new Date(today)
-        cutoffTime.setHours(12, 0, 0, 0) // Noon cutoff on Friday
-
-        if (now >= cutoffTime) {
-            daysUntilFriday = 7 // Next Friday
-        } else {
-            daysUntilFriday = 0 // Today
-        }
-    }
-
-    // If it's Saturday or Sunday, calculate days to next Friday
-    if (currentDay === 6 || currentDay === 0) {
-        daysUntilFriday = currentDay === 6 ? 6 : 5
-    }
-
-    const nextFriday = new Date(today)
-    nextFriday.setDate(today.getDate() + daysUntilFriday)
-    return nextFriday
-}
-
-// Get all available Fridays for the next 4 weeks
-const getAvailableFridays = (): Date[] => {
-    const fridays: Date[] = []
-    const firstFriday = getNextAvailableFriday()
-
-    for (let i = 0; i < 4; i++) {
-        const friday = new Date(firstFriday)
-        friday.setDate(firstFriday.getDate() + (i * 7))
-        fridays.push(friday)
-    }
-
-    return fridays
-}
-
-// Format date for Hebrew display
-const formatDeliveryDate = (date: Date): string => {
-    return format(date, 'EEEE, dd בMMMM yyyy', { locale: he })
-}
 
 // Form validation schema with Friday validation
 const orderFormSchema = z.object({
@@ -102,7 +43,7 @@ const orderFormSchema = z.object({
     deliveryDate: z.date({
         required_error: "יש לבחור תאריך משלוח",
     }).refine((date) => {
-        return date.getDay() === 5 // Must be Friday
+        return date.getDay() === DAYS.FRIDAY
     }, {
         message: "ניתן לבחור רק ימי שישי למשלוח"
     }),

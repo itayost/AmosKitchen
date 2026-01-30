@@ -10,6 +10,14 @@ import {
 } from 'react'
 import type { Customer, Dish, CustomerPreference } from '@/lib/types/database'
 import { hasHighPriorityPreferences } from '@/lib/utils/preferences'
+import {
+  getNextAvailableFriday as _getNextAvailableFriday,
+  getAvailableFridays as _getAvailableFridays
+} from '@/lib/utils/friday-dates'
+
+// Re-export for backward compatibility
+export const getNextAvailableFriday = _getNextAvailableFriday
+export const getAvailableFridays = _getAvailableFridays
 
 // Types
 export interface CustomerWithPreferences extends Customer {
@@ -54,45 +62,6 @@ type WizardAction =
   | { type: 'INIT_FROM_CUSTOMER'; payload: CustomerWithPreferences }
   | { type: 'INIT_FROM_DUPLICATE'; payload: { customer: CustomerWithPreferences; items: OrderItemInput[]; notes: string } }
 
-// Helper: Get next available Friday
-function getNextAvailableFriday(): Date {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  const currentDay = today.getDay()
-  let daysUntilFriday = (5 - currentDay + 7) % 7
-
-  // If today is Thursday after cutoff (6 PM), skip to next Friday
-  if (currentDay === 4) {
-    const now = new Date()
-    const cutoffTime = new Date(today)
-    cutoffTime.setHours(18, 0, 0, 0)
-
-    if (now >= cutoffTime) {
-      daysUntilFriday = 8
-    } else {
-      daysUntilFriday = 1
-    }
-  }
-
-  // If today is Friday, check if before delivery cutoff
-  if (currentDay === 5) {
-    const now = new Date()
-    const cutoffTime = new Date(today)
-    cutoffTime.setHours(12, 0, 0, 0)
-
-    if (now >= cutoffTime) {
-      daysUntilFriday = 7
-    } else {
-      daysUntilFriday = 0
-    }
-  }
-
-  const nextFriday = new Date(today)
-  nextFriday.setDate(today.getDate() + daysUntilFriday)
-  return nextFriday
-}
-
 // Helper: Generate preference warning for notes
 function getPreferenceWarningNotes(preferences?: CustomerPreference[]): string {
   if (!preferences || preferences.length === 0) return ''
@@ -108,7 +77,7 @@ function createInitialState(): OrderWizardState {
   return {
     currentStep: 1,
     customer: null,
-    deliveryDate: getNextAvailableFriday(),
+    deliveryDate: _getNextAvailableFriday(),
     deliveryAddress: '',
     items: [{ dishId: '', quantity: 1, price: 0, notes: '' }],
     notes: '',
@@ -234,7 +203,7 @@ function wizardReducer(state: OrderWizardState, action: WizardAction): OrderWiza
         deliveryAddress: action.payload.customer.address || '',
         items: action.payload.items.length > 0 ? action.payload.items : [{ dishId: '', quantity: 1, price: 0, notes: '' }],
         notes: action.payload.notes || getPreferenceWarningNotes(action.payload.customer.preferences),
-        deliveryDate: getNextAvailableFriday(),
+        deliveryDate: _getNextAvailableFriday(),
         currentStep: 2 // Start at step 2 since customer is selected
       }
 
@@ -476,20 +445,3 @@ export function useOrderWizard(): OrderWizardContextValue {
   }
   return context
 }
-
-// Export helper for getting available Fridays
-export function getAvailableFridays(): Date[] {
-  const fridays: Date[] = []
-  const firstFriday = getNextAvailableFriday()
-
-  for (let i = 0; i < 4; i++) {
-    const friday = new Date(firstFriday)
-    friday.setDate(firstFriday.getDate() + (i * 7))
-    fridays.push(friday)
-  }
-
-  return fridays
-}
-
-// Re-export the next Friday helper
-export { getNextAvailableFriday }

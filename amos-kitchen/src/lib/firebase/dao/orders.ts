@@ -514,6 +514,68 @@ export async function getOrdersByCustomer(customerId: string): Promise<Order[]> 
   return orders
 }
 
+/**
+ * Get orders for multiple customers in a single batch query.
+ * Optimizes N+1 query pattern by fetching all orders for given customer IDs at once.
+ *
+ * @param customerIds Array of customer IDs to fetch orders for
+ * @returns Map of customerId to their orders array
+ */
+export async function getOrdersByCustomersBatch(
+  customerIds: string[]
+): Promise<Map<string, Order[]>> {
+  const ordersMap = new Map<string, Order[]>()
+
+  // Initialize map with empty arrays for all customer IDs
+  customerIds.forEach(id => ordersMap.set(id, []))
+
+  if (customerIds.length === 0) {
+    return ordersMap
+  }
+
+  // Firestore 'in' queries are limited to 30 items, so we chunk
+  const CHUNK_SIZE = 30
+  const chunks: string[][] = []
+  for (let i = 0; i < customerIds.length; i += CHUNK_SIZE) {
+    chunks.push(customerIds.slice(i, i + CHUNK_SIZE))
+  }
+
+  // Execute queries for each chunk in parallel
+  const chunkResults = await Promise.all(
+    chunks.map(async (chunk) => {
+      const q = query(
+        ordersCollection,
+        where('customerId', 'in', chunk),
+        orderBy('createdAt', 'desc')
+      )
+      return getDocs(q)
+    })
+  )
+
+  // Process all results
+  chunkResults.forEach(snapshot => {
+    snapshot.forEach((doc) => {
+      const data = doc.data()
+      const customerId = data.customerId
+
+      const order: Order = {
+        id: doc.id,
+        ...data,
+        orderDate: data.orderDate instanceof Timestamp ? data.orderDate.toDate() : new Date(),
+        deliveryDate: data.deliveryDate instanceof Timestamp ? data.deliveryDate.toDate() : new Date(),
+        createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
+        updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date()
+      } as Order
+
+      const customerOrders = ordersMap.get(customerId) || []
+      customerOrders.push(order)
+      ordersMap.set(customerId, customerOrders)
+    })
+  })
+
+  return ordersMap
+}
+
 // Get order statistics
 export async function getOrderStats(startDate?: Date, endDate?: Date): Promise<{
   totalOrders: number

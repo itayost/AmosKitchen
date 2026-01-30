@@ -8,16 +8,17 @@ import {
     createCustomer,
     isPhoneNumberTaken,
     addCustomerPreference,
-    getCustomerPreferences
+    getCustomerPreferencesBatch
 } from '@/lib/firebase/dao/customers'
-import { getOrdersByCustomer } from '@/lib/firebase/dao/orders'
+import { getOrdersByCustomersBatch } from '@/lib/firebase/dao/orders'
 import { verifyIdToken } from '@/lib/firebase/admin'
+import { AUTH_CONFIG } from '@/lib/constants/auth'
 import type { Order, CustomerPreference } from '@/lib/types/firestore'
 
 export async function GET(request: NextRequest) {
     try {
         // Verify authentication
-        const token = request.cookies.get('firebase-auth-token')?.value
+        const token = request.cookies.get(AUTH_CONFIG.AUTH_COOKIE_NAME)?.value
         if (!token) {
             return NextResponse.json(
                 { error: 'Unauthorized' },
@@ -38,95 +39,32 @@ export async function GET(request: NextRequest) {
         const search = searchParams.get('search') || undefined
 
         // Fetch customers - Firestore search is limited, filtering done client-side in DAO
-        const { customers } = await getCustomers(search, 100) // Get more customers for better search
+        const { customers } = await getCustomers(search, 100)
         console.log(`Found ${customers.length} customers`)
 
-        // Fetch order statistics and preferences for each customer
-        const customersWithStats = await Promise.all(
-            customers.map(async (customer) => {
-                try {
-                    // Check if customer has valid ID
-                    if (!customer.id) {
-                        console.warn('Customer without ID found:', customer.name)
-                        return {
-                            id: null,
-                            name: customer.name,
-                            phone: customer.phone,
-                            email: customer.email,
-                            address: customer.address,
-                            notes: customer.notes,
-                            preferences: [],
-                            createdAt: customer.createdAt.toISOString(),
-                            updatedAt: customer.updatedAt.toISOString(),
-                            orderCount: 0,
-                            totalSpent: 0,
-                            lastOrderDate: null
-                        }
-                    }
+        // Get all customer IDs that have valid IDs
+        const validCustomerIds = customers
+            .filter(c => c.id)
+            .map(c => c.id as string)
 
-                    // Get customer orders with error handling
-                    let orders: Order[] = []
-                    try {
-                        orders = await getOrdersByCustomer(customer.id)
-                    } catch (error) {
-                        console.warn(`Failed to get orders for customer ${customer.id}:`, error)
-                    }
+        // OPTIMIZED: Batch load orders and preferences in parallel (replaces N+1 queries)
+        // Before: 2N+1 queries (1 for customers + N for orders + N for preferences)
+        // After: 3 queries (1 for customers + 1 batch for orders + parallel preferences)
+        const [ordersMap, preferencesMap] = await Promise.all([
+            getOrdersByCustomersBatch(validCustomerIds),
+            getCustomerPreferencesBatch(validCustomerIds)
+        ])
 
-                    // Get customer preferences with error handling
-                    let preferences: CustomerPreference[] = []
-                    try {
-                        preferences = await getCustomerPreferences(customer.id)
-                    } catch (error) {
-                        console.warn(`Failed to get preferences for customer ${customer.id}:`, error)
-                    }
+        console.log(`Batch loaded orders for ${ordersMap.size} customers, preferences for ${preferencesMap.size} customers`)
 
-                    // Calculate statistics
-                    const orderCount = orders.length
-                    const totalSpent = orders.reduce(
-                        (sum, order) => sum + (order.totalAmount || 0),
-                        0
-                    )
-
-                    // Safer date calculation
-                    let lastOrderDate = null
-                    if (orders.length > 0) {
-                        try {
-                            const sortedOrders = orders
-                                .filter(order => order.createdAt)
-                                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-
-                            if (sortedOrders.length > 0) {
-                                lastOrderDate = sortedOrders[0].createdAt
-                            }
-                        } catch (error) {
-                            console.warn(`Failed to calculate last order date for customer ${customer.id}:`, error)
-                        }
-                    }
-
+        // Process customers with pre-loaded data
+        const customersWithStats = customers.map((customer) => {
+            try {
+                // Check if customer has valid ID
+                if (!customer.id) {
+                    console.warn('Customer without ID found:', customer.name)
                     return {
-                        id: customer.id,
-                        name: customer.name,
-                        phone: customer.phone,
-                        email: customer.email,
-                        address: customer.address,
-                        notes: customer.notes,
-                        preferences,
-                        // Convert Firestore Timestamps to ISO strings for JSON serialization
-                        createdAt: customer.createdAt instanceof Date
-                            ? customer.createdAt.toISOString()
-                            : new Date().toISOString(),
-                        updatedAt: customer.updatedAt instanceof Date
-                            ? customer.updatedAt.toISOString()
-                            : new Date().toISOString(),
-                        orderCount,
-                        totalSpent,
-                        lastOrderDate: lastOrderDate instanceof Date ? lastOrderDate.toISOString() : lastOrderDate
-                    }
-                } catch (error) {
-                    console.error(`Error processing customer ${customer.id}:`, error)
-                    // Return basic customer data if processing fails
-                    return {
-                        id: customer.id || null,
+                        id: null,
                         name: customer.name,
                         phone: customer.phone,
                         email: customer.email,
@@ -144,8 +82,64 @@ export async function GET(request: NextRequest) {
                         lastOrderDate: null
                     }
                 }
-            })
-        )
+
+                // Get pre-loaded orders and preferences from maps
+                const orders = ordersMap.get(customer.id) || []
+                const preferences = preferencesMap.get(customer.id) || []
+
+                // Calculate statistics
+                const orderCount = orders.length
+                const totalSpent = orders.reduce(
+                    (sum, order) => sum + (order.totalAmount || 0),
+                    0
+                )
+
+                // Calculate last order date (orders are already sorted desc by createdAt)
+                let lastOrderDate = null
+                if (orders.length > 0 && orders[0].createdAt) {
+                    lastOrderDate = orders[0].createdAt
+                }
+
+                return {
+                    id: customer.id,
+                    name: customer.name,
+                    phone: customer.phone,
+                    email: customer.email,
+                    address: customer.address,
+                    notes: customer.notes,
+                    preferences,
+                    createdAt: customer.createdAt instanceof Date
+                        ? customer.createdAt.toISOString()
+                        : new Date().toISOString(),
+                    updatedAt: customer.updatedAt instanceof Date
+                        ? customer.updatedAt.toISOString()
+                        : new Date().toISOString(),
+                    orderCount,
+                    totalSpent,
+                    lastOrderDate: lastOrderDate instanceof Date ? lastOrderDate.toISOString() : lastOrderDate
+                }
+            } catch (error) {
+                console.error(`Error processing customer ${customer.id}:`, error)
+                return {
+                    id: customer.id || null,
+                    name: customer.name,
+                    phone: customer.phone,
+                    email: customer.email,
+                    address: customer.address,
+                    notes: customer.notes,
+                    preferences: [],
+                    createdAt: customer.createdAt instanceof Date
+                        ? customer.createdAt.toISOString()
+                        : new Date().toISOString(),
+                    updatedAt: customer.updatedAt instanceof Date
+                        ? customer.updatedAt.toISOString()
+                        : new Date().toISOString(),
+                    orderCount: 0,
+                    totalSpent: 0,
+                    lastOrderDate: null
+                }
+            }
+        })
 
         console.log(`Successfully processed ${customersWithStats.length} customers`)
 

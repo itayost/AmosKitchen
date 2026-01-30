@@ -189,30 +189,45 @@ export async function GET(request: NextRequest) {
 
     const activeCustomers = activeCustomerIds.size
 
-    // Chart data - last 7 days
-    const chartData = []
+    // Chart data - last 7 days (optimized: single query instead of 7 separate queries)
+    const sevenDaysAgo = startOfDay(subDays(today, 6))
+    const chartDataQuery = query(
+      ordersCollection,
+      where('createdAt', '>=', dateToTimestamp(sevenDaysAgo)),
+      where('createdAt', '<=', dateToTimestamp(todayEnd)),
+      orderBy('createdAt', 'asc')
+    )
+
+    const chartOrdersSnapshot = await getDocs(chartDataQuery)
+    const chartOrders: any[] = []
+    chartOrdersSnapshot.forEach(doc => {
+      chartOrders.push(doc.data())
+    })
+
+    // Group orders by day
+    const ordersByDay = new Map<string, any[]>()
     for (let i = 6; i >= 0; i--) {
       const date = subDays(today, i)
-      const dayStart = startOfDay(date)
-      const dayEnd = endOfDay(date)
-
-      const dayOrdersQuery = query(
-        ordersCollection,
-        where('createdAt', '>=', dateToTimestamp(dayStart)),
-        where('createdAt', '<=', dateToTimestamp(dayEnd))
-      )
-      const dayOrdersSnapshot = await getDocs(dayOrdersQuery)
-      const dayOrders: any[] = []
-      dayOrdersSnapshot.forEach(doc => {
-        dayOrders.push(doc.data())
-      })
-
-      chartData.push({
-        date: date.toISOString(),
-        orders: dayOrders.length,
-        revenue: dayOrders.reduce((sum, order) => sum + order.totalAmount, 0)
-      })
+      const dateKey = startOfDay(date).toISOString()
+      ordersByDay.set(dateKey, [])
     }
+
+    // Assign orders to their respective days
+    chartOrders.forEach(order => {
+      const orderDate = order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.createdAt)
+      const dateKey = startOfDay(orderDate).toISOString()
+      const dayOrders = ordersByDay.get(dateKey)
+      if (dayOrders) {
+        dayOrders.push(order)
+      }
+    })
+
+    // Build chart data from grouped orders
+    const chartData = Array.from(ordersByDay.entries()).map(([dateKey, orders]) => ({
+      date: dateKey,
+      orders: orders.length,
+      revenue: orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0)
+    }))
 
     // Comparison with last week
     const lastWeekOrdersQuery = query(

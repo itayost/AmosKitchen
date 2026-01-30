@@ -16,6 +16,8 @@ import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
 import { useToast } from '@/lib/hooks/use-toast'
 import { getDishesByIds } from '@/lib/firebase/dao/dishes'
 import { getCustomerById, getCustomerPreferences } from '@/lib/firebase/dao/customers'
+import { normalizeStatus, statusToApi, ACTIVE_ORDER_STATUSES } from '@/lib/utils/order-status'
+import { getCutoffStatus } from '@/lib/constants/cutoff-times'
 import type { KitchenOrder, KitchenStats, PreparationProgress } from '@/lib/types/kitchen'
 import type { OrderStatus } from '@/lib/types/database'
 
@@ -39,7 +41,8 @@ interface UseKitchenOrdersResult {
   refetch: () => Promise<void>
 }
 
-const ACTIVE_STATUSES: OrderStatus[] = ['NEW', 'CONFIRMED', 'PREPARING', 'READY']
+// Use centralized active statuses
+const ACTIVE_STATUSES = ACTIVE_ORDER_STATUSES
 
 // LocalStorage key for preparation progress
 const getProgressStorageKey = (date?: Date | null) => {
@@ -95,7 +98,7 @@ export function useKitchenOrders({
   const transformOrders = useCallback(async (rawOrders: any[]): Promise<KitchenOrder[]> => {
     // Filter out cancelled orders if not in requested statuses
     const filteredOrders = rawOrders.filter(order =>
-      statuses.includes(order.status?.toUpperCase() as OrderStatus)
+      statuses.includes(normalizeStatus(order.status))
     )
 
     // Get all unique dish and customer IDs
@@ -130,7 +133,7 @@ export function useKitchenOrders({
         id: order.id,
         orderNumber: order.orderNumber,
         customerId: order.customerId,
-        status: (order.status?.toUpperCase() || 'NEW') as OrderStatus,
+        status: normalizeStatus(order.status),
         totalAmount: order.totalAmount,
         notes: order.notes,
         deliveryAddress: order.deliveryAddress,
@@ -189,7 +192,7 @@ export function useKitchenOrders({
       // Normalize and set orders
       const normalizedOrders = (data.orders || []).map((order: any) => ({
         ...order,
-        status: (order.status?.toUpperCase() || 'NEW') as OrderStatus
+        status: normalizeStatus(order.status)
       }))
 
       setOrders(normalizedOrders)
@@ -302,16 +305,8 @@ export function useKitchenOrders({
 
     setIsUpdating(true)
     try {
-      // Map status to lowercase for API
-      const statusMap: Record<string, string> = {
-        'NEW': 'new',
-        'CONFIRMED': 'confirmed',
-        'PREPARING': 'preparing',
-        'READY': 'ready',
-        'DELIVERED': 'delivered',
-        'CANCELLED': 'cancelled'
-      }
-      const mappedStatus = statusMap[newStatus] || newStatus.toLowerCase()
+      // Use centralized status conversion
+      const mappedStatus = statusToApi(newStatus)
 
       const response = await fetchWithAuth(`/api/orders/${orderId}`, {
         method: 'PATCH',
@@ -369,7 +364,7 @@ export function useKitchenOrders({
   // Calculate statistics
   const stats = useMemo((): KitchenStats => {
     const activeOrders = orders.filter(o =>
-      ['NEW', 'CONFIRMED', 'PREPARING', 'READY'].includes(o.status)
+      ACTIVE_STATUSES.includes(o.status)
     )
 
     const totalDishes = activeOrders.reduce((sum, order) =>
@@ -391,26 +386,10 @@ export function useKitchenOrders({
       CANCELLED: groupedOrders.CANCELLED.length
     }
 
-    // Calculate cutoff status
-    const now = new Date()
-    const dayOfWeek = now.getDay()
-    const hour = now.getHours()
-
-    let cutoffStatus: 'open' | 'warning' | 'closed' = 'open'
-    let timeUntilCutoff: number | undefined
-
-    // Thursday after 6 PM or Friday after 12 PM = closed
-    if ((dayOfWeek === 4 && hour >= 18) || (dayOfWeek === 5 && hour >= 12)) {
-      cutoffStatus = 'closed'
-    } else if ((dayOfWeek === 4 && hour >= 16) || (dayOfWeek === 5 && hour >= 10)) {
-      cutoffStatus = 'warning'
-      // Calculate minutes until cutoff
-      if (dayOfWeek === 4) {
-        timeUntilCutoff = (18 - hour) * 60 - now.getMinutes()
-      } else {
-        timeUntilCutoff = (12 - hour) * 60 - now.getMinutes()
-      }
-    }
+    // Use centralized cutoff status calculation
+    const cutoffInfo = getCutoffStatus()
+    const cutoffStatus = cutoffInfo.status
+    const timeUntilCutoff = cutoffInfo.timeUntilCutoff
 
     return {
       totalOrders: activeOrders.length,

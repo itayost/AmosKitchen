@@ -1,9 +1,10 @@
 // lib/api/auth-middleware.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyIdToken } from '@/lib/firebase/admin'
+import { AUTH_CONFIG } from '@/lib/constants/auth'
 
 export async function verifyAuth(request: NextRequest) {
-    const token = request.cookies.get('firebase-auth-token')?.value
+    const token = request.cookies.get(AUTH_CONFIG.AUTH_COOKIE_NAME)?.value
 
     if (!token) {
         return {

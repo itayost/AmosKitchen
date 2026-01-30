@@ -201,6 +201,57 @@ export async function getCustomerPreferences(customerId: string): Promise<Custom
   return preferences
 }
 
+/**
+ * Get preferences for multiple customers in parallel.
+ * Optimizes N+1 query pattern by fetching preferences for all customers at once.
+ *
+ * @param customerIds Array of customer IDs to fetch preferences for
+ * @returns Map of customerId to their preferences array
+ */
+export async function getCustomerPreferencesBatch(
+  customerIds: string[]
+): Promise<Map<string, CustomerPreference[]>> {
+  const preferencesMap = new Map<string, CustomerPreference[]>()
+
+  // Initialize map with empty arrays for all customer IDs
+  customerIds.forEach(id => preferencesMap.set(id, []))
+
+  if (customerIds.length === 0) {
+    return preferencesMap
+  }
+
+  // Fetch all preferences in parallel
+  const results = await Promise.all(
+    customerIds.map(async (customerId) => {
+      try {
+        const querySnapshot = await getDocs(customerPreferencesCollection(customerId))
+        const preferences: CustomerPreference[] = []
+
+        querySnapshot.forEach((doc) => {
+          const data = doc.data()
+          preferences.push({
+            id: doc.id,
+            ...data,
+            createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date()
+          })
+        })
+
+        return { customerId, preferences }
+      } catch (error) {
+        console.warn(`Failed to fetch preferences for customer ${customerId}:`, error)
+        return { customerId, preferences: [] }
+      }
+    })
+  )
+
+  // Populate the map
+  results.forEach(({ customerId, preferences }) => {
+    preferencesMap.set(customerId, preferences)
+  })
+
+  return preferencesMap
+}
+
 // Delete preference
 export async function deleteCustomerPreference(customerId: string, preferenceId: string): Promise<void> {
   const docRef = doc(customerPreferencesCollection(customerId), preferenceId)

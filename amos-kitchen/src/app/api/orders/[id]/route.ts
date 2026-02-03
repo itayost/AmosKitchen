@@ -221,6 +221,7 @@ export async function PATCH(
     request: NextRequest,
     { params }: { params: { id: string } }
 ) {
+    let parsedBody: any = null
     try {
         // Verify authentication
         const auth = await verifyAuth(request)
@@ -229,6 +230,7 @@ export async function PATCH(
         }
 
         const body = await request.json()
+        parsedBody = body
         console.log('PATCH request body:', body)
         console.log('Order ID from params:', params.id)
 
@@ -301,7 +303,7 @@ export async function PATCH(
         console.error('Error details:', {
             ...errorDetails,
             params: params,
-            body: await request.json().catch(() => 'Failed to parse body')
+            body: parsedBody || 'Body not yet parsed'
         })
 
         return NextResponse.json(

@@ -1,30 +1,16 @@
 // components/kitchen/kitchen-summary-stats.tsx
 'use client'
 
-import { useRef } from 'react'
-import { useReactToPrint } from 'react-to-print'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
 import {
   ClipboardList,
   Utensils,
   DollarSign,
   Clock,
   AlertTriangle,
-  FileText,
-  Truck,
-  Receipt
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { format } from 'date-fns'
-import { DishChecklistPrint, DeliveryRoutePrint, OrderReceiptsPrint } from './print-views'
 import type { KitchenOrder, KitchenStats } from '@/lib/types/kitchen'
 
 interface KitchenSummaryStatsProps {
@@ -34,31 +20,8 @@ interface KitchenSummaryStatsProps {
 }
 
 export function KitchenSummaryStats({
-  orders,
   stats,
-  fridayDate
 }: KitchenSummaryStatsProps) {
-  // Print refs
-  const dishChecklistRef = useRef<HTMLDivElement>(null)
-  const deliveryRouteRef = useRef<HTMLDivElement>(null)
-  const orderReceiptsRef = useRef<HTMLDivElement>(null)
-
-  // Print handlers
-  const handlePrintDishes = useReactToPrint({
-    contentRef: dishChecklistRef,
-    documentTitle: `רשימת_מנות_${format(fridayDate, 'dd-MM-yyyy')}`,
-  })
-
-  const handlePrintRoute = useReactToPrint({
-    contentRef: deliveryRouteRef,
-    documentTitle: `משלוחים_${format(fridayDate, 'dd-MM-yyyy')}`,
-  })
-
-  const handlePrintReceipts = useReactToPrint({
-    contentRef: orderReceiptsRef,
-    documentTitle: `קבלות_${format(fridayDate, 'dd-MM-yyyy')}`,
-  })
-
   // Calculate progress
   const readyCount = stats.byStatus.READY || 0
   const totalActive = stats.totalOrders
@@ -182,81 +145,6 @@ export function KitchenSummaryStats({
           </div>
         </CardContent>
       </Card>
-
-      {/* Print Actions */}
-      <div className="flex flex-wrap gap-2 mt-4">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handlePrintDishes()}
-                className="gap-2"
-              >
-                <FileText className="h-4 w-4" />
-                הדפס רשימת מנות
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>הדפסת כל המנות לפי קטגוריה</p>
-            </TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handlePrintRoute()}
-                className="gap-2"
-              >
-                <Truck className="h-4 w-4" />
-                הדפס מסלול משלוחים
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>רשימת הזמנות מוכנות לפי כתובת</p>
-            </TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handlePrintReceipts()}
-                className="gap-2"
-              >
-                <Receipt className="h-4 w-4" />
-                הדפס קבלות
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>קבלה לכל הזמנה</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
-
-      {/* Hidden Print Components - positioned off-screen for react-to-print */}
-      <div className="fixed -left-[9999px] -top-[9999px] print:hidden">
-        <DishChecklistPrint
-          ref={dishChecklistRef}
-          orders={orders}
-          fridayDate={fridayDate}
-        />
-        <DeliveryRoutePrint
-          ref={deliveryRouteRef}
-          orders={orders}
-          fridayDate={fridayDate}
-        />
-        <OrderReceiptsPrint
-          ref={orderReceiptsRef}
-          orders={orders}
-          fridayDate={fridayDate}
-        />
-      </div>
     </>
   )
 }

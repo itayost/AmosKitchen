@@ -123,7 +123,7 @@ export function OrderCard({
               <CardTitle className="text-base">
                 הזמנה #{order.orderNumber}
               </CardTitle>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground truncate">
                 {order.customer.name}
               </p>
             </div>
@@ -186,7 +186,7 @@ export function OrderCard({
                         id={`${order.id}-${item.id}`}
                         checked={isChecked}
                         onCheckedChange={(checked) =>
-                          onDishCheck(order.id, item.id, checked as boolean)
+                          onDishCheck(order.id, item.id, checked === true)
                         }
                       />
                       <label
@@ -228,7 +228,7 @@ export function OrderCard({
               <Separator />
               <div className="space-y-1">
                 <p className="text-xs font-semibold">הערות:</p>
-                <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                <p className="text-xs text-muted-foreground whitespace-pre-wrap break-words">
                   {order.notes}
                 </p>
               </div>

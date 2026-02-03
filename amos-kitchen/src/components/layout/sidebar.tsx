@@ -4,7 +4,7 @@
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import {
     Home,
@@ -152,6 +152,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             {/* Mobile Sidebar */}
             <Sheet open={isOpen} onOpenChange={onClose}>
                 <SheetContent side="right" className="w-64 p-0">
+                    <SheetTitle className="sr-only">תפריט ניווט</SheetTitle>
                     <SidebarContent />
                 </SheetContent>
             </Sheet>

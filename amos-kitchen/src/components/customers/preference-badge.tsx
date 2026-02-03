@@ -91,9 +91,9 @@ export function PreferenceBadgeGroup({
 
     return (
         <div className={cn('flex flex-wrap gap-1', className)}>
-            {visiblePreferences.map((pref) => (
+            {visiblePreferences.map((pref, index) => (
                 <PreferenceBadge
-                    key={pref.id}
+                    key={pref.id || `pref-${index}`}
                     preference={pref}
                     showIcon={showIcon}
                 />
@@ -137,8 +137,8 @@ export function CriticalPreferenceAlert({ preferences, className }: CriticalPref
                     שים לב להגבלות קריטיות:
                 </p>
                 <div className="flex flex-wrap gap-1 mt-1">
-                    {criticalPrefs.map((pref) => (
-                        <span key={pref.id} className="text-sm text-red-700">
+                    {criticalPrefs.map((pref, index) => (
+                        <span key={pref.id || `critical-${index}`} className="text-sm text-red-700">
                             • {PREFERENCE_CONFIGS[pref.type].hebrewLabel}: {pref.value}
                             {pref.notes && ` (${pref.notes})`}
                         </span>

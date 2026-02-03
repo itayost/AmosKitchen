@@ -309,11 +309,14 @@ export async function DELETE(
             )
         }
 
-        // Check if customer has orders
+        // Check if customer has active orders (allow deletion if only completed orders exist)
         const orders = await getOrdersByCustomer(params.id)
-        if (orders.length > 0) {
+        const activeOrders = orders.filter(order =>
+            !['DELIVERED', 'CANCELLED'].includes(order.status?.toUpperCase() || order.status)
+        )
+        if (activeOrders.length > 0) {
             return NextResponse.json(
-                { error: 'לא ניתן למחוק לקוח עם הזמנות קיימות' },
+                { error: 'לא ניתן למחוק לקוח עם הזמנות פעילות' },
                 { status: 400 }
             )
         }

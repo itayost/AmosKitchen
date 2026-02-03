@@ -15,8 +15,30 @@ const rubik = Rubik({
 });
 
 export const metadata: Metadata = {
-    title: "מערכת הזמנות - עסק משפחתי",
-    description: "מערכת ניהול הזמנות לעסק אוכל משפחתי",
+    title: "המטבח של עמוס",
+    description: "אוכל ביתי טעים - המטבח של עמוס",
+    openGraph: {
+        title: "המטבח של עמוס",
+        description: "אוכל ביתי טעים - המטבח של עמוס",
+        url: "https://www.chefamos.com",
+        siteName: "המטבח של עמוס",
+        images: [
+            {
+                url: "/og-image.png",
+                width: 1200,
+                height: 630,
+                alt: "המטבח של עמוס",
+            },
+        ],
+        locale: "he_IL",
+        type: "website",
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: "המטבח של עמוס",
+        description: "אוכל ביתי טעים - המטבח של עמוס",
+        images: ["/og-image.png"],
+    },
 };
 
 export default function RootLayout({
@@ -28,7 +50,7 @@ export default function RootLayout({
         <html lang="he" dir="rtl">
             <body className={cn(
                 rubik.className,
-                "min-h-screen bg-background font-sans antialiased"
+                "min-h-screen bg-background font-sans antialiased overflow-x-hidden"
             )}>
                 <AuthProvider>
                     <QueryProvider>

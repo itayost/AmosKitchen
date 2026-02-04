@@ -249,11 +249,11 @@ export function OrderForm({ customers = [], dishes = [] }: OrderFormProps) {
                                             <SelectTrigger>
                                                 <SelectValue placeholder="בחר לקוח מהרשימה">
                                                     {field.value && selectedCustomer && (
-                                                        <div className="flex items-center gap-2">
-                                                            <User className="h-4 w-4" />
-                                                            <span>{selectedCustomer.name}</span>
+                                                        <div className="flex items-center gap-2 min-w-0">
+                                                            <User className="h-4 w-4 flex-shrink-0" />
+                                                            <span className="truncate">{selectedCustomer.name}</span>
                                                             {hasCriticalPreferences(selectedCustomer) && (
-                                                                <Badge variant="destructive" className="h-5 px-1">
+                                                                <Badge variant="destructive" className="h-5 px-1 flex-shrink-0">
                                                                     <AlertTriangle className="h-3 w-3" />
                                                                 </Badge>
                                                             )}
@@ -273,15 +273,15 @@ export function OrderForm({ customers = [], dishes = [] }: OrderFormProps) {
                                             </div>
                                             {filteredCustomers.map((customer) => (
                                                 <SelectItem key={customer.id} value={customer.id}>
-                                                    <div className="flex items-center gap-2 w-full">
-                                                        <span>{customer.name}</span>
+                                                    <div className="flex items-center gap-2 w-full min-w-0">
+                                                        <span className="truncate flex-1 min-w-0">{customer.name}</span>
                                                         {hasCriticalPreferences(customer) && (
-                                                            <Badge variant="destructive" className="h-4 px-1 ml-auto">
+                                                            <Badge variant="destructive" className="h-4 px-1 flex-shrink-0">
                                                                 !
                                                             </Badge>
                                                         )}
                                                         {customer.preferences && customer.preferences.length > 0 && (
-                                                            <span className="text-xs text-muted-foreground">
+                                                            <span className="text-xs text-muted-foreground flex-shrink-0">
                                                                 ({customer.preferences.length} העדפות)
                                                             </span>
                                                         )}
@@ -449,9 +449,9 @@ export function OrderForm({ customers = [], dishes = [] }: OrderFormProps) {
                                             <SelectContent>
                                                 {dishes.map((dish) => (
                                                     <SelectItem key={dish.id} value={dish.id} className="text-right">
-                                                        <div className="flex items-center justify-between w-full">
-                                                            <span>{dish.name}</span>
-                                                            <span className="text-muted-foreground ml-2">
+                                                        <div className="flex items-center justify-between w-full min-w-0">
+                                                            <span className="truncate flex-1 min-w-0">{dish.name}</span>
+                                                            <span className="text-muted-foreground ml-2 flex-shrink-0">
                                                                 ₪{dish.price}
                                                             </span>
                                                         </div>

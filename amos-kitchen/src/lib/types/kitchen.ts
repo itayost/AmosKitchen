@@ -1,6 +1,6 @@
 // lib/types/kitchen.ts
 import type { Order, Customer, CustomerPreference, OrderItem, Dish, OrderStatus } from './database'
-import { FileText, CheckCircle, ChefHat, Package, Truck, XCircle } from 'lucide-react'
+import { ChefHat, Package, Truck, XCircle } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 // Extended Kitchen Order with customer preferences and dish details
@@ -51,22 +51,7 @@ export interface KanbanColumnConfig {
 }
 
 // Define Kanban columns for the kitchen workflow
-// Only show active statuses (not DELIVERED or CANCELLED)
 export const KANBAN_COLUMNS: KanbanColumnConfig[] = [
-  {
-    id: 'NEW',
-    title: 'הזמנות חדשות',
-    color: 'bg-purple-100',
-    textColor: 'text-purple-700',
-    icon: FileText
-  },
-  {
-    id: 'CONFIRMED',
-    title: 'ממתין להכנה',
-    color: 'bg-blue-100',
-    textColor: 'text-blue-700',
-    icon: CheckCircle
-  },
   {
     id: 'PREPARING',
     title: 'בהכנה',
@@ -76,16 +61,11 @@ export const KANBAN_COLUMNS: KanbanColumnConfig[] = [
   },
   {
     id: 'READY',
-    title: 'מוכן למשלוח',
+    title: 'מוכן',
     color: 'bg-green-100',
     textColor: 'text-green-700',
     icon: Package
   },
-]
-
-// All statuses including delivery
-export const ALL_STATUSES: KanbanColumnConfig[] = [
-  ...KANBAN_COLUMNS,
   {
     id: 'DELIVERED',
     title: 'נמסר',
@@ -93,6 +73,11 @@ export const ALL_STATUSES: KanbanColumnConfig[] = [
     textColor: 'text-gray-700',
     icon: Truck
   },
+]
+
+// All statuses including cancelled
+export const ALL_STATUSES: KanbanColumnConfig[] = [
+  ...KANBAN_COLUMNS,
   {
     id: 'CANCELLED',
     title: 'בוטל',
@@ -109,8 +94,6 @@ export function getColumnConfig(status: OrderStatus): KanbanColumnConfig {
 
 // Status labels in Hebrew
 export const STATUS_LABELS: Record<OrderStatus, string> = {
-  NEW: 'חדש',
-  CONFIRMED: 'מאושר',
   PREPARING: 'בהכנה',
   READY: 'מוכן',
   DELIVERED: 'נמסר',

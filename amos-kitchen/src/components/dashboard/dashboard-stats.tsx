@@ -51,15 +51,15 @@ export function DashboardStats({ weekStats }: DashboardStatsProps) {
                     <CardTitle>סטטוס הזמנות השבוע</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-3 gap-2 sm:gap-4">
                         {orderStatuses.map((status) => {
                             const Icon = status.icon
                             return (
                                 <div key={status.label} className="text-center">
-                                    <div className={`mx-auto w-12 h-12 rounded-full ${status.bgColor} flex items-center justify-center mb-2`}>
-                                        <Icon className={`h-6 w-6 ${status.color}`} />
+                                    <div className={`mx-auto w-10 h-10 sm:w-12 sm:h-12 rounded-full ${status.bgColor} flex items-center justify-center mb-2`}>
+                                        <Icon className={`h-5 w-5 sm:h-6 sm:w-6 ${status.color}`} />
                                     </div>
-                                    <div className="text-2xl font-bold">{status.count}</div>
+                                    <div className="text-xl sm:text-2xl font-bold">{status.count}</div>
                                     <p className="text-xs text-muted-foreground">{status.label}</p>
                                 </div>
                             )

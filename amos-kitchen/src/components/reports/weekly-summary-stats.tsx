@@ -22,12 +22,10 @@ interface WeeklySummaryStatsProps {
 
 export function WeeklySummaryStats({ summary }: WeeklySummaryStatsProps) {
     const statusLabels: Record<string, { label: string; color: string }> = {
-        new: { label: 'חדש', color: 'bg-blue-500' },
-        confirmed: { label: 'מאושר', color: 'bg-green-500' },
-        preparing: { label: 'בהכנה', color: 'bg-yellow-500' },
-        ready: { label: 'מוכן', color: 'bg-purple-500' },
-        delivered: { label: 'נמסר', color: 'bg-gray-500' },
-        cancelled: { label: 'בוטל', color: 'bg-red-500' }
+        PREPARING: { label: 'בהכנה', color: 'bg-yellow-500' },
+        READY: { label: 'מוכן', color: 'bg-green-500' },
+        DELIVERED: { label: 'נמסר', color: 'bg-gray-500' },
+        CANCELLED: { label: 'בוטל', color: 'bg-red-500' }
     }
 
     const totalStatusOrders = Object.values(summary.ordersByStatus).reduce((a, b) => a + b, 0)

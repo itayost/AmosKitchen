@@ -344,8 +344,6 @@ export function useKitchenOrders({
   // Group orders by status
   const groupedOrders = useMemo(() => {
     const groups: Record<OrderStatus, KitchenOrder[]> = {
-      NEW: [],
-      CONFIRMED: [],
       PREPARING: [],
       READY: [],
       DELIVERED: [],
@@ -378,8 +376,6 @@ export function useKitchenOrders({
     ).length
 
     const byStatus: Record<OrderStatus, number> = {
-      NEW: groupedOrders.NEW.length,
-      CONFIRMED: groupedOrders.CONFIRMED.length,
       PREPARING: groupedOrders.PREPARING.length,
       READY: groupedOrders.READY.length,
       DELIVERED: groupedOrders.DELIVERED.length,

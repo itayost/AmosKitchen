@@ -1,0 +1,21 @@
+# Amos Kitchen - Private Business Application
+# This application is not intended for public indexing
+
+# Disallow all robots from indexing any pages
+User-agent: *
+Disallow: /
+
+# Block specific search engine bots explicitly
+User-agent: Googlebot
+Disallow: /
+
+User-agent: Bingbot
+Disallow: /
+
+User-agent: Baiduspider
+Disallow: /
+
+User-agent: YandexBot
+Disallow: /
+
+# No sitemap - this is a private application

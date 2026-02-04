@@ -75,12 +75,18 @@ export function ConfirmationStep({ dishes, onComplete }: ConfirmationStepProps) 
       // Prepare items with prices
       const itemsWithPrices = state.items
         .filter(item => item.dishId) // Only include items with selected dishes
-        .map(item => ({
-          dishId: item.dishId,
-          quantity: item.quantity,
-          price: getDishPrice(item.dishId),
-          notes: item.notes || ''
-        }))
+        .map(item => {
+          const dish = dishes.find(d => d.id === item.dishId)
+          if (!dish) {
+            throw new Error(`מנה לא נמצאה: ${item.dishId}`)
+          }
+          return {
+            dishId: item.dishId,
+            quantity: item.quantity,
+            price: dish.price,
+            notes: item.notes || ''
+          }
+        })
 
       if (itemsWithPrices.length === 0) {
         throw new Error('יש להוסיף לפחות מנה אחת להזמנה')

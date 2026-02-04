@@ -5,6 +5,7 @@ import { AlertTriangle, RefreshCw, Home } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { trackEvent } from '@/lib/analytics'
+import * as Sentry from '@sentry/nextjs'
 
 interface ErrorProps {
   error: Error & { digest?: string }
@@ -15,6 +16,16 @@ export default function Error({ error, reset }: ErrorProps) {
   useEffect(() => {
     // Log error to console in development
     console.error('Application error:', error)
+
+    // Report error to Sentry
+    Sentry.captureException(error, {
+      tags: {
+        errorBoundary: 'global',
+      },
+      extra: {
+        digest: error.digest,
+      },
+    })
 
     // Track error in analytics
     trackEvent('error_boundary_triggered', {

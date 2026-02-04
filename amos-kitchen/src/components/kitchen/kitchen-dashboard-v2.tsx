@@ -75,7 +75,7 @@ export function KitchenDashboardV2({
 
   // Prepare data for dish view (batch cooking)
   const dishAggregation = orders
-    .filter(order => ['NEW', 'CONFIRMED', 'PREPARING', 'READY'].includes(order.status))
+    .filter(order => ['PREPARING', 'READY'].includes(order.status))
     .reduce((acc, order) => {
       order.orderItems.forEach(item => {
         const dishId = item.dish.id || item.dishId

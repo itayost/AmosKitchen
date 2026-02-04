@@ -44,19 +44,19 @@ export default function DashboardLayout({
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gray-50 overflow-x-hidden">
             <Header
                 user={user}
                 onMenuClick={() => setSidebarOpen(!sidebarOpen)}
             />
-            <div className="flex">
+            <div className="flex overflow-x-hidden">
                 <Sidebar
                     isOpen={sidebarOpen}
                     onClose={() => setSidebarOpen(false)}
                 />
-                <main className="flex-1 lg:pr-64">
+                <main className="flex-1 lg:pr-64 min-w-0 overflow-x-hidden">
                     {/* Bottom padding on mobile for fixed nav bar */}
-                    <div className="p-4 lg:p-8 pb-24 lg:pb-8">
+                    <div className="p-4 lg:p-8 pb-24 lg:pb-8 max-w-full">
                         {children}
                     </div>
                 </main>

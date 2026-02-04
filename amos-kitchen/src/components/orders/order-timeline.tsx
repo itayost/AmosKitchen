@@ -3,52 +3,38 @@
 import { useMemo } from 'react'
 import { format, formatDistanceToNow } from 'date-fns'
 import { he } from 'date-fns/locale'
-import { Check, Clock, ChefHat, Package, Truck, X, Circle } from 'lucide-react'
+import { ChefHat, Package, Truck, X, Circle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { OrderHistory } from '@/lib/types/database'
 
 // Status order for the timeline progression
-const STATUS_ORDER = ['NEW', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERED'] as const
+const STATUS_ORDER = ['PREPARING', 'READY', 'DELIVERED'] as const
 
 // Status configuration with icons, colors, and Hebrew labels
 const statusConfig = {
-  NEW: {
-    label: 'חדשה',
-    icon: Clock,
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-100',
-    borderColor: 'border-blue-600',
-  },
-  CONFIRMED: {
-    label: 'אושרה',
-    icon: Check,
+  PREPARING: {
+    label: 'בהכנה',
+    icon: ChefHat,
     color: 'text-yellow-600',
     bgColor: 'bg-yellow-100',
     borderColor: 'border-yellow-600',
   },
-  PREPARING: {
-    label: 'בהכנה',
-    icon: ChefHat,
-    color: 'text-purple-600',
-    bgColor: 'bg-purple-100',
-    borderColor: 'border-purple-600',
-  },
   READY: {
-    label: 'מוכנה',
+    label: 'מוכן',
     icon: Package,
     color: 'text-green-600',
     bgColor: 'bg-green-100',
     borderColor: 'border-green-600',
   },
   DELIVERED: {
-    label: 'נמסרה',
+    label: 'נמסר',
     icon: Truck,
     color: 'text-gray-600',
     bgColor: 'bg-gray-100',
     borderColor: 'border-gray-600',
   },
   CANCELLED: {
-    label: 'בוטלה',
+    label: 'בוטל',
     icon: X,
     color: 'text-red-600',
     bgColor: 'bg-red-100',
@@ -59,7 +45,7 @@ const statusConfig = {
 interface TimelineStep {
   status: string
   label: string
-  icon: typeof Clock
+  icon: typeof ChefHat
   reached: boolean
   current: boolean
   timestamp?: Date
@@ -80,9 +66,9 @@ export function OrderTimeline({ history, currentStatus, createdAt }: OrderTimeli
     // Extract status change timestamps from history
     const statusTimestamps = new Map<string, Date>()
 
-    // Add creation timestamp for NEW status
+    // Add creation timestamp for PREPARING status
     if (createdAt) {
-      statusTimestamps.set('NEW', new Date(createdAt))
+      statusTimestamps.set('PREPARING', new Date(createdAt))
     }
 
     // Parse history for STATUS_CHANGED events
@@ -284,7 +270,7 @@ export function OrderTimeline({ history, currentStatus, createdAt }: OrderTimeli
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 pt-0.5">
+                <div className="flex-1 min-w-0 pt-0.5">
                   <p
                     className={cn(
                       'text-sm font-medium',
@@ -294,7 +280,7 @@ export function OrderTimeline({ history, currentStatus, createdAt }: OrderTimeli
                     {step.label}
                   </p>
                   {step.timestamp && (
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5 break-words">
                       {format(step.timestamp, 'dd/MM/yyyy בשעה HH:mm', { locale: he })}
                       <span className="mx-1">•</span>
                       {formatDistanceToNow(step.timestamp, { addSuffix: true, locale: he })}

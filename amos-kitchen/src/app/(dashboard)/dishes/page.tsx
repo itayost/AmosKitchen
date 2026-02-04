@@ -229,8 +229,66 @@ export default function DishesPage() {
                 </CardContent>
             </Card>
 
-            {/* Dishes Table */}
-            <Card>
+            {/* Dishes - Mobile Card View */}
+            <div className="md:hidden space-y-3">
+                <h3 className="font-semibold text-lg">רשימת מנות</h3>
+                {dishes.map((dish) => (
+                    <Card key={dish.id} className="p-4">
+                        <div className="flex items-start justify-between gap-3 mb-2">
+                            <div className="flex-1 min-w-0">
+                                <div className="font-medium truncate">{dish.name}</div>
+                                {dish.description && (
+                                    <div className="text-sm text-muted-foreground line-clamp-2">
+                                        {dish.description}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="flex gap-1 flex-shrink-0">
+                                <Link href={`/dishes/${dish.id}`}>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                        <Eye className="h-4 w-4" />
+                                    </Button>
+                                </Link>
+                                <Link href={`/dishes/${dish.id}/edit`}>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                        <Edit className="h-4 w-4" />
+                                    </Button>
+                                </Link>
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Badge className={getCategoryBadgeColor(dish.category)}>
+                                {getCategoryLabel(dish.category)}
+                            </Badge>
+                            <Badge variant={dish.isAvailable ? 'default' : 'secondary'}>
+                                {dish.isAvailable ? 'זמין' : 'לא זמין'}
+                            </Badge>
+                            <span className="font-medium">₪{dish.price}</span>
+                            <span className="text-sm text-muted-foreground">
+                                • {dish.orderCount} הזמנות
+                            </span>
+                        </div>
+                    </Card>
+                ))}
+                {dishes.length === 0 && (
+                    <Card className="p-8 text-center">
+                        <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                        <h3 className="text-lg font-medium">אין מנות</h3>
+                        <p className="text-muted-foreground mb-4">
+                            התחל בהוספת המנה הראשונה שלך
+                        </p>
+                        <Link href="/dishes/new">
+                            <Button>
+                                <Plus className="h-4 w-4 mr-2" />
+                                הוסף מנה
+                            </Button>
+                        </Link>
+                    </Card>
+                )}
+            </div>
+
+            {/* Dishes Table - Desktop */}
+            <Card className="hidden md:block">
                 <CardHeader>
                     <CardTitle>רשימת מנות</CardTitle>
                 </CardHeader>

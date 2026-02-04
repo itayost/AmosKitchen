@@ -35,10 +35,7 @@ export interface CustomerWithStats extends Customer {
 }
 
 // Order Status
-export type OrderStatus = 'NEW' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED'
-
-// Prisma Order Status (for mapping)
-export type PrismaOrderStatus = 'NEW' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED'
+export type OrderStatus = 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED'
 
 export interface OrderHistory {
     id: string;

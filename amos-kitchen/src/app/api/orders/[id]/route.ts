@@ -15,7 +15,7 @@ import { verifyAuth } from '@/lib/api/auth-middleware'
 
 // Validation schema for updating order
 const updateOrderSchema = z.object({
-    status: z.enum(['NEW', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERED', 'CANCELLED']).optional(),
+    status: z.enum(['PREPARING', 'READY', 'DELIVERED', 'CANCELLED']).optional(),
     deliveryDate: z.string().optional(),
     notes: z.string().optional(),
     deliveryAddress: z.string().optional(),
@@ -250,7 +250,7 @@ export async function PATCH(
         const { status } = body
 
         // Validate status is a valid enum value
-        const validStatuses = ['NEW', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERED', 'CANCELLED']
+        const validStatuses = ['PREPARING', 'READY', 'DELIVERED', 'CANCELLED']
         if (!validStatuses.includes(status)) {
             return NextResponse.json(
                 { error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` },

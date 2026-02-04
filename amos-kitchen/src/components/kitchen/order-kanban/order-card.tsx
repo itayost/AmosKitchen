@@ -61,8 +61,6 @@ export function OrderCard({
 
   const getNextStatus = (currentStatus: OrderStatus): OrderStatus | null => {
     switch (currentStatus) {
-      case 'NEW': return 'CONFIRMED'
-      case 'CONFIRMED': return 'PREPARING'
       case 'PREPARING': return 'READY'
       case 'READY': return 'DELIVERED'
       default: return null
@@ -71,8 +69,6 @@ export function OrderCard({
 
   const getStatusActionLabel = (status: OrderStatus) => {
     switch (status) {
-      case 'NEW': return 'אשר הזמנה'
-      case 'CONFIRMED': return 'התחל הכנה'
       case 'PREPARING': return 'סמן כמוכן'
       case 'READY': return 'סמן כנמסר'
       default: return 'עדכן סטטוס'

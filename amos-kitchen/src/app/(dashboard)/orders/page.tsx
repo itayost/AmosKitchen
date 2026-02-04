@@ -40,8 +40,8 @@ export default function OrdersPage() {
 
     const stats = {
         total: totalCount || 0,
-        new: orders?.filter(o => o.status === 'NEW').length || 0,
         preparing: orders?.filter(o => o.status === 'PREPARING').length || 0,
+        ready: orders?.filter(o => o.status === 'READY').length || 0,
         delivered: orders?.filter(o => {
             const today = new Date()
             const orderDate = new Date(o.deliveryDate)
@@ -76,11 +76,11 @@ export default function OrdersPage() {
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-muted-foreground">
-                            הזמנות חדשות
+                            מוכנות
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-blue-600">{stats.new}</div>
+                        <div className="text-2xl font-bold text-green-600">{stats.ready}</div>
                     </CardContent>
                 </Card>
                 <Card>

@@ -70,23 +70,7 @@ function computeAlerts(data: DashboardData): NeedsAttentionAlert[] {
   const today = new Date()
   const tomorrow = addDays(today, 1)
 
-  // 1. NEW status orders (not yet confirmed)
-  const newOrders = data.recentOrders.filter((o) => o.status === 'NEW')
-  if (newOrders.length > 0) {
-    alerts.push({
-      id: 'new_orders',
-      type: 'new_orders',
-      priority: 'high',
-      title: 'הזמנות חדשות ממתינות לאישור',
-      description: `${newOrders.length} הזמנות ממתינות לאישור`,
-      count: newOrders.length,
-      actionLabel: 'צפה בהזמנות',
-      actionHref: '/orders?status=NEW',
-      icon: AlertTriangle,
-    })
-  }
-
-  // 2. Approaching delivery (today/tomorrow) not READY
+  // 1. Approaching delivery (today/tomorrow) not READY
   const approachingOrders = data.recentOrders.filter((o) => {
     const deliveryDate = new Date(o.deliveryDate)
     const isApproaching = isSameDay(deliveryDate, today) || isSameDay(deliveryDate, tomorrow)
@@ -139,7 +123,7 @@ function computeFridayProgress(orders: any[]) {
   })
 
   return {
-    pending: fridayOrders.filter((o) => ['NEW', 'CONFIRMED'].includes(o.status)).length,
+    pending: 0,
     preparing: fridayOrders.filter((o) => o.status === 'PREPARING').length,
     ready: fridayOrders.filter((o) => o.status === 'READY').length,
     delivered: fridayOrders.filter((o) => o.status === 'DELIVERED').length,

@@ -18,18 +18,18 @@ export function PageHeader({
   className
 }: PageHeaderProps) {
   return (
-    <div className={cn('flex items-start justify-between gap-4', className)}>
-      <div className="space-y-1 flex-1">
-        <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
+    <div className={cn('flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4', className)}>
+      <div className="space-y-1 flex-1 min-w-0">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight break-words">{title}</h1>
           {badge}
         </div>
         {description && (
-          <p className="text-muted-foreground">{description}</p>
+          <p className="text-muted-foreground break-words">{description}</p>
         )}
       </div>
       {actions && (
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
           {actions}
         </div>
       )}

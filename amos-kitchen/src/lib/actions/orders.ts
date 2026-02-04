@@ -39,7 +39,7 @@ export async function getOrdersForToday() {
         }));
 
         // Sort by status and creation date
-        const statusOrder = ['NEW', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERED'];
+        const statusOrder = ['PREPARING', 'READY', 'DELIVERED'];
         transformedOrders.sort((a, b) => {
             const statusDiff = statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status);
             if (statusDiff !== 0) return statusDiff;
@@ -91,7 +91,7 @@ export async function getOrdersForNextDelivery() {
         }));
 
         // Sort by status and creation date
-        const statusOrder = ['NEW', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERED'];
+        const statusOrder = ['PREPARING', 'READY', 'DELIVERED'];
         transformedOrders.sort((a, b) => {
             const statusDiff = statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status);
             if (statusDiff !== 0) return statusDiff;

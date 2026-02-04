@@ -3,12 +3,22 @@ import { initializeApp, getApps, cert, getApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 
+// Validate required admin credentials
+const adminCredentials = {
+  projectId: process.env.FIREBASE_ADMIN_PROJECT_ID,
+  clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
+  privateKey: process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n')
+}
+
+if (!adminCredentials.projectId || !adminCredentials.clientEmail || !adminCredentials.privateKey) {
+  throw new Error(
+    'Missing Firebase Admin credentials. Please ensure FIREBASE_ADMIN_PROJECT_ID, ' +
+    'FIREBASE_ADMIN_CLIENT_EMAIL, and FIREBASE_ADMIN_PRIVATE_KEY are set in environment variables.'
+  )
+}
+
 const firebaseAdminConfig = {
-  credential: cert({
-    projectId: process.env.FIREBASE_ADMIN_PROJECT_ID || "amos-kitchen",
-    clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL || "firebase-adminsdk-fbsvc@amos-kitchen.iam.gserviceaccount.com",
-    privateKey: (process.env.FIREBASE_ADMIN_PRIVATE_KEY || "").replace(/\\n/g, '\n')
-  })
+  credential: cert(adminCredentials as { projectId: string; clientEmail: string; privateKey: string })
 }
 
 // Initialize admin app

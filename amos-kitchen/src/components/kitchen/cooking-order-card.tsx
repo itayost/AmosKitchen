@@ -71,16 +71,6 @@ export function CookingOrderCard({
   const allItemsChecked = checkedItems.length === order.orderItems.length;
 
   const statusConfig = {
-    NEW: {
-      color: 'bg-gray-50 border-gray-300',
-      badge: 'default',
-      icon: <Package className="h-4 w-4" />
-    },
-    CONFIRMED: {
-      color: 'bg-blue-50 border-blue-300',
-      badge: 'default',
-      icon: <Package className="h-4 w-4" />
-    },
     PREPARING: {
       color: 'bg-yellow-50 border-yellow-300',
       badge: 'secondary',
@@ -192,26 +182,6 @@ export function CookingOrderCard({
 
         {/* Action Buttons */}
         <div className="flex gap-2 pt-2">
-          {order.status === 'NEW' && (
-            <Button
-              onClick={() => handleStatusChange('PREPARING')}
-              disabled={isUpdating}
-              className="flex-1"
-              size="sm"
-            >
-              Start Preparing
-            </Button>
-          )}
-          {order.status === 'CONFIRMED' && (
-            <Button
-              onClick={() => handleStatusChange('PREPARING')}
-              disabled={isUpdating}
-              className="flex-1"
-              size="sm"
-            >
-              Start Preparing
-            </Button>
-          )}
           {order.status === 'PREPARING' && (
             <Button
               onClick={() => handleStatusChange('READY')}

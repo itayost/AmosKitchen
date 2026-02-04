@@ -79,8 +79,8 @@ export async function GET(request: NextRequest) {
         const summary = {
             totalOrders: transformedOrders.length,
             totalRevenue: transformedOrders.reduce((sum, order) => sum + order.totalAmount, 0),
-            confirmedOrders: transformedOrders.filter(o => o.status !== 'NEW' && o.status !== 'CANCELLED').length,
-            pendingOrders: transformedOrders.filter(o => o.status === 'NEW').length,
+            confirmedOrders: transformedOrders.filter(o => o.status !== 'CANCELLED').length,
+            pendingOrders: transformedOrders.filter(o => o.status === 'PREPARING').length,
             cancelledOrders: transformedOrders.filter(o => o.status === 'CANCELLED').length
         }
 

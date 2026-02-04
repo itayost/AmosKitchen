@@ -19,8 +19,6 @@ interface OrderFiltersProps {
 
 const statusOptions: { value: OrderStatus | 'all'; label: string }[] = [
     { value: 'all', label: 'כל הסטטוסים' },
-    { value: 'NEW', label: 'חדש' },
-    { value: 'CONFIRMED', label: 'אושר' },
     { value: 'PREPARING', label: 'בהכנה' },
     { value: 'READY', label: 'מוכן' },
     { value: 'DELIVERED', label: 'נמסר' },
@@ -59,7 +57,7 @@ export function OrderFilters({ filters, onFiltersChange }: OrderFiltersProps) {
                 />
             </div>
             <Select value={filters.status} onValueChange={handleStatusChange}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-full md:w-[180px]">
                     <SelectValue placeholder="סנן לפי סטטוס" />
                 </SelectTrigger>
                 <SelectContent>
@@ -71,7 +69,7 @@ export function OrderFilters({ filters, onFiltersChange }: OrderFiltersProps) {
                 </SelectContent>
             </Select>
             <Select value={filters.dateRange} onValueChange={handleDateRangeChange}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-full md:w-[180px]">
                     <SelectValue placeholder="סנן לפי תאריך" />
                 </SelectTrigger>
                 <SelectContent>

@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
 
     // Sort by status and creation date
     transformedOrders.sort((a, b) => {
-      const statusOrder = ['NEW', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERED']
+      const statusOrder = ['PREPARING', 'READY', 'DELIVERED']
       const statusDiff = statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status)
       if (statusDiff !== 0) return statusDiff
       return a.createdAt < b.createdAt ? -1 : 1

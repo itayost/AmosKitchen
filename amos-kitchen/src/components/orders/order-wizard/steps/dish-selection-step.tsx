@@ -161,8 +161,8 @@ export function DishSelectionStep({ dishes }: DishSelectionStepProps) {
         </CardHeader>
         <CardContent className="space-y-4">
           {state.items.map((item, index) => (
-            <div key={index} className="space-y-3 p-4 border rounded-lg">
-              <div className="grid gap-4 md:grid-cols-12">
+            <div key={index} className="space-y-3 p-3 sm:p-4 border rounded-lg">
+              <div className="grid gap-3 sm:gap-4 md:grid-cols-12">
                 {/* Dish Selection */}
                 <div className="md:col-span-6 space-y-2">
                   <Label>מנה</Label>
@@ -186,16 +186,32 @@ export function DishSelectionStep({ dishes }: DishSelectionStepProps) {
                   </Select>
                 </div>
 
-                {/* Quantity */}
-                <div className="md:col-span-2 space-y-2">
-                  <Label>כמות</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={item.quantity}
-                    onChange={(e) => handleQuantityChange(index, e.target.value)}
-                    className="text-center"
-                  />
+                {/* Quantity + Remove (row on mobile) */}
+                <div className="flex gap-2 md:contents">
+                  <div className="flex-1 md:col-span-2 space-y-2">
+                    <Label>כמות</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={item.quantity}
+                      onChange={(e) => handleQuantityChange(index, e.target.value)}
+                      className="text-center"
+                    />
+                  </div>
+
+                  {/* Remove Button - inline on mobile */}
+                  <div className="md:hidden flex items-end">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeItem(index)}
+                      disabled={state.items.length === 1}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Item Notes */}
@@ -210,8 +226,8 @@ export function DishSelectionStep({ dishes }: DishSelectionStepProps) {
                   />
                 </div>
 
-                {/* Remove Button */}
-                <div className="md:col-span-1 flex items-end">
+                {/* Remove Button - desktop only */}
+                <div className="hidden md:flex md:col-span-1 items-end">
                   <Button
                     type="button"
                     variant="ghost"

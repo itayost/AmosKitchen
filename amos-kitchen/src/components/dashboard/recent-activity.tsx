@@ -83,14 +83,12 @@ export function RecentActivity({ activities }: RecentActivityProps) {
 
     const getStatusLabel = (status: string) => {
         const labels: Record<string, string> = {
-            new: 'חדש',
-            confirmed: 'מאושר',
-            preparing: 'בהכנה',
-            ready: 'מוכן',
-            delivered: 'נמסר',
-            cancelled: 'בוטל'
+            PREPARING: 'בהכנה',
+            READY: 'מוכן',
+            DELIVERED: 'נמסר',
+            CANCELLED: 'בוטל'
         }
-        return labels[status.toLowerCase()] || status
+        return labels[status] || labels[status.toUpperCase()] || status
     }
 
     return (
@@ -111,8 +109,8 @@ export function RecentActivity({ activities }: RecentActivityProps) {
                                     <div className={`mt-0.5 ${color}`}>
                                         <Icon className="h-5 w-5" />
                                     </div>
-                                    <div className="flex-1 space-y-1">
-                                        <p className="text-sm leading-relaxed">
+                                    <div className="flex-1 min-w-0 space-y-1">
+                                        <p className="text-sm leading-relaxed break-words">
                                             {getActivityMessage(activity)}
                                         </p>
                                         <p className="text-xs text-muted-foreground">

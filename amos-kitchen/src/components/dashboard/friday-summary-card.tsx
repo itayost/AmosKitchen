@@ -63,7 +63,7 @@ export function FridaySummaryCard({ fridayData, preparationProgress }: FridaySum
 
       <CardContent className="space-y-4">
         {/* Stats Grid */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
           <StatItem
             icon={<Package className="h-4 w-4" />}
             value={fridayData.orderCount}
@@ -91,7 +91,7 @@ export function FridaySummaryCard({ fridayData, preparationProgress }: FridaySum
               </span>
             </div>
             <Progress value={progressPercent} className="h-2" />
-            <div className="grid grid-cols-4 gap-2 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
               <div className="text-center">
                 <div className="font-bold text-orange-900">{preparationProgress.pending}</div>
                 <div className="text-orange-700">ממתין</div>

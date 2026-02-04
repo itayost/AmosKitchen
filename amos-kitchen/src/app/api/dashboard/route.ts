@@ -66,9 +66,7 @@ export async function GET(request: NextRequest) {
     const weekStats = {
       orders: weekOrders.length,
       revenue: weekOrders.reduce((sum, order) => sum + order.totalAmount, 0),
-      pendingOrders: weekOrders.filter(o =>
-        ['NEW', 'CONFIRMED', 'PREPARING'].includes(o.status)
-      ).length,
+      pendingOrders: weekOrders.filter(o => o.status === 'PREPARING').length,
       completedOrders: weekOrders.filter(o => o.status === 'DELIVERED').length
     }
 

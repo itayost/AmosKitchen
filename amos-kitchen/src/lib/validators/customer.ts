@@ -18,7 +18,10 @@ export const createCustomerPreferenceSchema = customerPreferenceSchema.omit({ id
 export const createCustomerSchema = z.object({
     name: z.string().min(2, 'השם חייב להכיל לפחות 2 תווים').max(100, 'השם לא יכול להכיל יותר מ-100 תווים'),
     phone: z.string().min(9, 'מספר טלפון חייב להכיל לפחות 9 ספרות').max(15, 'מספר טלפון לא תקין'),
-    email: z.string().email('כתובת אימייל לא תקינה').nullable().optional(),
+    email: z.union([
+        z.string().email('כתובת אימייל לא תקינה'),
+        z.literal(''),
+    ]).nullable().optional().transform(val => val === '' ? null : val),
     address: z.string().max(200, 'הכתובת לא יכולה להכיל יותר מ-200 תווים').nullable().optional(),
     notes: z.string().max(500, 'ההערות לא יכולות להכיל יותר מ-500 תווים').nullable().optional(),
     preferences: z.array(createCustomerPreferenceSchema).optional().default([])

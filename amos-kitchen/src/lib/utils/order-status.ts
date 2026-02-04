@@ -2,15 +2,12 @@
  * Order Status Utilities
  *
  * Centralized logic for order status handling, normalization, and transitions.
- * Eliminates scattered status mapping across kitchen-dashboard.tsx, use-kitchen-orders.ts, etc.
  */
 
 import type { OrderStatus } from '@/lib/types/database'
 
 // All valid order statuses
 export const ORDER_STATUSES = [
-  'NEW',
-  'CONFIRMED',
   'PREPARING',
   'READY',
   'DELIVERED',
@@ -19,16 +16,12 @@ export const ORDER_STATUSES = [
 
 // Active order statuses (not completed or cancelled)
 export const ACTIVE_ORDER_STATUSES: OrderStatus[] = [
-  'NEW',
-  'CONFIRMED',
   'PREPARING',
   'READY',
 ]
 
 // Status mapping for API communication (uppercase to lowercase)
 const STATUS_TO_API: Record<OrderStatus, string> = {
-  NEW: 'new',
-  CONFIRMED: 'confirmed',
   PREPARING: 'preparing',
   READY: 'ready',
   DELIVERED: 'delivered',
@@ -37,8 +30,6 @@ const STATUS_TO_API: Record<OrderStatus, string> = {
 
 // Status mapping from API (lowercase to uppercase)
 const API_TO_STATUS: Record<string, OrderStatus> = {
-  new: 'NEW',
-  confirmed: 'CONFIRMED',
   preparing: 'PREPARING',
   ready: 'READY',
   delivered: 'DELIVERED',
@@ -47,8 +38,6 @@ const API_TO_STATUS: Record<string, OrderStatus> = {
 
 // Hebrew labels for statuses
 export const STATUS_LABELS_HE: Record<OrderStatus, string> = {
-  NEW: 'חדש',
-  CONFIRMED: 'מאושר',
   PREPARING: 'בהכנה',
   READY: 'מוכן',
   DELIVERED: 'נמסר',
@@ -57,8 +46,6 @@ export const STATUS_LABELS_HE: Record<OrderStatus, string> = {
 
 // Action labels for status transitions (Hebrew)
 export const STATUS_ACTION_LABELS_HE: Record<OrderStatus, string> = {
-  NEW: 'אשר הזמנה',
-  CONFIRMED: 'התחל הכנה',
   PREPARING: 'סמן כמוכן',
   READY: 'סמן כנמסר',
   DELIVERED: 'הושלם',
@@ -67,8 +54,6 @@ export const STATUS_ACTION_LABELS_HE: Record<OrderStatus, string> = {
 
 // Status colors for UI
 export const STATUS_COLORS: Record<OrderStatus, string> = {
-  NEW: 'bg-purple-500',
-  CONFIRMED: 'bg-blue-500',
   PREPARING: 'bg-yellow-500',
   READY: 'bg-green-500',
   DELIVERED: 'bg-gray-500',
@@ -77,8 +62,6 @@ export const STATUS_COLORS: Record<OrderStatus, string> = {
 
 // Status badge variants
 export const STATUS_BADGE_VARIANTS: Record<OrderStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  NEW: 'secondary',
-  CONFIRMED: 'outline',
   PREPARING: 'default',
   READY: 'default',
   DELIVERED: 'secondary',
@@ -88,14 +71,18 @@ export const STATUS_BADGE_VARIANTS: Record<OrderStatus, 'default' | 'secondary' 
 /**
  * Normalize a status string to uppercase OrderStatus.
  * Handles both uppercase and lowercase inputs.
- *
- * @param status The status string (can be any case)
- * @returns Normalized uppercase OrderStatus
+ * Maps legacy NEW/CONFIRMED statuses to PREPARING.
  */
 export function normalizeStatus(status: string | undefined | null): OrderStatus {
-  if (!status) return 'NEW'
+  if (!status) return 'PREPARING'
 
   const upper = status.toUpperCase()
+
+  // Map legacy statuses to PREPARING
+  if (upper === 'NEW' || upper === 'CONFIRMED') {
+    return 'PREPARING'
+  }
+
   if (ORDER_STATUSES.includes(upper as OrderStatus)) {
     return upper as OrderStatus
   }
@@ -104,15 +91,12 @@ export function normalizeStatus(status: string | undefined | null): OrderStatus 
   const mapped = API_TO_STATUS[status.toLowerCase()]
   if (mapped) return mapped
 
-  // Default to NEW if unrecognized
-  return 'NEW'
+  // Default to PREPARING if unrecognized
+  return 'PREPARING'
 }
 
 /**
  * Convert an OrderStatus to API format (lowercase).
- *
- * @param status The OrderStatus to convert
- * @returns Lowercase status string for API
  */
 export function statusToApi(status: OrderStatus): string {
   return STATUS_TO_API[status] || status.toLowerCase()
@@ -120,24 +104,16 @@ export function statusToApi(status: OrderStatus): string {
 
 /**
  * Convert an API status to OrderStatus (uppercase).
- *
- * @param apiStatus The lowercase status from API
- * @returns Uppercase OrderStatus
  */
 export function apiToStatus(apiStatus: string): OrderStatus {
-  return API_TO_STATUS[apiStatus.toLowerCase()] || 'NEW'
+  return API_TO_STATUS[apiStatus.toLowerCase()] || 'PREPARING'
 }
 
 /**
  * Get the next status in the order workflow.
- *
- * @param currentStatus The current order status
- * @returns The next status, or null if no transition available
  */
 export function getNextStatus(currentStatus: OrderStatus): OrderStatus | null {
   const transitions: Record<OrderStatus, OrderStatus | null> = {
-    NEW: 'CONFIRMED',
-    CONFIRMED: 'PREPARING',
     PREPARING: 'READY',
     READY: 'DELIVERED',
     DELIVERED: null,
@@ -148,15 +124,10 @@ export function getNextStatus(currentStatus: OrderStatus): OrderStatus | null {
 
 /**
  * Get the previous status in the order workflow.
- *
- * @param currentStatus The current order status
- * @returns The previous status, or null if no transition available
  */
 export function getPreviousStatus(currentStatus: OrderStatus): OrderStatus | null {
   const transitions: Record<OrderStatus, OrderStatus | null> = {
-    NEW: null,
-    CONFIRMED: 'NEW',
-    PREPARING: 'CONFIRMED',
+    PREPARING: null,
     READY: 'PREPARING',
     DELIVERED: 'READY',
     CANCELLED: null,
@@ -166,9 +137,6 @@ export function getPreviousStatus(currentStatus: OrderStatus): OrderStatus | nul
 
 /**
  * Check if a status is considered active (not completed or cancelled).
- *
- * @param status The status to check
- * @returns true if the status is active
  */
 export function isActiveStatus(status: OrderStatus): boolean {
   return ACTIVE_ORDER_STATUSES.includes(status)
@@ -176,19 +144,14 @@ export function isActiveStatus(status: OrderStatus): boolean {
 
 /**
  * Check if a status allows order modifications.
- *
- * @param status The status to check
- * @returns true if modifications are allowed
+ * Only PREPARING orders can be modified.
  */
 export function canModifyOrder(status: OrderStatus): boolean {
-  return status === 'NEW' || status === 'CONFIRMED'
+  return status === 'PREPARING'
 }
 
 /**
  * Check if an order can be cancelled.
- *
- * @param status The current order status
- * @returns true if the order can be cancelled
  */
 export function canCancelOrder(status: OrderStatus): boolean {
   return status !== 'DELIVERED' && status !== 'CANCELLED'
@@ -196,9 +159,6 @@ export function canCancelOrder(status: OrderStatus): boolean {
 
 /**
  * Get Hebrew label for a status.
- *
- * @param status The order status
- * @returns Hebrew label string
  */
 export function getStatusLabel(status: OrderStatus): string {
   return STATUS_LABELS_HE[status] || status
@@ -206,9 +166,6 @@ export function getStatusLabel(status: OrderStatus): string {
 
 /**
  * Get Hebrew action label for transitioning to the next status.
- *
- * @param status The current order status
- * @returns Hebrew action label string
  */
 export function getStatusActionLabel(status: OrderStatus): string {
   return STATUS_ACTION_LABELS_HE[status] || 'עדכן סטטוס'
@@ -216,9 +173,6 @@ export function getStatusActionLabel(status: OrderStatus): string {
 
 /**
  * Get the color class for a status.
- *
- * @param status The order status
- * @returns Tailwind color class string
  */
 export function getStatusColor(status: OrderStatus): string {
   return STATUS_COLORS[status] || 'bg-gray-500'

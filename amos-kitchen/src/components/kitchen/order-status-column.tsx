@@ -25,10 +25,9 @@ interface OrderStatusColumnProps {
 }
 
 const STATUS_TITLES: Record<string, string> = {
-  NEW: 'הזמנות חדשות',
-  CONFIRMED: 'ממתין להכנה',
   PREPARING: 'בהכנה',
-  READY: 'מוכן למשלוח'
+  READY: 'מוכן למשלוח',
+  DELIVERED: 'נמסר'
 }
 
 export function OrderStatusColumn({

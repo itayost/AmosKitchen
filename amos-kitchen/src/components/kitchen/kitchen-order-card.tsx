@@ -84,7 +84,7 @@ export function KitchenOrderCard({
             <CardTitle className="text-base">
               הזמנה #{order.orderNumber}
             </CardTitle>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground truncate">
               {order.customer.name}
             </p>
           </div>
@@ -146,7 +146,7 @@ export function KitchenOrderCard({
             <Separator />
             <div className="space-y-1">
               <p className="text-xs font-semibold">הערות:</p>
-              <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+              <p className="text-xs text-muted-foreground whitespace-pre-wrap break-words">
                 {order.notes}
               </p>
             </div>

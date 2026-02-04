@@ -109,7 +109,7 @@ export function KitchenHeader({ orders }: KitchenHeaderProps) {
           <StatCard
             icon={<AlertCircle className="h-5 w-5" />}
             label="להכין"
-            value={stats.newOrders + stats.confirmedOrders}
+            value={stats.preparingOrders}
             color="orange"
           />
           <StatCard
@@ -135,16 +135,6 @@ export function KitchenHeader({ orders }: KitchenHeaderProps) {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <StatusPill
-            status="חדש"
-            count={stats.newOrders}
-            color="bg-gray-100 text-gray-800"
-          />
-          <StatusPill
-            status="מאושר"
-            count={stats.confirmedOrders}
-            color="bg-blue-100 text-blue-800"
-          />
           <StatusPill
             status="בהכנה"
             count={stats.preparingOrders}
@@ -228,8 +218,6 @@ function calculateStats(orders: any[]) {
   const stats = {
     totalOrders: orders.length,
     totalDishes: 0,
-    newOrders: 0,
-    confirmedOrders: 0,
     preparingOrders: 0,
     readyOrders: 0,
     deliveredOrders: 0,
@@ -239,12 +227,6 @@ function calculateStats(orders: any[]) {
     stats.totalDishes += order.orderItems.reduce((sum: number, item: any) => sum + item.quantity, 0);
 
     switch (order.status as OrderStatus) {
-      case 'NEW':
-        stats.newOrders++;
-        break;
-      case 'CONFIRMED':
-        stats.confirmedOrders++;
-        break;
       case 'PREPARING':
         stats.preparingOrders++;
         break;

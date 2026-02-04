@@ -25,12 +25,10 @@ interface ExportOrder {
 }
 
 const statusLabels: Record<string, string> = {
-  new: 'חדש',
-  confirmed: 'אושר',
-  preparing: 'בהכנה',
-  ready: 'מוכן',
-  delivered: 'נמסר',
-  cancelled: 'בוטל'
+  PREPARING: 'בהכנה',
+  READY: 'מוכן',
+  DELIVERED: 'נמסר',
+  CANCELLED: 'בוטל'
 }
 
 export function exportOrdersToExcel(orders: ExportOrder[]) {

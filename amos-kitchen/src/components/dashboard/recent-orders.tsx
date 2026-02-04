@@ -50,62 +50,95 @@ export function RecentOrders({ orders }: RecentOrdersProps) {
         </Button>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>מספר הזמנה</TableHead>
-              <TableHead>לקוח</TableHead>
-              <TableHead>תאריך משלוח</TableHead>
-              <TableHead>סטטוס</TableHead>
-              <TableHead className="text-right">סכום</TableHead>
-              <TableHead className="w-[50px]"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {orders.map((order) => (
-              <TableRow key={order.id}>
-                <TableCell className="font-medium">
-                  {order.orderNumber}
-                </TableCell>
-                <TableCell>
-                  <div>
-                    <div className="font-medium">{order.customer.name}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {order.customer.phone}
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell>
+        {/* Mobile Card View */}
+        <div className="md:hidden space-y-3">
+          {orders.map((order) => (
+            <Link
+              key={order.id}
+              href={`/orders/${order.id}`}
+              className="block border rounded-lg p-3 hover:bg-muted/50 transition-colors"
+            >
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium truncate">{order.customer.name}</div>
+                  <div className="text-sm text-muted-foreground truncate">{order.orderNumber}</div>
+                </div>
+                <OrderStatusBadge status={order.status} />
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">
                   {format(parseDate(order.deliveryDate), 'dd/MM/yyyy', { locale: he })}
-                </TableCell>
-                <TableCell>
-                  <OrderStatusBadge status={order.status} />
-                </TableCell>
-                <TableCell className="text-right">
-                  {formatPrice(order.totalAmount)}
-                </TableCell>
-                <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    asChild
-                  >
-                    <Link href={`/orders/${order.id}`}>
-                      <Eye className="h-4 w-4" />
-                    </Link>
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-            {orders.length === 0 && (
+                </span>
+                <span className="font-medium">{formatPrice(order.totalAmount)}</span>
+              </div>
+            </Link>
+          ))}
+          {orders.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              אין הזמנות להצגה
+            </div>
+          )}
+        </div>
+
+        {/* Desktop Table View */}
+        <div className="hidden md:block overflow-x-auto">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                  אין הזמנות להצגה
-                </TableCell>
+                <TableHead>מספר הזמנה</TableHead>
+                <TableHead>לקוח</TableHead>
+                <TableHead>תאריך משלוח</TableHead>
+                <TableHead>סטטוס</TableHead>
+                <TableHead className="text-right">סכום</TableHead>
+                <TableHead className="w-[50px]"></TableHead>
               </TableRow>
-            )}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {orders.map((order) => (
+                <TableRow key={order.id}>
+                  <TableCell className="font-medium">
+                    {order.orderNumber}
+                  </TableCell>
+                  <TableCell>
+                    <div className="max-w-[150px]">
+                      <div className="font-medium truncate">{order.customer.name}</div>
+                      <div className="text-sm text-muted-foreground truncate">
+                        {order.customer.phone}
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {format(parseDate(order.deliveryDate), 'dd/MM/yyyy', { locale: he })}
+                  </TableCell>
+                  <TableCell>
+                    <OrderStatusBadge status={order.status} />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatPrice(order.totalAmount)}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      asChild
+                    >
+                      <Link href={`/orders/${order.id}`}>
+                        <Eye className="h-4 w-4" />
+                      </Link>
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {orders.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    אין הזמנות להצגה
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </CardContent>
     </Card>
   )

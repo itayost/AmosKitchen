@@ -1,6 +1,6 @@
 // components/orders/order-status-badge.tsx
 import { Badge } from '@/components/ui/badge'
-import { Clock, CheckCircle, Package, Truck, XCircle } from 'lucide-react'
+import { Package, Truck, XCircle, ChefHat } from 'lucide-react'
 import type { OrderStatus } from '@/lib/types/database'
 
 interface OrderStatusBadgeProps {
@@ -12,24 +12,14 @@ const statusConfig: Record<OrderStatus, {
     color: string
     icon: React.ElementType
 }> = {
-    NEW: {
-        label: 'חדש',
-        color: 'bg-blue-500 hover:bg-blue-600',
-        icon: Clock
-    },
-    CONFIRMED: {
-        label: 'אושר',
-        color: 'bg-green-500 hover:bg-green-600',
-        icon: CheckCircle
-    },
     PREPARING: {
         label: 'בהכנה',
         color: 'bg-yellow-500 hover:bg-yellow-600',
-        icon: Package
+        icon: ChefHat
     },
     READY: {
         label: 'מוכן',
-        color: 'bg-purple-500 hover:bg-purple-600',
+        color: 'bg-green-500 hover:bg-green-600',
         icon: Package
     },
     DELIVERED: {

@@ -21,6 +21,8 @@ import { KanbanColumn } from './kanban-column'
 import { OrderCardOverlay } from './order-card'
 import { KANBAN_COLUMNS, type KitchenOrder, type PreparationProgress } from '@/lib/types/kitchen'
 import type { OrderStatus } from '@/lib/types/database'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Badge } from '@/components/ui/badge'
 
 interface KanbanBoardProps {
   groupedOrders: Record<OrderStatus, KitchenOrder[]>
@@ -170,7 +172,44 @@ export function KanbanBoard({
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* Mobile Tab View */}
+      <div className="md:hidden">
+        <Tabs defaultValue="PREPARING" className="w-full">
+          <TabsList className="w-full grid grid-cols-3 h-auto p-1">
+            {KANBAN_COLUMNS.map(config => {
+              const count = (groupedOrders[config.id] || []).length
+              return (
+                <TabsTrigger
+                  key={config.id}
+                  value={config.id}
+                  className="flex flex-col gap-0.5 py-2 px-1 text-xs"
+                >
+                  <span className="truncate">{config.title}</span>
+                  {count > 0 && (
+                    <Badge variant="secondary" className="h-5 px-1.5 text-xs">
+                      {count}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              )
+            })}
+          </TabsList>
+          {KANBAN_COLUMNS.map(config => (
+            <TabsContent key={config.id} value={config.id} className="mt-4">
+              <KanbanColumn
+                config={config}
+                orders={groupedOrders[config.id] || []}
+                preparationProgress={preparationProgress}
+                onDishCheck={onDishCheck}
+                onStatusChange={handleStatusChangeFromButton}
+              />
+            </TabsContent>
+          ))}
+        </Tabs>
+      </div>
+
+      {/* Desktop Grid View */}
+      <div className="hidden md:grid gap-4 md:grid-cols-3">
         {KANBAN_COLUMNS.map(config => (
           <KanbanColumn
             key={config.id}
@@ -186,7 +225,7 @@ export function KanbanBoard({
       {/* Drag Overlay - shows the card being dragged */}
       <DragOverlay>
         {activeOrder && (
-          <div className="w-[280px]">
+          <div className="w-[280px] max-w-full">
             <OrderCardOverlay order={activeOrder} />
           </div>
         )}

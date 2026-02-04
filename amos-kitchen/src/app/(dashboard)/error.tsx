@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { trackEvent } from '@/lib/analytics'
 import Link from 'next/link'
+import * as Sentry from '@sentry/nextjs'
 
 interface ErrorProps {
   error: Error & { digest?: string }
@@ -16,6 +17,16 @@ export default function DashboardError({ error, reset }: ErrorProps) {
   useEffect(() => {
     // Log error to console in development
     console.error('Dashboard error:', error)
+
+    // Report error to Sentry
+    Sentry.captureException(error, {
+      tags: {
+        errorBoundary: 'dashboard',
+      },
+      extra: {
+        digest: error.digest,
+      },
+    })
 
     // Track error in analytics
     trackEvent('error_boundary_triggered', {

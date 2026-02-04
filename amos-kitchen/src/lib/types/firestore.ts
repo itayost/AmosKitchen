@@ -46,7 +46,7 @@ export interface Order {
   orderDate: Date
   deliveryDate: Date
   deliveryAddress?: string | null
-  status: 'NEW' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED'
+  status: 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED'
   totalAmount: number
   notes?: string | null
   items: OrderItem[]
@@ -108,7 +108,7 @@ export interface OrderDoc {
   orderDate: Timestamp | FieldValue
   deliveryDate: Timestamp | FieldValue
   deliveryAddress?: string | null
-  status: 'NEW' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED'
+  status: 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED'
   totalAmount: number
   notes?: string | null
   items: OrderItem[]

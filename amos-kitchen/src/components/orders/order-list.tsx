@@ -1,7 +1,7 @@
 // components/orders/order-list.tsx
 'use client'
 
-import { useState } from 'react'
+import { useState, Fragment } from 'react'
 import { format } from 'date-fns'
 import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
 import {
@@ -32,7 +32,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { LoadingSpinner } from '@/components/shared/loading-spinner'
 import { OrderStatusBadge } from './order-status-badge'
@@ -188,7 +188,89 @@ export function OrderList({
 
     return (
         <div className="space-y-4">
-            <Card>
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-3">
+                {sortedOrders.map((order) => (
+                    <Card
+                        key={order.id}
+                        className={cn(
+                            "p-4",
+                            hasCriticalPreferences(order.customer?.preferences) && "border-red-200 bg-red-50/30"
+                        )}
+                    >
+                        <div className="flex items-start justify-between gap-2 mb-3">
+                            <div
+                                className="flex-1 min-w-0 cursor-pointer"
+                                onClick={() => router.push(`/orders/${order.id}`)}
+                            >
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="font-medium truncate">{order.customer?.name || 'לקוח לא ידוע'}</span>
+                                    {hasCriticalPreferences(order.customer?.preferences) && (
+                                        <Badge variant="destructive" className="h-4 px-1">
+                                            <AlertTriangle className="h-3 w-3" />
+                                        </Badge>
+                                    )}
+                                </div>
+                                <div className="text-sm text-muted-foreground truncate">{order.orderNumber}</div>
+                            </div>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                        <MoreVertical className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => router.push(`/orders/${order.id}`)}>
+                                        <Eye className="h-4 w-4 ml-2" />
+                                        צפייה
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => router.push(`/orders/${order.id}/edit`)}>
+                                        <Edit className="h-4 w-4 ml-2" />
+                                        עריכה
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                        className="text-destructive"
+                                        onClick={() => handleDelete(order.id)}
+                                    >
+                                        <Trash2 className="h-4 w-4 ml-2" />
+                                        מחיקה
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+                        <div
+                            className="flex items-center justify-between cursor-pointer"
+                            onClick={() => router.push(`/orders/${order.id}`)}
+                        >
+                            <div className="flex items-center gap-3">
+                                <OrderStatusBadge status={order.status} />
+                                <span className="text-sm text-muted-foreground">
+                                    {format(new Date(order.deliveryDate), 'dd/MM/yyyy')}
+                                </span>
+                            </div>
+                            <span className="font-medium">{formatCurrency(Number(order.totalAmount))}</span>
+                        </div>
+                        {order.customer?.preferences && order.customer.preferences.length > 0 && (
+                            <div className="mt-3 pt-3 border-t">
+                                <PreferenceBadgeGroup
+                                    preferences={order.customer.preferences}
+                                    maxVisible={3}
+                                    showIcon={false}
+                                />
+                            </div>
+                        )}
+                    </Card>
+                ))}
+                {sortedOrders.length === 0 && (
+                    <Card className="p-8 text-center text-muted-foreground">
+                        אין הזמנות להצגה
+                    </Card>
+                )}
+            </div>
+
+            {/* Desktop Table View */}
+            <Card className="hidden md:block overflow-hidden">
                 <div className="overflow-x-auto">
                     <Table>
                         <TableHeader>
@@ -214,7 +296,7 @@ export function OrderList({
                         </TableHeader>
                         <TableBody>
                             {sortedOrders.map((order) => (
-                                <>
+                                <Fragment key={order.id}>
                                     <TableRow
                                         key={order.id}
                                         className={cn(
@@ -302,7 +384,7 @@ export function OrderList({
 
                                     {/* Expanded Row - Show Preferences */}
                                     {expandedRows.has(order.id) && order.customer?.preferences && order.customer.preferences.length > 0 && (
-                                        <TableRow>
+                                        <TableRow key={`${order.id}-expanded`}>
                                             <TableCell colSpan={7} className="bg-muted/30">
                                                 <div className="p-4 space-y-3">
                                                     <h4 className="text-sm font-semibold">העדפות לקוח:</h4>
@@ -327,7 +409,7 @@ export function OrderList({
                                             </TableCell>
                                         </TableRow>
                                     )}
-                                </>
+                                </Fragment>
                             ))}
                         </TableBody>
                     </Table>

@@ -147,7 +147,7 @@ export function KitchenDashboard({ initialOrders = [], deliveryDate }: KitchenDa
 
   // Filter orders based on view
   const filteredOrders = orders.filter(order => {
-    if (view === 'all') return ['NEW', 'CONFIRMED', 'PREPARING', 'READY'].includes(order.status)
+    if (view === 'all') return ['PREPARING', 'READY'].includes(order.status)
     if (view === 'preparing') return order.status === 'PREPARING'
     if (view === 'ready') return order.status === 'READY'
     return true
@@ -155,8 +155,6 @@ export function KitchenDashboard({ initialOrders = [], deliveryDate }: KitchenDa
 
   // Group orders by status
   const groupedOrders = {
-    NEW: filteredOrders.filter(o => o.status === 'NEW'),
-    CONFIRMED: filteredOrders.filter(o => o.status === 'CONFIRMED'),
     PREPARING: filteredOrders.filter(o => o.status === 'PREPARING'),
     READY: filteredOrders.filter(o => o.status === 'READY')
   }
@@ -176,7 +174,7 @@ export function KitchenDashboard({ initialOrders = [], deliveryDate }: KitchenDa
 
     // Include all active orders (not delivered or cancelled)
     const relevantOrders = orders.filter(order =>
-      ['NEW', 'CONFIRMED', 'PREPARING', 'READY'].includes(order.status)
+      ['PREPARING', 'READY'].includes(order.status)
     )
 
     relevantOrders.forEach(order => {
@@ -233,7 +231,7 @@ export function KitchenDashboard({ initialOrders = [], deliveryDate }: KitchenDa
         <Tabs value={view} onValueChange={(v) => setView(v as any)}>
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="all">
-              כל ההזמנות ({orders.filter(o => ['NEW', 'CONFIRMED', 'PREPARING', 'READY'].includes(o.status)).length})
+              כל ההזמנות ({orders.filter(o => ['PREPARING', 'READY'].includes(o.status)).length})
             </TabsTrigger>
             <TabsTrigger value="preparing">
               בהכנה ({orders.filter(o => o.status === 'PREPARING').length})
@@ -244,8 +242,8 @@ export function KitchenDashboard({ initialOrders = [], deliveryDate }: KitchenDa
           </TabsList>
 
           <TabsContent value={view} className="mt-6">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              {(['NEW', 'CONFIRMED', 'PREPARING', 'READY'] as const).map(status => (
+            <div className="grid gap-4 md:grid-cols-2">
+              {(['PREPARING', 'READY'] as const).map(status => (
                 <OrderStatusColumn
                   key={status}
                   status={status}

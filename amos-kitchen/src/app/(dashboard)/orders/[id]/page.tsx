@@ -141,27 +141,23 @@ export default function OrderDetailsPage() {
     }
 
     const getStatusColor = (status: string) => {
-        const colors = {
-            'new': 'bg-blue-100 text-blue-800',
-            'confirmed': 'bg-green-100 text-green-800',
-            'preparing': 'bg-yellow-100 text-yellow-800',
-            'ready': 'bg-purple-100 text-purple-800',
-            'delivered': 'bg-gray-100 text-gray-800',
-            'cancelled': 'bg-red-100 text-red-800'
+        const colors: Record<string, string> = {
+            'PREPARING': 'bg-yellow-100 text-yellow-800',
+            'READY': 'bg-green-100 text-green-800',
+            'DELIVERED': 'bg-gray-100 text-gray-800',
+            'CANCELLED': 'bg-red-100 text-red-800'
         }
-        return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800'
+        return colors[status] || 'bg-gray-100 text-gray-800'
     }
 
     const getStatusLabel = (status: string) => {
-        const labels = {
-            'new': 'חדשה',
-            'confirmed': 'אושרה',
-            'preparing': 'בהכנה',
-            'ready': 'מוכנה',
-            'delivered': 'נמסרה',
-            'cancelled': 'בוטלה'
+        const labels: Record<string, string> = {
+            'PREPARING': 'בהכנה',
+            'READY': 'מוכנה',
+            'DELIVERED': 'נמסרה',
+            'CANCELLED': 'בוטלה'
         }
-        return labels[status as keyof typeof labels] || status
+        return labels[status] || status
     }
 
     const total = order?.orderItems.reduce((sum, item) =>
@@ -170,32 +166,38 @@ export default function OrderDetailsPage() {
 
     // Header actions
     const headerActions = (
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
             <Button
                 variant="default"
+                size="sm"
+                className="flex-1 sm:flex-none"
                 onClick={() => router.push(`/orders/new?duplicate=${orderId}`)}
             >
                 <Copy className="ml-2 h-4 w-4" />
-                הזמנה חוזרת
+                <span className="hidden sm:inline">הזמנה חוזרת</span>
+                <span className="sm:hidden">שכפל</span>
             </Button>
-            <Button variant="outline" onClick={handlePrint}>
+            <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={handlePrint}>
                 <Printer className="ml-2 h-4 w-4" />
-                הדפס
+                <span className="hidden sm:inline">הדפס</span>
             </Button>
             <Button
                 variant="outline"
+                size="sm"
+                className="flex-1 sm:flex-none"
                 onClick={() => router.push(`/orders/${orderId}/edit`)}
             >
                 <Edit className="ml-2 h-4 w-4" />
-                ערוך
+                <span className="hidden sm:inline">ערוך</span>
             </Button>
             <Button
                 variant="outline"
+                size="sm"
                 onClick={() => setDeleteDialogOpen(true)}
-                className="text-red-600 hover:text-red-700"
+                className="flex-1 sm:flex-none text-red-600 hover:text-red-700"
             >
                 <Trash2 className="ml-2 h-4 w-4" />
-                מחק
+                <span className="hidden sm:inline">מחק</span>
             </Button>
         </div>
     )
@@ -225,54 +227,56 @@ export default function OrderDetailsPage() {
         >
             {order && (
                 <>
-                    <div className="grid gap-6 lg:grid-cols-3">
+                    <div className="grid gap-6 lg:grid-cols-3 overflow-hidden">
                         {/* Main Content */}
-                        <div className="lg:col-span-2 space-y-6">
+                        <div className="lg:col-span-2 space-y-6 min-w-0">
                             {/* Order Items */}
-                            <Card>
+                            <Card className="overflow-hidden">
                                 <CardHeader>
                                     <CardTitle>פריטי הזמנה</CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>מנה</TableHead>
-                                                <TableHead>קטגוריה</TableHead>
-                                                <TableHead className="text-center">כמות</TableHead>
-                                                <TableHead className="text-left">מחיר ליחידה</TableHead>
-                                                <TableHead className="text-left">סה&quot;כ</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {order.orderItems.map((item) => (
-                                                <TableRow key={item.id}>
-                                                    <TableCell className="font-medium">{item.dish.name}</TableCell>
-                                                    <TableCell>
-                                                        <Badge variant="outline">{item.dish.category}</Badge>
-                                                    </TableCell>
-                                                    <TableCell className="text-center">{item.quantity}</TableCell>
-                                                    <TableCell className="text-left">₪{Number(item.price).toFixed(2)}</TableCell>
-                                                    <TableCell className="text-left font-medium">
-                                                        ₪{(Number(item.price) * item.quantity).toFixed(2)}
+                                    <div className="overflow-x-auto">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>מנה</TableHead>
+                                                    <TableHead>קטגוריה</TableHead>
+                                                    <TableHead className="text-center">כמות</TableHead>
+                                                    <TableHead className="text-left">מחיר ליחידה</TableHead>
+                                                    <TableHead className="text-left">סה&quot;כ</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {order.orderItems.map((item) => (
+                                                    <TableRow key={item.id}>
+                                                        <TableCell className="font-medium">{item.dish.name}</TableCell>
+                                                        <TableCell>
+                                                            <Badge variant="outline">{item.dish.category}</Badge>
+                                                        </TableCell>
+                                                        <TableCell className="text-center">{item.quantity}</TableCell>
+                                                        <TableCell className="text-left">₪{Number(item.price).toFixed(2)}</TableCell>
+                                                        <TableCell className="text-left font-medium">
+                                                            ₪{(Number(item.price) * item.quantity).toFixed(2)}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                            <TableFooter>
+                                                <TableRow>
+                                                    <TableCell colSpan={4} className="text-left font-bold">סה&quot;כ לתשלום</TableCell>
+                                                    <TableCell className="text-left font-bold text-lg">
+                                                        ₪{total.toFixed(2)}
                                                     </TableCell>
                                                 </TableRow>
-                                            ))}
-                                        </TableBody>
-                                        <TableFooter>
-                                            <TableRow>
-                                                <TableCell colSpan={4} className="text-left font-bold">סה&quot;כ לתשלום</TableCell>
-                                                <TableCell className="text-left font-bold text-lg">
-                                                    ₪{total.toFixed(2)}
-                                                </TableCell>
-                                            </TableRow>
-                                        </TableFooter>
-                                    </Table>
+                                            </TableFooter>
+                                        </Table>
+                                    </div>
                                 </CardContent>
                             </Card>
 
                             {/* Order Status Timeline */}
-                            <Card>
+                            <Card className="overflow-hidden">
                                 <CardHeader>
                                     <CardTitle>סטטוס הזמנה</CardTitle>
                                 </CardHeader>
@@ -287,47 +291,47 @@ export default function OrderDetailsPage() {
                         </div>
 
                         {/* Sidebar */}
-                        <div className="space-y-6">
+                        <div className="space-y-6 min-w-0">
                             {/* Customer Info */}
-                            <Card>
+                            <Card className="overflow-hidden">
                                 <CardHeader>
                                     <CardTitle>פרטי לקוח</CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                     <div>
                                         <p className="text-sm text-muted-foreground">שם</p>
-                                        <p className="font-medium">{order.customer.name}</p>
+                                        <p className="font-medium break-words">{order.customer.name}</p>
                                     </div>
                                     <div>
                                         <p className="text-sm text-muted-foreground">טלפון</p>
-                                        <a href={`tel:${order.customer.phone}`} className="font-medium text-primary">
+                                        <a href={`tel:${order.customer.phone}`} className="font-medium text-primary break-all">
                                             {order.customer.phone}
                                         </a>
                                     </div>
                                     {order.customer.email && (
                                         <div>
                                             <p className="text-sm text-muted-foreground">אימייל</p>
-                                            <a href={`mailto:${order.customer.email}`} className="font-medium text-primary">
+                                            <a href={`mailto:${order.customer.email}`} className="font-medium text-primary break-all">
                                                 {order.customer.email}
                                             </a>
                                         </div>
                                     )}
                                     <div>
                                         <p className="text-sm text-muted-foreground">כתובת למשלוח</p>
-                                        <p className="font-medium">{order.deliveryAddress || order.customer.address || 'לא צוינה'}</p>
+                                        <p className="font-medium break-words">{order.deliveryAddress || order.customer.address || 'לא צוינה'}</p>
                                     </div>
                                 </CardContent>
                             </Card>
 
                             {/* Order Details */}
-                            <Card>
+                            <Card className="overflow-hidden">
                                 <CardHeader>
                                     <CardTitle>פרטי הזמנה</CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                     <div>
                                         <p className="text-sm text-muted-foreground">סטטוס</p>
-                                        <div className="flex items-center gap-2 mt-1">
+                                        <div className="flex flex-wrap items-center gap-2 mt-1">
                                             <Badge className={getStatusColor(order.status)}>
                                                 {getStatusLabel(order.status)}
                                             </Badge>
@@ -352,22 +356,22 @@ export default function OrderDetailsPage() {
                                     </div>
                                     <div>
                                         <p className="text-sm text-muted-foreground">תאריך משלוח</p>
-                                        <p className="font-medium flex items-center gap-2">
-                                            <Calendar className="h-4 w-4" />
-                                            {format(new Date(order.deliveryDate), 'EEEE, dd בMMMM yyyy', { locale: he })}
+                                        <p className="font-medium flex flex-wrap items-center gap-2">
+                                            <Calendar className="h-4 w-4 flex-shrink-0" />
+                                            <span className="break-words">{format(new Date(order.deliveryDate), 'EEEE, dd בMMMM yyyy', { locale: he })}</span>
                                         </p>
                                     </div>
                                     <div>
                                         <p className="text-sm text-muted-foreground">תאריך יצירה</p>
-                                        <p className="font-medium flex items-center gap-2">
-                                            <Clock className="h-4 w-4" />
-                                            {format(new Date(order.createdAt), 'dd/MM/yyyy בשעה HH:mm', { locale: he })}
+                                        <p className="font-medium flex flex-wrap items-center gap-2">
+                                            <Clock className="h-4 w-4 flex-shrink-0" />
+                                            <span className="break-words">{format(new Date(order.createdAt), 'dd/MM/yyyy בשעה HH:mm', { locale: he })}</span>
                                         </p>
                                     </div>
                                     {order.notes && (
                                         <div>
                                             <p className="text-sm text-muted-foreground">הערות</p>
-                                            <p className="font-medium bg-muted p-3 rounded-md mt-1">
+                                            <p className="font-medium bg-muted p-3 rounded-md mt-1 break-words whitespace-pre-wrap">
                                                 {order.notes}
                                             </p>
                                         </div>

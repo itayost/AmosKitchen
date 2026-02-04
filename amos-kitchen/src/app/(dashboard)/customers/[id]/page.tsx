@@ -175,32 +175,32 @@ export default function CustomerProfilePage() {
                                 <CardTitle>פרטי התקשרות</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                <div className="flex items-center gap-3">
-                                    <Phone className="h-4 w-4 text-muted-foreground" />
+                                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                                    <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                                     <span className="font-medium">טלפון:</span>
-                                    <a href={`tel:${customer.phone}`} className="text-primary hover:underline">
+                                    <a href={`tel:${customer.phone}`} className="text-primary hover:underline break-all">
                                         {customer.phone}
                                     </a>
                                 </div>
                                 {customer.email && (
-                                    <div className="flex items-center gap-3">
-                                        <Mail className="h-4 w-4 text-muted-foreground" />
+                                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                                        <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                                         <span className="font-medium">אימייל:</span>
-                                        <a href={`mailto:${customer.email}`} className="text-primary hover:underline">
+                                        <a href={`mailto:${customer.email}`} className="text-primary hover:underline break-all">
                                             {customer.email}
                                         </a>
                                     </div>
                                 )}
                                 {customer.address && (
-                                    <div className="flex items-center gap-3">
-                                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                                    <div className="flex flex-wrap items-start gap-2 sm:gap-3">
+                                        <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
                                         <span className="font-medium">כתובת:</span>
-                                        <span>{customer.address}</span>
+                                        <span className="break-words">{customer.address}</span>
                                     </div>
                                 )}
                                 {customer.notes && (
                                     <div className="pt-3 border-t">
-                                        <p className="text-sm text-muted-foreground">
+                                        <p className="text-sm text-muted-foreground break-words">
                                             <span className="font-medium">הערות:</span> {customer.notes}
                                         </p>
                                     </div>
@@ -214,7 +214,7 @@ export default function CustomerProfilePage() {
                                 <CardTitle>סטטיסטיקות</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-2 gap-2 sm:gap-4">
                                     <div className="space-y-1">
                                         <div className="flex items-center gap-2 text-muted-foreground">
                                             <ShoppingCart className="h-4 w-4" />
@@ -287,17 +287,17 @@ export default function CustomerProfilePage() {
                                                     {preferences.map((pref) => (
                                                         <div
                                                             key={pref.id}
-                                                            className="flex items-start gap-3 p-3 rounded-lg bg-muted/50"
+                                                            className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 min-w-0"
                                                         >
                                                             <PreferenceBadge
                                                                 preference={pref}
                                                                 showIcon={false}
-                                                                className="mt-0.5"
+                                                                className="mt-0.5 flex-shrink-0"
                                                             />
-                                                            <div className="flex-1">
-                                                                <p className="font-medium">{pref.value}</p>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="font-medium break-words">{pref.value}</p>
                                                                 {pref.notes && (
-                                                                    <p className="text-sm text-muted-foreground mt-1">
+                                                                    <p className="text-sm text-muted-foreground mt-1 break-words">
                                                                         {pref.notes}
                                                                     </p>
                                                                 )}
@@ -337,51 +337,53 @@ export default function CustomerProfilePage() {
                                     </CardContent>
                                 </Card>
                             ) : (
-                                <Card>
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>מספר הזמנה</TableHead>
-                                                <TableHead>תאריך</TableHead>
-                                                <TableHead>סטטוס</TableHead>
-                                                <TableHead className="text-right">סכום</TableHead>
-                                                <TableHead></TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {customer.orders.map((order) => (
-                                                <TableRow key={order.id}>
-                                                    <TableCell className="font-medium">
-                                                        {order.orderNumber}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {format(new Date(order.deliveryDate), 'dd/MM/yyyy', { locale: he })}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge variant={
-                                                            order.status === 'DELIVERED' ? 'default' :
-                                                                order.status === 'CANCELLED' ? 'destructive' :
-                                                                    'secondary'
-                                                        }>
-                                                            {order.status}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                        {formatCurrency(Number(order.totalAmount))}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => router.push(`/orders/${order.id}`)}
-                                                        >
-                                                            <FileText className="h-4 w-4" />
-                                                        </Button>
-                                                    </TableCell>
+                                <Card className="overflow-hidden">
+                                    <div className="overflow-x-auto">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>מספר הזמנה</TableHead>
+                                                    <TableHead>תאריך</TableHead>
+                                                    <TableHead>סטטוס</TableHead>
+                                                    <TableHead className="text-right">סכום</TableHead>
+                                                    <TableHead></TableHead>
                                                 </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {customer.orders.map((order) => (
+                                                    <TableRow key={order.id}>
+                                                        <TableCell className="font-medium">
+                                                            {order.orderNumber}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {format(new Date(order.deliveryDate), 'dd/MM/yyyy', { locale: he })}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Badge variant={
+                                                                order.status === 'DELIVERED' ? 'default' :
+                                                                    order.status === 'CANCELLED' ? 'destructive' :
+                                                                        'secondary'
+                                                            }>
+                                                                {order.status}
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            {formatCurrency(Number(order.totalAmount))}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => router.push(`/orders/${order.id}`)}
+                                                            >
+                                                                <FileText className="h-4 w-4" />
+                                                            </Button>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
                                 </Card>
                             )}
                         </TabsContent>
@@ -404,20 +406,20 @@ export default function CustomerProfilePage() {
                                             {favoriteDishes.map((dish, index) => (
                                                 <div
                                                     key={dish.dishId}
-                                                    className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                                                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 rounded-lg bg-muted/50"
                                                 >
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground font-bold text-sm">
+                                                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                                                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground font-bold text-sm flex-shrink-0">
                                                             {index + 1}
                                                         </div>
-                                                        <div>
-                                                            <p className="font-medium">{dish.dishName}</p>
-                                                            <p className="text-sm text-muted-foreground">
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="font-medium truncate">{dish.dishName}</p>
+                                                            <p className="text-sm text-muted-foreground truncate">
                                                                 הוזמן {dish.orderCount} פעמים • {dish.totalQuantity} מנות
                                                             </p>
                                                         </div>
                                                     </div>
-                                                    <div className="text-right">
+                                                    <div className="text-right sm:text-left flex-shrink-0">
                                                         <p className="font-semibold text-green-600">
                                                             {formatCurrency(dish.totalRevenue)}
                                                         </p>

@@ -19,7 +19,7 @@ const createOrderSchema = z.object({
     items: z.array(z.object({
         dishId: z.string().min(1),
         quantity: z.number().int().positive(),
-        price: z.number().positive(),
+        price: z.number().nonnegative(), // Allow free items (price >= 0)
         notes: z.string().optional()
     })).min(1)
 })
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
                 notes: item.notes || ''
             })),
             totalAmount,
-            status: 'NEW',
+            status: 'PREPARING',
             notes: validatedData.notes || ''
         })
 
@@ -198,7 +198,7 @@ export async function POST(request: NextRequest) {
             },
             deliveryDate: validatedData.deliveryDate,
             deliveryAddress: validatedData.deliveryAddress || customer.address || '',
-            status: 'NEW',
+            status: 'PREPARING',
             totalAmount,
             notes: validatedData.notes || '',
             orderItems: validatedData.items.map(item => ({

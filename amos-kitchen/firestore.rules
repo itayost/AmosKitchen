@@ -2,72 +2,114 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function to check if user is authenticated
+    // ===========================================
+    // Helper Functions
+    // ===========================================
+
+    // Check if user is authenticated
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Helper function to check if user is admin (you can expand this based on your auth claims)
+    // Check if user is admin (via custom claims)
     function isAdmin() {
       return isAuthenticated() && request.auth.token.admin == true;
     }
 
-    // Customers collection
+    // Check if user email is in the allowed users list
+    // This provides an additional layer of security for small teams
+    function isAllowedUser() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/config/allowedUsers) &&
+        request.auth.token.email in get(/databases/$(database)/documents/config/allowedUsers).data.emails;
+    }
+
+    // ===========================================
+    // Config Collection (Admin-managed only)
+    // ===========================================
+    match /config/{docId} {
+      // Only readable by allowed users, writable via Admin SDK only
+      allow read: if isAllowedUser();
+      allow write: if false;
+    }
+
+    // ===========================================
+    // Customers Collection
+    // ===========================================
     match /customers/{customerId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
-      allow delete: if isAuthenticated();
+      allow read: if isAllowedUser();
+      allow create: if isAllowedUser();
+      allow update: if isAllowedUser();
+      allow delete: if isAllowedUser();
 
       // Subcollection for preferences
       match /preferences/{preferenceId} {
-        allow read: if isAuthenticated();
-        allow write: if isAuthenticated();
+        allow read: if isAllowedUser();
+        allow write: if isAllowedUser();
       }
     }
 
-    // Dishes collection
+    // ===========================================
+    // Dishes Collection
+    // ===========================================
     match /dishes/{dishId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
-      allow delete: if isAuthenticated();
+      allow read: if isAllowedUser();
+      allow create: if isAllowedUser();
+      allow update: if isAllowedUser();
+      allow delete: if isAllowedUser();
     }
 
-    // Orders collection
+    // ===========================================
+    // Orders Collection
+    // ===========================================
     match /orders/{orderId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
-      allow delete: if isAuthenticated();
+      allow read: if isAllowedUser();
+      allow create: if isAllowedUser();
+      allow update: if isAllowedUser();
+      allow delete: if isAllowedUser();
 
       // Subcollection for order items
       match /items/{itemId} {
-        allow read: if isAuthenticated();
-        allow write: if isAuthenticated();
+        allow read: if isAllowedUser();
+        allow write: if isAllowedUser();
       }
 
-      // Subcollection for order history
+      // Subcollection for order history (immutable audit log)
       match /history/{historyId} {
-        allow read: if isAuthenticated();
-        allow create: if isAuthenticated();
+        allow read: if isAllowedUser();
+        allow create: if isAllowedUser();
         allow update: if false; // History should not be updated
         allow delete: if false; // History should not be deleted
       }
     }
 
-    // Counters collection (for order numbers)
+    // ===========================================
+    // Counters Collection (for order numbers)
+    // ===========================================
     match /counters/{counterId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read: if isAllowedUser();
+      allow write: if isAllowedUser();
     }
 
-    // Users collection (if needed for user profiles)
+    // ===========================================
+    // Users Collection (user profiles)
+    // ===========================================
     match /users/{userId} {
-      allow read: if isAuthenticated();
+      // Users can only read their own profile, or allowed users can read all
+      allow read: if isAllowedUser() || (isAuthenticated() && request.auth.uid == userId);
+      // Users can only create/update their own profile
       allow create: if isAuthenticated() && request.auth.uid == userId;
       allow update: if isAuthenticated() && request.auth.uid == userId;
-      allow delete: if false; // Users shouldn't be deleted through client SDK
+      // Users should not be deleted through client SDK
+      allow delete: if false;
+    }
+
+    // ===========================================
+    // Health Check Collection (for monitoring)
+    // ===========================================
+    match /_health/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
     }
   }
 }

@@ -34,6 +34,9 @@ export interface CustomerWithStats extends Customer {
     lastOrderDate?: Date | null
 }
 
+// Delivery Method
+export type DeliveryMethod = 'DELIVERY' | 'PICKUP'
+
 // Order Status
 export type OrderStatus = 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED'
 
@@ -81,6 +84,8 @@ export interface Order {
     orderDate: Date
     deliveryDate: Date
     deliveryAddress?: string | null
+    deliveryMethod?: DeliveryMethod
+    deliveryFee?: number
     status: OrderStatus
     totalAmount: number
     notes?: string | null
@@ -117,6 +122,7 @@ export interface CreateOrderInput {
     customerId: string
     deliveryDate: string
     deliveryAddress?: string
+    deliveryMethod?: DeliveryMethod
     notes?: string
     items: {
         dishId: string

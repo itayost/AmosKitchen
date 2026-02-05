@@ -1,6 +1,9 @@
 // lib/types/firestore.ts
 import { Timestamp, FieldValue } from 'firebase/firestore'
 
+// Delivery method type
+export type DeliveryMethod = 'DELIVERY' | 'PICKUP'
+
 // Application types (with Date objects for timestamps)
 // These are used throughout the application
 export interface Customer {
@@ -46,6 +49,8 @@ export interface Order {
   orderDate: Date
   deliveryDate: Date
   deliveryAddress?: string | null
+  deliveryMethod?: DeliveryMethod
+  deliveryFee?: number
   status: 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED'
   totalAmount: number
   notes?: string | null
@@ -108,6 +113,8 @@ export interface OrderDoc {
   orderDate: Timestamp | FieldValue
   deliveryDate: Timestamp | FieldValue
   deliveryAddress?: string | null
+  deliveryMethod?: DeliveryMethod
+  deliveryFee?: number
   status: 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED'
   totalAmount: number
   notes?: string | null
@@ -138,6 +145,19 @@ export interface OrderItem {
 export interface OrderCounter {
   count: number
   year: number
+}
+
+// App settings types
+export interface AppSettings {
+  id?: string
+  deliveryFee: number
+  updatedAt: Date
+}
+
+export interface AppSettingsDoc {
+  id?: string
+  deliveryFee: number
+  updatedAt: Timestamp | FieldValue
 }
 
 // Query filter types

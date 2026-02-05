@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 import { format } from 'date-fns'
 import { he } from 'date-fns/locale'
-import { Plus, Trash2, AlertTriangle, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react'
+import { Plus, Trash2, AlertTriangle, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Truck, Store } from 'lucide-react'
 import { useOrderWizard, getAvailableFridays } from '@/contexts/order-wizard-context'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { cn } from '@/lib/utils'
 import type { Dish } from '@/lib/types/database'
 
 interface DishSelectionStepProps {
@@ -32,9 +33,13 @@ const formatDeliveryDate = (date: Date): string => {
 export function DishSelectionStep({ dishes }: DishSelectionStepProps) {
   const {
     state,
+    subtotal,
+    deliveryFee,
+    deliveryFeeAmount,
     total,
     setDeliveryDate,
     setDeliveryAddress,
+    setDeliveryMethod,
     addItem,
     updateItem,
     removeItem,
@@ -94,17 +99,56 @@ export function DishSelectionStep({ dishes }: DishSelectionStepProps) {
         </Alert>
       )}
 
-      {/* Delivery Date Selection */}
+      {/* Delivery Details */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg">פרטי משלוח</CardTitle>
-          <CardDescription>משלוחים בימי שישי בלבד. הזמנות נסגרות ביום חמישי ב-18:00</CardDescription>
+          <CardTitle className="text-lg">פרטי קבלת ההזמנה</CardTitle>
+          <CardDescription>הזמנות נסגרות ביום חמישי ב-18:00</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Delivery Method Selection */}
+          <div className="space-y-2">
+            <Label>אופן קבלה *</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setDeliveryMethod('DELIVERY')}
+                className={cn(
+                  'flex items-center gap-3 p-3 rounded-lg border-2 transition-colors text-right',
+                  state.deliveryMethod === 'DELIVERY'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-muted hover:border-muted-foreground/30'
+                )}
+              >
+                <Truck className="h-5 w-5 flex-shrink-0" />
+                <div>
+                  <div className="font-medium">משלוח</div>
+                  <div className="text-xs text-muted-foreground">₪{deliveryFee}</div>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeliveryMethod('PICKUP')}
+                className={cn(
+                  'flex items-center gap-3 p-3 rounded-lg border-2 transition-colors text-right',
+                  state.deliveryMethod === 'PICKUP'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-muted hover:border-muted-foreground/30'
+                )}
+              >
+                <Store className="h-5 w-5 flex-shrink-0" />
+                <div>
+                  <div className="font-medium">איסוף עצמי</div>
+                  <div className="text-xs text-muted-foreground">ללא עלות</div>
+                </div>
+              </button>
+            </div>
+          </div>
+
           <div className="grid gap-4 md:grid-cols-2">
             {/* Delivery Date */}
             <div className="space-y-2">
-              <Label>תאריך משלוח *</Label>
+              <Label>{state.deliveryMethod === 'DELIVERY' ? 'תאריך משלוח' : 'תאריך איסוף'} *</Label>
               <Select
                 value={state.deliveryDate.toISOString()}
                 onValueChange={(value) => setDeliveryDate(new Date(value))}
@@ -138,17 +182,19 @@ export function DishSelectionStep({ dishes }: DishSelectionStepProps) {
               </Select>
             </div>
 
-            {/* Delivery Address */}
-            <div className="space-y-2">
-              <Label>כתובת למשלוח</Label>
-              <Input
-                value={state.deliveryAddress}
-                onChange={(e) => setDeliveryAddress(e.target.value)}
-                placeholder={state.customer?.address || 'הזן כתובת למשלוח'}
-                className="text-right"
-                dir="rtl"
-              />
-            </div>
+            {/* Delivery Address - only for delivery */}
+            {state.deliveryMethod === 'DELIVERY' && (
+              <div className="space-y-2">
+                <Label>כתובת למשלוח</Label>
+                <Input
+                  value={state.deliveryAddress}
+                  onChange={(e) => setDeliveryAddress(e.target.value)}
+                  placeholder={state.customer?.address || 'הזן כתובת למשלוח'}
+                  className="text-right"
+                  dir="rtl"
+                />
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -263,9 +309,20 @@ export function DishSelectionStep({ dishes }: DishSelectionStepProps) {
 
           {/* Order Total */}
           <Separator />
-          <div className="flex items-center justify-between text-lg font-semibold">
-            <span>סה״כ להזמנה:</span>
-            <span>₪{total.toFixed(2)}</span>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>סכום ביניים:</span>
+              <span>₪{subtotal.toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>{state.deliveryMethod === 'DELIVERY' ? 'דמי משלוח:' : 'איסוף עצמי:'}</span>
+              <span>{deliveryFeeAmount > 0 ? `₪${deliveryFeeAmount.toFixed(2)}` : 'חינם'}</span>
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between text-lg font-semibold">
+              <span>סה״כ להזמנה:</span>
+              <span>₪{total.toFixed(2)}</span>
+            </div>
           </div>
         </CardContent>
       </Card>

@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, Truck, Store } from 'lucide-react'
 import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
 import { FormPageLayout, FormSection, FormActions } from '@/components/forms'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -367,19 +367,46 @@ export default function EditOrderPage() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label>כתובת משלוח</Label>
-                                    <Input
-                                        value={deliveryAddress}
-                                        onChange={(e) => setDeliveryAddress(e.target.value)}
-                                        placeholder="כתובת למשלוח"
-                                        disabled={saving}
-                                    />
+                                    <Label>אופן קבלה</Label>
+                                    <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">
+                                        {(order.deliveryMethod || 'DELIVERY') === 'DELIVERY' ? (
+                                            <>
+                                                <Truck className="h-4 w-4" />
+                                                <span className="text-sm font-medium">משלוח</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Store className="h-4 w-4" />
+                                                <span className="text-sm font-medium">איסוף עצמי</span>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
 
-                                <div className="pt-4 border-t">
-                                    <div className="flex justify-between text-lg font-semibold">
-                                        <span>סה&quot;כ לתשלום</span>
+                                {(order.deliveryMethod || 'DELIVERY') === 'DELIVERY' && (
+                                    <div className="space-y-2">
+                                        <Label>כתובת משלוח</Label>
+                                        <Input
+                                            value={deliveryAddress}
+                                            onChange={(e) => setDeliveryAddress(e.target.value)}
+                                            placeholder="כתובת למשלוח"
+                                            disabled={saving}
+                                        />
+                                    </div>
+                                )}
+
+                                <div className="pt-4 border-t space-y-2">
+                                    <div className="flex justify-between text-sm text-muted-foreground">
+                                        <span>סכום ביניים</span>
                                         <span>₪{calculateTotal().toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm text-muted-foreground">
+                                        <span>{(order.deliveryMethod || 'DELIVERY') === 'DELIVERY' ? 'דמי משלוח' : 'איסוף עצמי'}</span>
+                                        <span>{(order.deliveryFee ?? 0) > 0 ? `₪${(order.deliveryFee ?? 0).toFixed(2)}` : 'חינם'}</span>
+                                    </div>
+                                    <div className="flex justify-between text-lg font-semibold pt-2 border-t">
+                                        <span>סה&quot;כ לתשלום</span>
+                                        <span>₪{(calculateTotal() + (order.deliveryFee ?? 0)).toFixed(2)}</span>
                                     </div>
                                 </div>
                             </CardContent>

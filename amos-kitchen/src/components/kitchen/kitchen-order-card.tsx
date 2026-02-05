@@ -1,6 +1,6 @@
 'use client'
 
-import { Clock, AlertTriangle, Info, CheckSquare, Square } from 'lucide-react'
+import { Clock, AlertTriangle, Info, CheckSquare, Square, Truck, Store } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -84,9 +84,18 @@ export function KitchenOrderCard({
             <CardTitle className="text-base">
               הזמנה #{order.orderNumber}
             </CardTitle>
-            <p className="text-sm text-muted-foreground truncate">
-              {order.customer.name}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-muted-foreground truncate">
+                {order.customer.name}
+              </p>
+              <Badge variant="outline" className="text-xs flex items-center gap-1 flex-shrink-0">
+                {(order.deliveryMethod || 'DELIVERY') === 'DELIVERY' ? (
+                  <><Truck className="h-3 w-3" />משלוח</>
+                ) : (
+                  <><Store className="h-3 w-3" />איסוף</>
+                )}
+              </Badge>
+            </div>
           </div>
           {hasCriticalPreferences(order.customer.preferences) && (
             <Badge variant="destructive" className="animate-pulse">

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
-import type { Order, Dish, Customer, CustomerPreference } from '@/lib/types/database'
+import type { Order, Dish, Customer, CustomerPreference, DeliveryMethod } from '@/lib/types/database'
 import type { OrderItemInput, CustomerWithPreferences } from '@/contexts/order-wizard-context'
 
 interface SkippedItem {
@@ -14,6 +14,7 @@ interface SkippedItem {
 interface DuplicateOrderResult {
   customer: CustomerWithPreferences | null
   items: OrderItemInput[]
+  deliveryMethod: DeliveryMethod
   notes: string
   skippedItems: SkippedItem[]
   warnings: string[]
@@ -29,6 +30,7 @@ interface UseDuplicateOrderParams {
 export function useDuplicateOrder({ orderId, availableDishes }: UseDuplicateOrderParams): DuplicateOrderResult {
   const [customer, setCustomer] = useState<CustomerWithPreferences | null>(null)
   const [items, setItems] = useState<OrderItemInput[]>([])
+  const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>('DELIVERY')
   const [notes, setNotes] = useState('')
   const [skippedItems, setSkippedItems] = useState<SkippedItem[]>([])
   const [warnings, setWarnings] = useState<string[]>([])
@@ -62,6 +64,7 @@ export function useDuplicateOrder({ orderId, availableDishes }: UseDuplicateOrde
         preferences: order.customer.preferences || []
       }
       setCustomer(customerWithPrefs)
+      setDeliveryMethod(order.deliveryMethod || 'DELIVERY')
 
       // Process order items - filter out unavailable dishes
       // API might return as 'items' or 'orderItems'
@@ -142,6 +145,7 @@ export function useDuplicateOrder({ orderId, availableDishes }: UseDuplicateOrde
   return {
     customer,
     items,
+    deliveryMethod,
     notes,
     skippedItems,
     warnings,

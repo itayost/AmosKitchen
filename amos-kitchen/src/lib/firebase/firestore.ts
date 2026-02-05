@@ -15,7 +15,8 @@ import type {
   Dish,
   Order,
   OrderHistory,
-  OrderCounter
+  OrderCounter,
+  AppSettings
 } from '@/lib/types/firestore'
 
 // Collection references
@@ -23,6 +24,7 @@ export const customersCollection = collection(db, 'customers') as CollectionRefe
 export const dishesCollection = collection(db, 'dishes') as CollectionReference<Dish>
 export const ordersCollection = collection(db, 'orders') as CollectionReference<Order>
 export const countersCollection = collection(db, 'counters') as CollectionReference<OrderCounter>
+export const settingsCollection = collection(db, 'settings') as CollectionReference<AppSettings>
 
 // Helper function to get subcollection references
 export const customerPreferencesCollection = (customerId: string) =>
@@ -43,6 +45,9 @@ export const getOrderDoc = (orderId: string) =>
 
 export const getOrderCounterDoc = (year: number) =>
   doc(countersCollection, `orderNumbers_${year}`)
+
+export const getSettingsDoc = () =>
+  doc(settingsCollection, 'default')
 
 // Timestamp helpers
 export const createTimestamp = () => Timestamp.now()

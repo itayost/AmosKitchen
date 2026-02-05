@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import Link from 'next/link'
 import { ChevronRight, AlertTriangle } from 'lucide-react'
 import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
+import { useSettings } from '@/lib/hooks/use-settings'
 import type { Customer, Dish, CustomerPreference } from '@/lib/types/database'
 
 interface CustomerWithPreferences extends Customer {
@@ -59,6 +60,7 @@ export default function NewOrderPage() {
     const [dishes, setDishes] = useState<Dish[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    const { settings } = useSettings()
 
     useEffect(() => {
         const fetchData = async () => {
@@ -228,6 +230,7 @@ export default function NewOrderPage() {
             <OrderWizard
                 customers={customers}
                 dishes={dishes}
+                deliveryFee={settings.deliveryFee}
                 initialCustomerId={customerId}
                 duplicateOrderId={duplicateId}
             />

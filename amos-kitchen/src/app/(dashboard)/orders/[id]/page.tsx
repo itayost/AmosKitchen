@@ -12,7 +12,9 @@ import {
     Edit,
     Trash2,
     Printer,
-    Copy
+    Copy,
+    Truck,
+    Store
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -264,9 +266,23 @@ export default function OrderDetailsPage() {
                                             </TableBody>
                                             <TableFooter>
                                                 <TableRow>
+                                                    <TableCell colSpan={4} className="text-left text-muted-foreground">סכום ביניים</TableCell>
+                                                    <TableCell className="text-left text-muted-foreground">
+                                                        ₪{total.toFixed(2)}
+                                                    </TableCell>
+                                                </TableRow>
+                                                <TableRow>
+                                                    <TableCell colSpan={4} className="text-left text-muted-foreground">
+                                                        {(order.deliveryMethod || 'DELIVERY') === 'DELIVERY' ? 'דמי משלוח' : 'איסוף עצמי'}
+                                                    </TableCell>
+                                                    <TableCell className="text-left text-muted-foreground">
+                                                        {(order.deliveryFee ?? 0) > 0 ? `₪${(order.deliveryFee ?? 0).toFixed(2)}` : 'חינם'}
+                                                    </TableCell>
+                                                </TableRow>
+                                                <TableRow>
                                                     <TableCell colSpan={4} className="text-left font-bold">סה&quot;כ לתשלום</TableCell>
                                                     <TableCell className="text-left font-bold text-lg">
-                                                        ₪{total.toFixed(2)}
+                                                        ₪{order.totalAmount?.toFixed(2) || total.toFixed(2)}
                                                     </TableCell>
                                                 </TableRow>
                                             </TableFooter>
@@ -317,9 +333,27 @@ export default function OrderDetailsPage() {
                                         </div>
                                     )}
                                     <div>
-                                        <p className="text-sm text-muted-foreground">כתובת למשלוח</p>
-                                        <p className="font-medium break-words">{order.deliveryAddress || order.customer.address || 'לא צוינה'}</p>
+                                        <p className="text-sm text-muted-foreground">אופן קבלה</p>
+                                        <p className="font-medium flex items-center gap-2">
+                                            {(order.deliveryMethod || 'DELIVERY') === 'DELIVERY' ? (
+                                                <>
+                                                    <Truck className="h-4 w-4 flex-shrink-0" />
+                                                    משלוח
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Store className="h-4 w-4 flex-shrink-0" />
+                                                    איסוף עצמי
+                                                </>
+                                            )}
+                                        </p>
                                     </div>
+                                    {(order.deliveryMethod || 'DELIVERY') === 'DELIVERY' && (
+                                        <div>
+                                            <p className="text-sm text-muted-foreground">כתובת למשלוח</p>
+                                            <p className="font-medium break-words">{order.deliveryAddress || order.customer.address || 'לא צוינה'}</p>
+                                        </div>
+                                    )}
                                 </CardContent>
                             </Card>
 
@@ -355,7 +389,9 @@ export default function OrderDetailsPage() {
                                         </div>
                                     </div>
                                     <div>
-                                        <p className="text-sm text-muted-foreground">תאריך משלוח</p>
+                                        <p className="text-sm text-muted-foreground">
+                                            {(order.deliveryMethod || 'DELIVERY') === 'DELIVERY' ? 'תאריך משלוח' : 'תאריך איסוף'}
+                                        </p>
                                         <p className="font-medium flex flex-wrap items-center gap-2">
                                             <Calendar className="h-4 w-4 flex-shrink-0" />
                                             <span className="break-words">{format(new Date(order.deliveryDate), 'EEEE, dd בMMMM yyyy', { locale: he })}</span>

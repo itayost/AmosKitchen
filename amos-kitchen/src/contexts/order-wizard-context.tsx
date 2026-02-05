@@ -8,7 +8,8 @@ import {
   useCallback,
   ReactNode
 } from 'react'
-import type { Customer, Dish, CustomerPreference } from '@/lib/types/database'
+import type { Customer, Dish, CustomerPreference, DeliveryMethod } from '@/lib/types/database'
+import { DEFAULT_DELIVERY_FEE } from '@/lib/firebase/dao/settings'
 import { hasHighPriorityPreferences } from '@/lib/utils/preferences'
 import {
   getNextAvailableFriday as _getNextAvailableFriday,
@@ -36,6 +37,7 @@ export interface OrderWizardState {
   customer: CustomerWithPreferences | null
   deliveryDate: Date
   deliveryAddress: string
+  deliveryMethod: DeliveryMethod
   items: OrderItemInput[]
   notes: string
   isSubmitting: boolean
@@ -48,6 +50,7 @@ type WizardAction =
   | { type: 'CLEAR_CUSTOMER' }
   | { type: 'SET_DELIVERY_DATE'; payload: Date }
   | { type: 'SET_DELIVERY_ADDRESS'; payload: string }
+  | { type: 'SET_DELIVERY_METHOD'; payload: DeliveryMethod }
   | { type: 'SET_ITEMS'; payload: OrderItemInput[] }
   | { type: 'ADD_ITEM' }
   | { type: 'UPDATE_ITEM'; payload: { index: number; updates: Partial<OrderItemInput> } }
@@ -60,7 +63,7 @@ type WizardAction =
   | { type: 'SET_SUBMIT_ERROR'; payload: string | null }
   | { type: 'RESET' }
   | { type: 'INIT_FROM_CUSTOMER'; payload: CustomerWithPreferences }
-  | { type: 'INIT_FROM_DUPLICATE'; payload: { customer: CustomerWithPreferences; items: OrderItemInput[]; notes: string } }
+  | { type: 'INIT_FROM_DUPLICATE'; payload: { customer: CustomerWithPreferences; items: OrderItemInput[]; deliveryMethod: DeliveryMethod; notes: string } }
 
 // Helper: Generate preference warning for notes
 function getPreferenceWarningNotes(preferences?: CustomerPreference[]): string {
@@ -79,6 +82,7 @@ function createInitialState(): OrderWizardState {
     customer: null,
     deliveryDate: _getNextAvailableFriday(),
     deliveryAddress: '',
+    deliveryMethod: 'DELIVERY',
     items: [{ dishId: '', quantity: 1, price: 0, notes: '' }],
     notes: '',
     isSubmitting: false,
@@ -115,6 +119,12 @@ function wizardReducer(state: OrderWizardState, action: WizardAction): OrderWiza
       return {
         ...state,
         deliveryAddress: action.payload
+      }
+
+    case 'SET_DELIVERY_METHOD':
+      return {
+        ...state,
+        deliveryMethod: action.payload
       }
 
     case 'SET_ITEMS':
@@ -201,6 +211,7 @@ function wizardReducer(state: OrderWizardState, action: WizardAction): OrderWiza
         ...state,
         customer: action.payload.customer,
         deliveryAddress: action.payload.customer.address || '',
+        deliveryMethod: action.payload.deliveryMethod,
         items: action.payload.items.length > 0 ? action.payload.items : [{ dishId: '', quantity: 1, price: 0, notes: '' }],
         notes: action.payload.notes || getPreferenceWarningNotes(action.payload.customer.preferences),
         deliveryDate: _getNextAvailableFriday(),
@@ -218,6 +229,9 @@ interface OrderWizardContextValue {
   state: OrderWizardState
 
   // Computed values
+  subtotal: number
+  deliveryFee: number
+  deliveryFeeAmount: number
   total: number
   isStep1Valid: boolean
   isStep2Valid: boolean
@@ -231,6 +245,7 @@ interface OrderWizardContextValue {
   // Delivery actions
   setDeliveryDate: (date: Date) => void
   setDeliveryAddress: (address: string) => void
+  setDeliveryMethod: (method: DeliveryMethod) => void
 
   // Item actions
   setItems: (items: OrderItemInput[]) => void
@@ -253,7 +268,7 @@ interface OrderWizardContextValue {
 
   // Initialization actions
   initFromCustomer: (customer: CustomerWithPreferences) => void
-  initFromDuplicate: (customer: CustomerWithPreferences, items: OrderItemInput[], notes: string) => void
+  initFromDuplicate: (customer: CustomerWithPreferences, items: OrderItemInput[], deliveryMethod: DeliveryMethod, notes: string) => void
 }
 
 // Create context
@@ -263,20 +278,29 @@ const OrderWizardContext = createContext<OrderWizardContextValue | null>(null)
 interface OrderWizardProviderProps {
   children: ReactNode
   dishes: Dish[]
+  deliveryFee?: number
 }
 
 // Provider component
-export function OrderWizardProvider({ children, dishes }: OrderWizardProviderProps) {
+export function OrderWizardProvider({ children, dishes, deliveryFee = DEFAULT_DELIVERY_FEE }: OrderWizardProviderProps) {
   const [state, dispatch] = useReducer(wizardReducer, null, createInitialState)
 
-  // Compute total from items and dishes
-  const total = useMemo(() => {
+  // Compute subtotal from items and dishes
+  const subtotal = useMemo(() => {
     return state.items.reduce((sum, item) => {
       if (!item.dishId) return sum
       const dish = dishes.find(d => d.id === item.dishId)
       return sum + (dish ? dish.price * item.quantity : item.price * item.quantity)
     }, 0)
   }, [state.items, dishes])
+
+  // Compute delivery fee based on method
+  const deliveryFeeAmount = useMemo(() => {
+    return state.deliveryMethod === 'DELIVERY' ? deliveryFee : 0
+  }, [state.deliveryMethod, deliveryFee])
+
+  // Total = subtotal + delivery fee
+  const total = useMemo(() => subtotal + deliveryFeeAmount, [subtotal, deliveryFeeAmount])
 
   // Validation: Step 1 (Customer selection)
   const isStep1Valid = useMemo(() => {
@@ -327,6 +351,10 @@ export function OrderWizardProvider({ children, dishes }: OrderWizardProviderPro
     dispatch({ type: 'SET_DELIVERY_ADDRESS', payload: address })
   }, [])
 
+  const setDeliveryMethod = useCallback((method: DeliveryMethod) => {
+    dispatch({ type: 'SET_DELIVERY_METHOD', payload: method })
+  }, [])
+
   const setItems = useCallback((items: OrderItemInput[]) => {
     dispatch({ type: 'SET_ITEMS', payload: items })
   }, [])
@@ -375,13 +403,16 @@ export function OrderWizardProvider({ children, dishes }: OrderWizardProviderPro
     dispatch({ type: 'INIT_FROM_CUSTOMER', payload: customer })
   }, [])
 
-  const initFromDuplicate = useCallback((customer: CustomerWithPreferences, items: OrderItemInput[], notes: string) => {
-    dispatch({ type: 'INIT_FROM_DUPLICATE', payload: { customer, items, notes } })
+  const initFromDuplicate = useCallback((customer: CustomerWithPreferences, items: OrderItemInput[], deliveryMethod: DeliveryMethod, notes: string) => {
+    dispatch({ type: 'INIT_FROM_DUPLICATE', payload: { customer, items, deliveryMethod, notes } })
   }, [])
 
   // Memoize context value
   const contextValue = useMemo<OrderWizardContextValue>(() => ({
     state,
+    subtotal,
+    deliveryFee,
+    deliveryFeeAmount,
     total,
     isStep1Valid,
     isStep2Valid,
@@ -391,6 +422,7 @@ export function OrderWizardProvider({ children, dishes }: OrderWizardProviderPro
     clearCustomer,
     setDeliveryDate,
     setDeliveryAddress,
+    setDeliveryMethod,
     setItems,
     addItem,
     updateItem,
@@ -406,6 +438,9 @@ export function OrderWizardProvider({ children, dishes }: OrderWizardProviderPro
     initFromDuplicate
   }), [
     state,
+    subtotal,
+    deliveryFee,
+    deliveryFeeAmount,
     total,
     isStep1Valid,
     isStep2Valid,
@@ -415,6 +450,7 @@ export function OrderWizardProvider({ children, dishes }: OrderWizardProviderPro
     clearCustomer,
     setDeliveryDate,
     setDeliveryAddress,
+    setDeliveryMethod,
     setItems,
     addItem,
     updateItem,

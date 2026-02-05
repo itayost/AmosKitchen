@@ -10,7 +10,9 @@ import {
   AlertTriangle,
   ChevronRight,
   Loader2,
-  CheckCircle
+  CheckCircle,
+  Truck,
+  Store
 } from 'lucide-react'
 import { useOrderWizard } from '@/contexts/order-wizard-context'
 import { fetchWithAuth } from '@/lib/api/fetch-with-auth'
@@ -37,6 +39,8 @@ export function ConfirmationStep({ dishes, onComplete }: ConfirmationStepProps) 
   const { toast } = useToast()
   const {
     state,
+    subtotal,
+    deliveryFeeAmount,
     total,
     setNotes,
     prevStep,
@@ -95,7 +99,10 @@ export function ConfirmationStep({ dishes, onComplete }: ConfirmationStepProps) 
       const orderData = {
         customerId: state.customer.id,
         deliveryDate: state.deliveryDate.toISOString(),
-        deliveryAddress: state.deliveryAddress || state.customer.address || '',
+        deliveryAddress: state.deliveryMethod === 'DELIVERY'
+          ? (state.deliveryAddress || state.customer.address || '')
+          : '',
+        deliveryMethod: state.deliveryMethod,
         notes: state.notes || '',
         items: itemsWithPrices
       }
@@ -181,8 +188,12 @@ export function ConfirmationStep({ dishes, onComplete }: ConfirmationStepProps) 
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            משלוח
+            {state.deliveryMethod === 'DELIVERY' ? (
+              <Truck className="h-5 w-5" />
+            ) : (
+              <Store className="h-5 w-5" />
+            )}
+            {state.deliveryMethod === 'DELIVERY' ? 'משלוח' : 'איסוף עצמי'}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -190,10 +201,12 @@ export function ConfirmationStep({ dishes, onComplete }: ConfirmationStepProps) 
             <Calendar className="h-4 w-4 text-muted-foreground" />
             <span>{formatDeliveryDate(state.deliveryDate)}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-muted-foreground" />
-            <span>{state.deliveryAddress || state.customer?.address || 'לא צוינה כתובת'}</span>
-          </div>
+          {state.deliveryMethod === 'DELIVERY' && (
+            <div className="flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+              <span>{state.deliveryAddress || state.customer?.address || 'לא צוינה כתובת'}</span>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -213,9 +226,20 @@ export function ConfirmationStep({ dishes, onComplete }: ConfirmationStepProps) 
             </div>
           ))}
           <Separator />
-          <div className="flex items-center justify-between text-lg font-bold">
-            <span>סה״כ לתשלום</span>
-            <span>₪{total.toFixed(2)}</span>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>סכום ביניים:</span>
+              <span>₪{subtotal.toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>{state.deliveryMethod === 'DELIVERY' ? 'דמי משלוח:' : 'איסוף עצמי:'}</span>
+              <span>{deliveryFeeAmount > 0 ? `₪${deliveryFeeAmount.toFixed(2)}` : 'חינם'}</span>
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between text-lg font-bold">
+              <span>סה״כ לתשלום</span>
+              <span>₪{total.toFixed(2)}</span>
+            </div>
           </div>
         </CardContent>
       </Card>

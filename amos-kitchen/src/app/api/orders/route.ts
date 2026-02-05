@@ -8,6 +8,7 @@ import {
 } from '@/lib/firebase/dao/orders'
 import { getCustomerById } from '@/lib/firebase/dao/customers'
 import { getDishesByIds } from '@/lib/firebase/dao/dishes'
+import { getSettings } from '@/lib/firebase/dao/settings'
 import { verifyAuth } from '@/lib/api/auth-middleware'
 
 // Validation schema for order creation
@@ -15,6 +16,7 @@ const createOrderSchema = z.object({
     customerId: z.string().min(1),
     deliveryDate: z.string(),
     deliveryAddress: z.string().optional(),
+    deliveryMethod: z.enum(['DELIVERY', 'PICKUP']).optional().default('DELIVERY'),
     notes: z.string().optional(),
     items: z.array(z.object({
         dishId: z.string().min(1),
@@ -163,17 +165,26 @@ export async function POST(request: NextRequest) {
         const dishes = await getDishesByIds(dishIds)
         const dishMap = new Map(dishes.map(d => [d.id, d]))
 
-        // Calculate total amount
-        const totalAmount = validatedData.items.reduce((sum, item) => {
+        // Fetch delivery fee from settings (server-side source of truth)
+        const settings = await getSettings()
+        const deliveryFee = validatedData.deliveryMethod === 'DELIVERY' ? settings.deliveryFee : 0
+
+        // Calculate total amount (items + delivery fee)
+        const itemsTotal = validatedData.items.reduce((sum, item) => {
             return sum + (item.price * item.quantity)
         }, 0)
+        const totalAmount = itemsTotal + deliveryFee
 
         // Create order with Firestore - now with dish names
         const orderId = await createOrder({
             customerId: validatedData.customerId,
             orderDate: new Date(),
             deliveryDate: new Date(validatedData.deliveryDate),
-            deliveryAddress: validatedData.deliveryAddress || customer.address || '',
+            deliveryAddress: validatedData.deliveryMethod === 'DELIVERY'
+                ? (validatedData.deliveryAddress || customer.address || '')
+                : '',
+            deliveryMethod: validatedData.deliveryMethod,
+            deliveryFee,
             items: validatedData.items.map(item => ({
                 dishId: item.dishId,
                 dishName: dishMap.get(item.dishId)?.name || 'Unknown Dish',
@@ -197,7 +208,11 @@ export async function POST(request: NextRequest) {
                 ...(customer.email && { email: customer.email })
             },
             deliveryDate: validatedData.deliveryDate,
-            deliveryAddress: validatedData.deliveryAddress || customer.address || '',
+            deliveryAddress: validatedData.deliveryMethod === 'DELIVERY'
+                ? (validatedData.deliveryAddress || customer.address || '')
+                : '',
+            deliveryMethod: validatedData.deliveryMethod,
+            deliveryFee,
             status: 'PREPARING',
             totalAmount,
             notes: validatedData.notes || '',

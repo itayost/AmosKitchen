@@ -27,6 +27,7 @@ const STEPS = [
 interface OrderWizardProps {
   customers: CustomerWithPreferences[]
   dishes: Dish[]
+  deliveryFee?: number
   initialCustomerId?: string | null
   duplicateOrderId?: string | null
   onComplete?: () => void
@@ -109,6 +110,7 @@ function WizardContent({
   const {
     customer: duplicateCustomer,
     items: duplicateItems,
+    deliveryMethod: duplicateDeliveryMethod,
     notes: duplicateNotes,
     skippedItems,
     warnings,
@@ -132,9 +134,9 @@ function WizardContent({
   // Initialize from duplicate order
   useEffect(() => {
     if (duplicateCustomer && duplicateItems && !loadingDuplicate) {
-      initFromDuplicate(duplicateCustomer, duplicateItems, duplicateNotes)
+      initFromDuplicate(duplicateCustomer, duplicateItems, duplicateDeliveryMethod, duplicateNotes)
     }
-  }, [duplicateCustomer, duplicateItems, duplicateNotes, loadingDuplicate, initFromDuplicate])
+  }, [duplicateCustomer, duplicateItems, duplicateDeliveryMethod, duplicateNotes, loadingDuplicate, initFromDuplicate])
 
   // Show loading state for duplicate order
   if (duplicateOrderId && loadingDuplicate) {
@@ -214,12 +216,13 @@ function WizardContent({
 export function OrderWizard({
   customers,
   dishes,
+  deliveryFee,
   initialCustomerId,
   duplicateOrderId,
   onComplete
 }: OrderWizardProps) {
   return (
-    <OrderWizardProvider dishes={dishes}>
+    <OrderWizardProvider dishes={dishes} deliveryFee={deliveryFee}>
       <WizardContent
         customers={customers}
         dishes={dishes}
